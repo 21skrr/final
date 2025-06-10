@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Card, Input, Select, Slider, Button, Tag, Space, Tooltip, Modal, message, Row, Col } from 'antd';
+import { Table, Card, Input, Select, Slider, Button, Tag, Space, Tooltip, Modal, message, Row, Col, Form } from 'antd';
 import { SearchOutlined, EyeOutlined, DeleteOutlined, ExclamationCircleOutlined, WarningOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { EmployeeOnboarding, OnboardingStage } from '../../types/onboarding';
@@ -8,13 +8,14 @@ import api from '../../services/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import Layout from '../../components/layout/Layout';
 import { ColumnsType } from 'antd/es/table';
-
+import userService from '../../services/userService';
 
 const { Option } = Select;
 const { confirm } = Modal;
 
 const OnboardingManagement: React.FC = () => {
   const navigate = useNavigate();
+  const [form] = Form.useForm();
   const [employees, setEmployees] = useState<EmployeeOnboarding[]>([]);
   const [loading, setLoading] = useState(true);
   const [createModalVisible, setCreateModalVisible] = useState(false);
@@ -46,7 +47,7 @@ const OnboardingManagement: React.FC = () => {
 
   const fetchAllUsers = async () => {
     try {
-      const response = await api.get('/users/without-onboarding');
+      const response = await api.get('/users?role=employee');
       setAllUsers(response.data);
     } catch (error) {
       console.error('Failed to fetch users:', error);
@@ -54,24 +55,40 @@ const OnboardingManagement: React.FC = () => {
     }
   };
 
-  const handleCreateJourney = async (userId: string, templateId?: string) => {
+  const handleCreateJourney = async (values: { employeeId: string }) => {
     try {
-      // Since createJourney doesn't exist, we'll use the existing updateUserProgress
-      // This assumes creating a journey means starting with 'prepare' stage
-      await onboardingService.updateUserProgress(userId, { stage: 'prepare', progress: 0 });
+      setLoading(true);
+      const response = await api.post('/onboarding/journey', {
+        userId: values.employeeId
+      });
+      
       message.success('Onboarding journey created successfully');
       setCreateModalVisible(false);
-      setSelectedEmployee(null);
-      fetchEmployees();
-    } catch (error) {
-      console.error('Failed to create onboarding journey:', error);
-      message.error('Failed to create onboarding journey');
+      form.resetFields();
+      
+      // Refresh the data
+      await fetchEmployees();
+      await fetchAllUsers();
+      
+    } catch (error: any) {
+      console.error('Failed to create journey:', error);
+      message.error(error.response?.data?.message || 'Failed to create onboarding journey');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Make sure you import OnboardingStage type
-  
-  // In your function, ensure proper typing:
+  // In the modal's onOk handler
+  const handleModalOk = () => {
+    form.validateFields()
+      .then((values) => {
+        handleCreateJourney(values);
+      })
+      .catch((info) => {
+        console.log('Validate Failed:', info);
+      });
+  };
+
   const handleProgressUpdate = async (userId: string, stage: OnboardingStage, progress: number) => {
     try {
       await onboardingService.updateUserProgress(userId, { stage, progress });
@@ -439,7 +456,7 @@ const OnboardingManagement: React.FC = () => {
               </Button>
               <Button 
                 type="primary"
-                onClick={() => selectedEmployee && handleCreateJourney(selectedEmployee.userId)}
+                onClick={() => selectedEmployee && handleCreateJourney({ employeeId: selectedEmployee.userId })}
                 disabled={!selectedEmployee}
               >
                 Create Journey

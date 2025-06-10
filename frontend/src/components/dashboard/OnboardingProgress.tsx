@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, Circle, Clock } from 'lucide-react';
 import { User, OnboardingStage } from '../../types/user';
-import onboardingService, { OnboardingJourney } from '../../services/onboardingService';
+import onboardingService from '../../services/onboardingService';
+import type { OnboardingJourney } from '../../types/onboarding';
 import { Link } from 'react-router-dom';
 
 interface OnboardingProgressProps {
@@ -17,7 +18,8 @@ const OnboardingProgress: React.FC<OnboardingProgressProps> = ({ user }) => {
     const fetchJourney = async () => {
       try {
         setLoading(true);
-        const data = await onboardingService.getMyProgress();
+        // Use getJourney instead of getMyProgress to get the correct data structure
+        const data = await onboardingService.getJourney();
         setJourney(data);
       } catch (err) {
         console.error('Error fetching onboarding journey:', err);
@@ -32,10 +34,14 @@ const OnboardingProgress: React.FC<OnboardingProgressProps> = ({ user }) => {
 
   const handleTaskToggle = async (taskId: string, completed: boolean) => {
     try {
-      const updatedJourney = await onboardingService.updateMyProgress({
-        taskId,
-        completed
+      // Use updateTaskProgress instead of updateMyProgress
+      await onboardingService.updateTaskProgress(taskId, {
+        isCompleted: completed
       });
+      
+      // You'll need to update your state accordingly
+      // This might require fetching the full journey again
+      const updatedJourney = await onboardingService.getJourney();
       setJourney(updatedJourney);
     } catch (err) {
       console.error('Error updating task:', err);
@@ -90,13 +96,13 @@ const OnboardingProgress: React.FC<OnboardingProgressProps> = ({ user }) => {
         <div className="space-y-6">
           {journey.stages.map((stage, index) => {
             const stageInfo = stage;
-            const isCurrentStage = stage.name === journey.currentStage;
+            const isCurrentStage = stage.stage === journey.currentStage; // Changed from stage.name to stage.stage
             const isPastStage = index < currentStageIndex;
             const isFutureStage = index > currentStageIndex;
             
             return (
               <div 
-                key={stage.id}
+                key={index} // Changed from stage.id to index since OnboardingPhase doesn't have an id
                 className={`border rounded-lg p-4 transition-all duration-200 ${
                   isCurrentStage ? 'border-blue-300 bg-blue-50' : 'border-gray-200'
                 }`}
@@ -144,7 +150,7 @@ const OnboardingProgress: React.FC<OnboardingProgressProps> = ({ user }) => {
                               )}
                             </div>
                             <span className={task.completed ? 'text-gray-600' : 'text-gray-400'}>
-                              {task.text}
+                              {task.title} {/* Changed from task.text to task.title */}
                             </span>
                           </div>
                         ))}

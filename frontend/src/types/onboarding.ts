@@ -37,6 +37,7 @@ export interface OnboardingTask {
   stage: OnboardingStage;
   order: number;
   isDefault: boolean;
+  controlledBy?: 'hr' | 'employee' | 'both';
   createdAt: string;
   updatedAt: string;
 }
@@ -82,7 +83,7 @@ export interface OnboardingPhase {
   stage: OnboardingStage;
   title: string;
   description: string;
-  tasks: OnboardingTask[];
+  tasks: Task[]; // Changed from OnboardingTask[] to Task[]
   userProgress?: UserTaskProgress[];
   completionPercentage: number;
   isActive: boolean;
@@ -92,9 +93,9 @@ export interface OnboardingPhase {
 export interface OnboardingJourney {
   user: User;
   progress: OnboardingProgress;
-  phases: OnboardingPhase[];
-  overallCompletionPercentage: number;
-  currentPhase: OnboardingStage;
+  stages: OnboardingPhase[];  // Changed from phases to stages
+  overallProgress: number;    // Changed from overallCompletionPercentage
+  currentStage: OnboardingStage;  // Changed from currentPhase
   tasksCompleted: number;
   totalTasks: number;
 }
@@ -142,4 +143,11 @@ export interface OnboardingDashboardData {
     integrate: number;
     excel: number;
   };
+}
+
+// Add this after the OnboardingTask interface
+export interface Task extends OnboardingTask {
+  completed: boolean;
+  completedAt?: string;
+  dueDate?: string;
 }

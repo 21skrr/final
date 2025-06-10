@@ -72,7 +72,12 @@ const userService = {
   getUsersWithoutOnboarding: async (): Promise<User[]> => {
     const response = await api.get('/users/without-onboarding');
     return response.data;
-  }
+  },
+
+  async getEmployees(): Promise<User[]> {
+    const response = await api.get('/users?role=employee');
+    return response.data;
+  },
 };
 
 export default userService;

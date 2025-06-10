@@ -46,6 +46,10 @@ import PerformanceAnalytics from '../pages/reports/PerformanceAnalytics';
 import OnboardingDetail from '../pages/OnboardingDetail';
 import OnboardingManagement from '../pages/admin/OnboardingManagement';
 
+
+import ChecklistDetail from '../pages/ChecklistDetail';
+import ChecklistCreate from '../pages/ChecklistCreate';
+
 // Route protection component
 const ProtectedRoute: React.FC<{
   children: React.ReactNode;
@@ -343,9 +347,28 @@ const Router: React.FC = () => {
       path: '*',
       element: <NotFound />,
     },
+    {
+      path: '/checklists/:id',
+      element: (
+        <ProtectedRoute>
+          <ChecklistDetail />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/checklists/create',
+      element: (
+        <ProtectedRoute requiredRoles={['hr']}>
+          <ChecklistCreate />
+        </ProtectedRoute>
+      ),
+    },
   ]);
   
   return <RouterProvider router={router} />;
 };
 
 export default Router;
+// Add these imports with the other page imports
+
+// Add these routes in the router configuration

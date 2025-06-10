@@ -15,8 +15,8 @@ class OnboardingService {
     return response.data;
   }
 
-  async updateMyProgress(progress: number): Promise<OnboardingProgressResponse> {
-    const response = await api.put('/onboarding/journey', { progress });
+  async updateMyProgress(data: { taskId: string; completed: boolean }): Promise<OnboardingProgressResponse> {
+    const response = await api.put('/onboarding/journey', data);
     return response.data;
   }
 
@@ -53,8 +53,19 @@ class OnboardingService {
     taskId: string, 
     data: { isCompleted?: boolean; notes?: string; supervisorNotes?: string }
   ): Promise<UserTaskProgress> {
-    const response = await api.put(`/tasks/${taskId}`, data);
-    return response.data;
+    // Use the correct endpoint
+    if (data.supervisorNotes) {
+      // If supervisor notes are provided, use the notes endpoint
+      const response = await api.put(`/tasks/${taskId}/notes`, { supervisorNotes: data.supervisorNotes });
+      return response.data;
+    } else {
+      // Otherwise use the progress endpoint
+      const response = await api.put(`/tasks/${taskId}/progress`, { 
+        isCompleted: data.isCompleted,
+        notes: data.notes 
+      });
+      return response.data;
+    }
   }
 
   // Dashboard data for different roles
@@ -92,11 +103,66 @@ class OnboardingService {
     return descriptions[stage];
   }
 
-  // Add missing getJourney function
+  // Replace the getJourney function with this implementation
   async getJourney(userId?: string): Promise<OnboardingJourney> {
+    // Get user's onboarding progress
     const endpoint = userId ? `/onboarding/journey/${userId}` : '/onboarding/journey';
     const response = await api.get(endpoint);
-    return response.data;
+    const progressData = response.data;
+    
+    try {
+      // Get all tasks for the user (or specified user)
+      const tasksEndpoint = userId ? `/tasks/employee/${userId}` : '/tasks';
+      const tasksResponse = await api.get(tasksEndpoint);
+      const allTasks = tasksResponse.data || [];
+      
+      // Filter tasks for current stage
+      const stageTasks = allTasks.filter(
+        (task: any) => task.onboardingStage === progressData.stage
+      );
+      
+      // Create the journey object
+      const journey: OnboardingJourney = {
+        user: progressData.User,
+        progress: progressData,
+        stages: [{
+          stage: progressData.stage,
+          title: this.getPhaseTitle(progressData.stage),
+          description: this.getPhaseDescription(progressData.stage),
+          tasks: stageTasks,
+          completionPercentage: progressData.progress,
+          isActive: true,
+          isCompleted: progressData.progress === 100
+        }],
+        overallProgress: progressData.progress,
+        currentStage: progressData.stage,
+        tasksCompleted: stageTasks.filter((task: any) => task.completed).length,
+        totalTasks: stageTasks.length
+      };
+      
+      return journey;
+    } catch (error) {
+      console.error('Error fetching task data:', error);
+      
+      // Fallback to a basic journey structure
+      return {
+        user: progressData.User,
+        progress: progressData,
+        stages: [{
+          stage: progressData.stage,
+          title: this.getPhaseTitle(progressData.stage),
+          description: this.getPhaseDescription(progressData.stage),
+          tasks: [],
+          completionPercentage: progressData.progress,
+          isActive: true,
+          isCompleted: progressData.progress === 100
+        }],
+        overallProgress: progressData.progress,
+        currentStage: progressData.stage,
+        tasksCompleted: 0,
+        totalTasks: 0
+      };
+    }
   }
 
   // Add function to create new onboarding journey

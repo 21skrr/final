@@ -4,7 +4,7 @@ import { Card, Spin, Alert, Typography, Button, message } from 'antd';
 import { useAuth } from '../context/AuthContext';
 import OnboardingPhase from '../components/onboarding/OnboardingPhase';
 import OnboardingSummary from '../components/onboarding/OnboardingSummary';
-import { OnboardingJourney } from '../types/onboarding';
+import { OnboardingJourney, Task } from '../types/onboarding';
 import onboardingService from '../services/onboardingService';
 
 const { Title } = Typography;
@@ -50,7 +50,7 @@ const OnboardingDetail: React.FC = () => {
       
       // Update local state
       const updatedJourney = { ...journey };
-      const task = updatedJourney.phases[phaseIndex].tasks.find(t => t.id === taskId);
+      const task = updatedJourney.phases[phaseIndex].tasks.find(t => t.id === taskId) as Task;
       
       if (task) {
         task.completed = true;
@@ -114,6 +114,8 @@ const OnboardingDetail: React.FC = () => {
     );
   }
 
+  // Rest of the code remains the same, but we need to ensure tasks are treated as Task type
+  
   const currentPhaseIndex = journey.phases.findIndex(phase => 
     phase.tasks.some(task => !task.completed)
   );
@@ -122,7 +124,7 @@ const OnboardingDetail: React.FC = () => {
     <div className="max-w-5xl mx-auto py-8 px-4">
       <div className="flex justify-between items-center mb-6">
         <Title level={2}>
-          {isViewingOwnJourney ? 'My Onboarding Journey' : `${journey.employeeName}'s Onboarding Journey`}
+          {isViewingOwnJourney ? 'My Onboarding Journey' : `${journey.user.name}'s Onboarding Journey`}
         </Title>
         
         {isHR && !isViewingOwnJourney && (
@@ -151,6 +153,7 @@ const OnboardingDetail: React.FC = () => {
             isCurrentPhase={index === currentPhaseIndex}
             onTaskComplete={(taskId) => handleTaskComplete(index, taskId)}
             canEditTasks={canEditTasks}
+            userRole={user?.role || 'employee'}
           />
         ))}
       </div>

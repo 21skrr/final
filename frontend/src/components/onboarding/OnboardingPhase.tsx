@@ -1,6 +1,6 @@
 import React from 'react';
 import { Progress, Tooltip, Modal, Button, Tag, Checkbox } from 'antd';
-import { InfoCircleOutlined, ClockCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, ClockCircleOutlined, CheckCircleOutlined, LockOutlined } from '@ant-design/icons';
 import { Task } from '../../types/onboarding';
 
 interface OnboardingPhaseProps {
@@ -11,6 +11,7 @@ interface OnboardingPhaseProps {
   isCurrentPhase: boolean;
   onTaskComplete: (taskId: string) => void;
   canEditTasks: boolean;
+  userRole: string;
 }
 
 const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
@@ -20,7 +21,8 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
   tasks,
   isCurrentPhase,
   onTaskComplete,
-  canEditTasks
+  canEditTasks,
+  userRole
 }) => {
   const [taskModalVisible, setTaskModalVisible] = React.useState(false);
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
@@ -33,6 +35,13 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
   const isTaskOverdue = (task: Task) => {
     if (!task.dueDate) return false;
     return new Date() > new Date(task.dueDate) && !task.completed;
+  };
+
+  // Determine if user can edit a specific task based on controlledBy and role
+  const canEditTask = (task: Task) => {
+    if (!canEditTasks) return false;
+    if (task.controlledBy === 'hr' && userRole !== 'hr' && userRole !== 'manager') return false;
+    return true;
   };
 
   return (
@@ -56,8 +65,8 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
               <div className="flex items-center">
                 <Checkbox 
                   checked={task.completed} 
-                  onChange={() => canEditTasks && onTaskComplete(task.id)}
-                  disabled={!canEditTasks}
+                  onChange={() => canEditTask(task) && onTaskComplete(task.id)}
+                  disabled={!canEditTask(task)}
                 />
                 <span 
                   className={`ml-2 cursor-pointer ${task.completed ? 'line-through text-gray-500' : ''} ${isTaskOverdue(task) ? 'text-red-500' : ''}`}
@@ -68,6 +77,11 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
                 <Tooltip title="View details">
                   <InfoCircleOutlined className="ml-2 text-blue-500 cursor-pointer" onClick={() => handleTaskClick(task)} />
                 </Tooltip>
+                {task.controlledBy === 'hr' && userRole !== 'hr' && userRole !== 'manager' && (
+                  <Tooltip title="HR controlled task">
+                    <LockOutlined className="ml-2 text-gray-500" />
+                  </Tooltip>
+                )}
               </div>
               
               {isTaskOverdue(task) && (
@@ -94,7 +108,7 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
           <Button key="close" onClick={() => setTaskModalVisible(false)}>
             Close
           </Button>,
-          canEditTasks && selectedTask && !selectedTask.completed && (
+          canEditTasks && selectedTask && !selectedTask.completed && canEditTask(selectedTask) && (
             <Button 
               key="complete" 
               type="primary" 
@@ -114,6 +128,9 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
             <div className="mt-4">
               <p><strong>Due Date:</strong> {selectedTask.dueDate ? new Date(selectedTask.dueDate).toLocaleDateString() : 'No due date'}</p>
               <p><strong>Status:</strong> {selectedTask.completed ? 'Completed' : isTaskOverdue(selectedTask) ? 'Overdue' : 'Pending'}</p>
+              {selectedTask.controlledBy === 'hr' && userRole !== 'hr' && userRole !== 'manager' && (
+                <p><strong>Note:</strong> <span className="text-orange-500">This task can only be completed by HR personnel</span></p>
+              )}
               {selectedTask.completedAt && (
                 <p><strong>Completed On:</strong> {new Date(selectedTask.completedAt).toLocaleString()}</p>
               )}
