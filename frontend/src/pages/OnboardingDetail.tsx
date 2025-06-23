@@ -82,6 +82,20 @@ const OnboardingDetail: React.FC = () => {
     }
   };
 
+  const handleTaskVerify = async (progressId: string, status: 'approved' | 'rejected', notes?: string) => {
+    try {
+      await onboardingService.verifyChecklistItem(progressId, status, notes);
+      // Refresh journey data
+      const targetUserId = userId || user?.id;
+      if (targetUserId) {
+        const updatedJourney = await onboardingService.getJourney(targetUserId);
+        setJourney(updatedJourney);
+      }
+    } catch (err) {
+      message.error('Failed to verify task. Please try again.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -114,11 +128,22 @@ const OnboardingDetail: React.FC = () => {
     );
   }
 
-  // Rest of the code remains the same, but we need to ensure tasks are treated as Task type
-  
-  const currentPhaseIndex = journey.phases.findIndex(phase => 
-    phase.tasks.some(task => !task.completed)
-  );
+  // Use phases if available, otherwise fallback to stages
+  const journeyPhases = journey.phases || journey.stages || [];
+
+  if (!Array.isArray(journeyPhases) || journeyPhases.length === 0) {
+    return (
+      <Alert
+        message="No Onboarding Phases"
+        description="No onboarding phases found for this user."
+        type="info"
+        showIcon
+        className="max-w-3xl mx-auto mt-8"
+      />
+    );
+  }
+
+  const currentPhaseIndex = journeyPhases.findIndex(phase => Array.isArray(phase.tasks) && phase.tasks.some(task => !task.completed));
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
@@ -132,7 +157,7 @@ const OnboardingDetail: React.FC = () => {
             <Button 
               type="primary" 
               onClick={handleAdvancePhase}
-              disabled={currentPhaseIndex === -1 || currentPhaseIndex === journey.phases.length - 1}
+              disabled={currentPhaseIndex === -1 || currentPhaseIndex === journeyPhases.length - 1}
             >
               Advance to Next Phase
             </Button>
@@ -143,7 +168,7 @@ const OnboardingDetail: React.FC = () => {
       <OnboardingSummary journey={journey} />
 
       <div className="space-y-6">
-        {journey.phases.map((phase, index) => (
+        {journeyPhases.map((phase, index) => (
           <OnboardingPhase
             key={index}
             title={phase.title}
@@ -154,6 +179,7 @@ const OnboardingDetail: React.FC = () => {
             onTaskComplete={(taskId) => handleTaskComplete(index, taskId)}
             canEditTasks={canEditTasks}
             userRole={user?.role || 'employee'}
+            onTaskVerify={handleTaskVerify}
           />
         ))}
       </div>

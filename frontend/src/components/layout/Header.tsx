@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import NotificationsPanel from "../features/NotificationsPanel";
 import pmiLogo from "../../assets/pmi-logo.png";
+import { useNotifications } from '../../context/NotificationContext';
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
@@ -12,6 +13,7 @@ const Header: React.FC = () => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [prevScrollPos, setPrevScrollPos] = useState(0);
   const [visible, setVisible] = useState(true);
+  const { unreadCount } = useNotifications();
 
   // Scroll detection
   useEffect(() => {
@@ -85,15 +87,22 @@ const Header: React.FC = () => {
           {/* Right icons */}
           <div className="flex items-center space-x-4">
             {/* Notifications */}
-            <button
-              className="text-gray-500 hover:text-blue-600 relative focus:outline-none"
-              onClick={() => setShowNotifications(!showNotifications)}
-            >
-              <Bell size={20} />
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                3
-              </span>
-            </button>
+            <div className="relative">
+              <button
+                className="text-gray-500 hover:text-blue-600 relative focus:outline-none"
+                onClick={() => setShowNotifications(!showNotifications)}
+              >
+                <Bell size={20} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+              {showNotifications && (
+                <NotificationsPanel onClose={() => setShowNotifications(false)} />
+              )}
+            </div>
 
             {/* Profile */}
             <div className="relative">
@@ -178,11 +187,6 @@ const Header: React.FC = () => {
             )}
           </div>
         </div>
-      )}
-
-      {/* Notifications */}
-      {showNotifications && (
-        <NotificationsPanel onClose={() => setShowNotifications(false)} />
       )}
     </header>
   );

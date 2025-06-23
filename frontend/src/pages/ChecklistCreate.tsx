@@ -11,8 +11,8 @@ const ChecklistCreate: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [programType, setProgramType] = useState('all');
-  const [stage, setStage] = useState('all');
+  const [programType, setProgramType] = useState('inkompass');
+  const [stage, setStage] = useState('prepare');
   const [autoAssign, setAutoAssign] = useState(false);
   const [requiresVerification, setRequiresVerification] = useState(true);
   const [items, setItems] = useState<Array<{
@@ -23,6 +23,16 @@ const ChecklistCreate: React.FC = () => {
     controlledBy: 'hr' | 'employee' | 'both';
     phase: string;
   }>>([]);
+
+  // For auto-assignment rules
+  const [showAutoAssignRules, setShowAutoAssignRules] = useState(false);
+  const [autoAssignDepartments, setAutoAssignDepartments] = useState<string>('');
+  const [autoAssignProgramTypes, setAutoAssignProgramTypes] = useState<string>('');
+  const [autoAssignDueInDays, setAutoAssignDueInDays] = useState<number | ''>('');
+  const [autoAssignStages, setAutoAssignStages] = useState<string>('');
+  const [autoAssignNotify, setAutoAssignNotify] = useState(false);
+  const [autoAssignChecklistId, setAutoAssignChecklistId] = useState<string | null>(null);
+  const [autoAssignMessage, setAutoAssignMessage] = useState<string | null>(null);
 
   // Redirect if not HR
   if (user?.role !== 'hr') {
@@ -39,7 +49,7 @@ const ChecklistCreate: React.FC = () => {
         isRequired: true,
         orderIndex: items.length,
         controlledBy: 'both',
-        phase: stage !== 'all' ? stage : 'prepare',
+        phase: stage,
       }
     ]);
   };
@@ -82,11 +92,41 @@ const ChecklistCreate: React.FC = () => {
         }
       }
       
+      // If auto-assign is checked, show the auto-assign rules form
+      if (autoAssign) {
+        setAutoAssignChecklistId(checklist.id);
+        setShowAutoAssignRules(true);
+        setLoading(false);
+        return; // Don't navigate yet
+      }
+      
       // Navigate back to checklists page
       navigate('/checklists');
     } catch (err) {
       console.error('Error creating checklist:', err);
       alert('Failed to create checklist. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAutoAssignRulesSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!autoAssignChecklistId) return;
+    setLoading(true);
+    setAutoAssignMessage(null);
+    try {
+      await checklistService.addAutoAssignRules(autoAssignChecklistId, {
+        departments: autoAssignDepartments.split(',').map(s => s.trim()).filter(Boolean),
+        programTypes: autoAssignProgramTypes.split(',').map(s => s.trim()).filter(Boolean),
+        dueInDays: autoAssignDueInDays ? Number(autoAssignDueInDays) : undefined,
+        stages: autoAssignStages.split(',').map(s => s.trim()).filter(Boolean),
+        autoNotify: autoAssignNotify,
+      });
+      setAutoAssignMessage('Auto-assignment rules saved!');
+      setTimeout(() => navigate('/checklists'), 1200);
+    } catch (err) {
+      setAutoAssignMessage('Failed to save auto-assignment rules.');
     } finally {
       setLoading(false);
     }
@@ -151,7 +191,6 @@ const ChecklistCreate: React.FC = () => {
                     onChange={(e) => setProgramType(e.target.value)}
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   >
-                    <option value="all">All Programs</option>
                     <option value="inkompass">INKOMPASS</option>
                     <option value="earlyTalent">Early Talent</option>
                     <option value="apprenticeship">Apprenticeship</option>
@@ -170,7 +209,6 @@ const ChecklistCreate: React.FC = () => {
                     onChange={(e) => setStage(e.target.value)}
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   >
-                    <option value="all">All Stages</option>
                     <option value="prepare">Prepare</option>
                     <option value="orient">Orient</option>
                     <option value="land">Land</option>
@@ -344,6 +382,40 @@ const ChecklistCreate: React.FC = () => {
             </button>
           </div>
         </form>
+
+        {/* Auto-Assignment Rules Section (after checklist creation) */}
+        {showAutoAssignRules && (
+          <form onSubmit={handleAutoAssignRulesSubmit} className="space-y-6 bg-white shadow rounded-lg p-6 mt-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">Auto-Assignment Rules</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Departments (comma separated)</label>
+                <input type="text" value={autoAssignDepartments} onChange={e => setAutoAssignDepartments(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Program Types (comma separated)</label>
+                <input type="text" value={autoAssignProgramTypes} onChange={e => setAutoAssignProgramTypes(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Onboarding Stages (comma separated)</label>
+                <input type="text" value={autoAssignStages} onChange={e => setAutoAssignStages(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Due in Days</label>
+                <input type="number" value={autoAssignDueInDays} onChange={e => setAutoAssignDueInDays(e.target.value ? Number(e.target.value) : '')} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" />
+              </div>
+              <div className="flex items-center mt-2">
+                <input id="autoAssignNotify" type="checkbox" checked={autoAssignNotify} onChange={e => setAutoAssignNotify(e.target.checked)} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                <label htmlFor="autoAssignNotify" className="ml-2 block text-sm text-gray-700">Auto-notify users on assignment</label>
+              </div>
+            </div>
+            <div className="flex space-x-3 mt-4">
+              <button type="submit" disabled={loading} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50">{loading ? 'Saving...' : 'Save Rules'}</button>
+              <button type="button" onClick={() => navigate('/checklists')} className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
+            </div>
+            {autoAssignMessage && <div className="mt-2 text-sm text-green-600">{autoAssignMessage}</div>}
+          </form>
+        )}
       </div>
     </Layout>
   );

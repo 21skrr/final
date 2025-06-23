@@ -93,9 +93,10 @@ export interface OnboardingPhase {
 export interface OnboardingJourney {
   user: User;
   progress: OnboardingProgress;
-  stages: OnboardingPhase[];  // Changed from phases to stages
-  overallProgress: number;    // Changed from overallCompletionPercentage
-  currentStage: OnboardingStage;  // Changed from currentPhase
+  stages?: OnboardingPhase[];
+  phases?: OnboardingPhase[];
+  overallProgress: number;
+  currentStage: OnboardingStage;
   tasksCompleted: number;
   totalTasks: number;
 }
@@ -150,4 +151,9 @@ export interface Task extends OnboardingTask {
   completed: boolean;
   completedAt?: string;
   dueDate?: string;
+  verificationStatus?: 'pending' | 'approved' | 'rejected';
+  verificationNotes?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  progressId?: string;
 }

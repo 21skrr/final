@@ -12,24 +12,27 @@ interface OnboardingProgressProps {
 const OnboardingProgress: React.FC<OnboardingProgressProps> = ({ user }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [journey, setJourney] = useState<OnboardingJourney | null>(null);
+  const [defaultTasks, setDefaultTasks] = useState<Record<string, any[]> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchJourney = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        // Use getJourney instead of getMyProgress to get the correct data structure
-        const data = await onboardingService.getJourney();
-        setJourney(data);
+        const [journeyData, defaultTasksData] = await Promise.all([
+          onboardingService.getJourney(),
+          onboardingService.getDefaultTasks()
+        ]);
+        setJourney(journeyData);
+        setDefaultTasks(defaultTasksData);
       } catch (err) {
-        console.error('Error fetching onboarding journey:', err);
+        console.error('Error fetching onboarding journey or tasks:', err);
         setError('Failed to load onboarding journey');
       } finally {
         setLoading(false);
       }
     };
-
-    fetchJourney();
+    fetchData();
   }, []);
 
   const handleTaskToggle = async (taskId: string, completed: boolean) => {
@@ -62,7 +65,7 @@ const OnboardingProgress: React.FC<OnboardingProgressProps> = ({ user }) => {
     );
   }
 
-  if (error || !journey) {
+  if (error || !journey || !defaultTasks) {
     return (
       <div className="bg-white rounded-lg shadow-md overflow-hidden p-6">
         <p className="text-red-500">{error || 'No onboarding journey found'}</p>
@@ -73,6 +76,15 @@ const OnboardingProgress: React.FC<OnboardingProgressProps> = ({ user }) => {
   const stages: OnboardingStage[] = ['prepare', 'orient', 'land', 'integrate', 'excel'];
   const currentStageIndex = stages.findIndex(stage => stage === journey.currentStage);
   
+  const allPhases = journey.phases || journey.stages || [];
+  const completedTaskIds = new Set(
+    allPhases.flatMap(phase =>
+      Array.isArray(phase.tasks)
+        ? phase.tasks.filter(t => t.completed).map(t => t.id)
+        : []
+    )
+  );
+
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
       <div className="p-6">
@@ -94,15 +106,19 @@ const OnboardingProgress: React.FC<OnboardingProgressProps> = ({ user }) => {
         
         {/* Journey steps */}
         <div className="space-y-6">
-          {journey.stages.map((stage, index) => {
-            const stageInfo = stage;
-            const isCurrentStage = stage.stage === journey.currentStage; // Changed from stage.name to stage.stage
+          {stages.map((stageKey, index) => {
+            const isCurrentStage = stageKey === journey.currentStage;
             const isPastStage = index < currentStageIndex;
             const isFutureStage = index > currentStageIndex;
-            
+            const defaultStageTasks = defaultTasks[stageKey] || [];
+            // Mark completed tasks
+            const tasks = defaultStageTasks.map(task => ({
+              ...task,
+              completed: completedTaskIds.has(task.id)
+            }));
             return (
               <div 
-                key={index} // Changed from stage.id to index since OnboardingPhase doesn't have an id
+                key={stageKey}
                 className={`border rounded-lg p-4 transition-all duration-200 ${
                   isCurrentStage ? 'border-blue-300 bg-blue-50' : 'border-gray-200'
                 }`}
@@ -123,18 +139,18 @@ const OnboardingProgress: React.FC<OnboardingProgressProps> = ({ user }) => {
                         isCurrentStage ? 'text-blue-700' : 
                         isPastStage ? 'text-gray-700' : 'text-gray-500'
                       }`}>
-                        {stage.title}
+                        {onboardingService.getPhaseTitle(stageKey)}
                       </h3>
                       <span className="text-sm text-gray-500">
-                        {stage.tasks.filter(t => t.completed).length}/{stage.tasks.length} Tasks
+                        {tasks.filter(t => t.completed).length}/{tasks.length} Tasks
                       </span>
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">{stage.description}</p>
+                    <p className="text-sm text-gray-500 mt-1">{onboardingService.getPhaseDescription(stageKey)}</p>
                     
                     {/* Tasks list - only show for current and past stages */}
                     {!isFutureStage && (
                       <div className="mt-3 space-y-2">
-                        {stage.tasks.map((task) => (
+                        {tasks.map((task) => (
                           <div 
                             key={task.id} 
                             className="flex items-center text-sm"
@@ -150,7 +166,7 @@ const OnboardingProgress: React.FC<OnboardingProgressProps> = ({ user }) => {
                               )}
                             </div>
                             <span className={task.completed ? 'text-gray-600' : 'text-gray-400'}>
-                              {task.title} {/* Changed from task.text to task.title */}
+                              {task.title}
                             </span>
                           </div>
                         ))}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Progress, Tooltip, Modal, Button, Tag, Checkbox } from 'antd';
+import { Progress, Tooltip, Modal, Button, Tag, Checkbox, Input, message } from 'antd';
 import { InfoCircleOutlined, ClockCircleOutlined, CheckCircleOutlined, LockOutlined } from '@ant-design/icons';
 import { Task } from '../../types/onboarding';
 
@@ -12,6 +12,7 @@ interface OnboardingPhaseProps {
   onTaskComplete: (taskId: string) => void;
   canEditTasks: boolean;
   userRole: string;
+  onTaskVerify?: (progressId: string, status: 'approved' | 'rejected', notes?: string) => void;
 }
 
 const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
@@ -26,6 +27,7 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
 }) => {
   const [taskModalVisible, setTaskModalVisible] = React.useState(false);
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
+  const [verificationNotes, setVerificationNotes] = React.useState('');
 
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
@@ -119,6 +121,47 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
             >
               Mark as Complete
             </Button>
+          ),
+          // HR verification controls
+          userRole && (userRole === 'hr' || userRole === 'manager') && selectedTask && selectedTask.completed && selectedTask.verificationStatus !== 'approved' && selectedTask.progressId && (
+            <>
+              <Input.TextArea
+                key="notes"
+                rows={2}
+                placeholder="Verification notes (optional)"
+                value={verificationNotes}
+                onChange={e => setVerificationNotes(e.target.value)}
+                style={{ marginBottom: 8 }}
+              />
+              <Button
+                key="approve"
+                type="primary"
+                onClick={async () => {
+                  if (onTaskVerify) {
+                    await onTaskVerify(selectedTask.progressId!, 'approved', verificationNotes);
+                    setTaskModalVisible(false);
+                    setVerificationNotes('');
+                    message.success('Task approved');
+                  }
+                }}
+              >
+                Approve
+              </Button>
+              <Button
+                key="reject"
+                danger
+                onClick={async () => {
+                  if (onTaskVerify) {
+                    await onTaskVerify(selectedTask.progressId!, 'rejected', verificationNotes);
+                    setTaskModalVisible(false);
+                    setVerificationNotes('');
+                    message.success('Task rejected');
+                  }
+                }}
+              >
+                Reject
+              </Button>
+            </>
           )
         ]}
       >
@@ -133,6 +176,16 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
               )}
               {selectedTask.completedAt && (
                 <p><strong>Completed On:</strong> {new Date(selectedTask.completedAt).toLocaleString()}</p>
+              )}
+              {/* Show verification status */}
+              {selectedTask.completed && (
+                <p><strong>Verification Status:</strong> {selectedTask.verificationStatus || 'Pending'}</p>
+              )}
+              {selectedTask.verifiedAt && (
+                <p><strong>Verified On:</strong> {new Date(selectedTask.verifiedAt).toLocaleString()}</p>
+              )}
+              {selectedTask.verificationNotes && (
+                <p><strong>Verification Notes:</strong> {selectedTask.verificationNotes}</p>
               )}
             </div>
           </div>

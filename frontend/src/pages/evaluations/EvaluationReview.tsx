@@ -1,24 +1,80 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Layout from '../../components/layout/Layout';
 import { Star, Save, MessageSquare } from 'lucide-react';
+import { getEvaluationById, addEmployeeCommentToEvaluation } from '../../services/evaluationService';
+import { Evaluation } from '../../types/evaluation';
+import feedbackService from '../../services/feedbackService';
+import checklistAssignmentService from '../../services/checklistAssignmentService';
+import { useAuth } from '../../context/AuthContext';
 
 const EvaluationReview: React.FC = () => {
   const { id } = useParams();
+  const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [employeeComment, setEmployeeComment] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [feedbackHistory, setFeedbackHistory] = useState<any[]>([]);
+  const [checklistHistory, setChecklistHistory] = useState<any[]>([]);
+  const { user } = useAuth();
 
-  // Mock evaluation data
-  const evaluation = {
-    employeeName: 'John Employee',
-    position: 'Marketing Analyst',
-    evaluationType: '3-Month Review',
-    date: '2024-03-15',
-    categories: [
-      { name: 'Job Knowledge', score: 4 },
-      { name: 'Communication', score: 4 },
-      { name: 'Initiative', score: 3 },
-      { name: 'Teamwork', score: 5 },
-    ],
+  useEffect(() => {
+    const fetchEvaluation = async () => {
+      try {
+        if (id) {
+          const response = await getEvaluationById(id);
+          setEvaluation(response.data);
+        }
+      } catch (err) {
+        setError('Failed to load evaluation');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchEvaluation();
+
+    // Fetch feedback and checklist history for preparation
+    const fetchFeedbackAndChecklist = async () => {
+      try {
+        const feedback = await feedbackService.getMyFeedbackHistory();
+        setFeedbackHistory(feedback || []);
+      } catch {}
+      try {
+        const checklists = await checklistAssignmentService.getMyAssignments();
+        setChecklistHistory(checklists || []);
+      } catch {}
+    };
+    fetchFeedbackAndChecklist();
+  }, [id]);
+
+  const handleAcknowledgeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+    try {
+      if (id && employeeComment) {
+        await addEmployeeCommentToEvaluation(id, employeeComment);
+        setSaveSuccess(true);
+      } else {
+        // Handle case where there is no comment, maybe just acknowledge?
+        // For now, we only submit if there's a comment.
+        setSaveSuccess(true); // Or show a message that nothing was submitted.
+      }
+    } catch (err) {
+      setSaveError('Failed to save acknowledgment or comment');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) return <Layout><div>Loading...</div></Layout>;
+  if (error) return <Layout><div className="text-red-500">{error}</div></Layout>;
+  if (!evaluation) return <Layout><div>No evaluation found.</div></Layout>;
 
   return (
     <Layout>
@@ -34,13 +90,13 @@ const EvaluationReview: React.FC = () => {
           </div>
 
           <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
-            <div className="grid grid-cols-1 gap-6">
+            <form onSubmit={handleAcknowledgeSubmit} className="grid grid-cols-1 gap-6">
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-medium text-gray-900">Performance Categories</h3>
                   <div className="mt-4 space-y-4">
-                    {evaluation.categories.map((category) => (
-                      <div key={category.name} className="space-y-2">
+                    {evaluation.criteria.map((category) => (
+                      <div key={category.id} className="space-y-2">
                         <div className="flex justify-between items-center">
                           <label className="block text-sm font-medium text-gray-700">
                             {category.name}
@@ -49,11 +105,7 @@ const EvaluationReview: React.FC = () => {
                             {[1, 2, 3, 4, 5].map((star) => (
                               <Star
                                 key={star}
-                                className={`h-5 w-5 ${
-                                  star <= category.score
-                                    ? 'text-yellow-400 fill-current'
-                                    : 'text-gray-300'
-                                }`}
+                                className={`h-5 w-5 ${star <= category.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
                               />
                             ))}
                           </div>
@@ -62,8 +114,9 @@ const EvaluationReview: React.FC = () => {
                           type="range"
                           min="1"
                           max="5"
-                          defaultValue={category.score}
+                          defaultValue={category.rating}
                           className="w-full"
+                          disabled
                         />
                       </div>
                     ))}
@@ -79,6 +132,8 @@ const EvaluationReview: React.FC = () => {
                       rows={4}
                       className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
                       placeholder="Add your feedback here..."
+                      value={employeeComment}
+                      onChange={e => setEmployeeComment(e.target.value)}
                     />
                   </div>
                 </div>
@@ -95,27 +150,98 @@ const EvaluationReview: React.FC = () => {
                     />
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
 
-          <div className="px-4 py-3 bg-gray-50 text-right sm:px-6 space-x-3">
-            <button
-              type="button"
-              className="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <MessageSquare className="h-4 w-4 mr-2" />
-              Request Changes
-            </button>
-            <button
-              type="submit"
-              className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              Save Evaluation
-            </button>
+                <div className="flex items-center mt-4">
+                  <input
+                    id="acknowledge"
+                    type="checkbox"
+                    checked={acknowledged}
+                    onChange={e => setAcknowledged(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                  />
+                  <label htmlFor="acknowledge" className="ml-2 block text-sm text-gray-700">
+                    I have read and understood this evaluation
+                  </label>
+                </div>
+                {saveError && <div className="text-red-500">{saveError}</div>}
+                {saveSuccess && <div className="text-green-600">Acknowledgment and comment saved!</div>}
+              </div>
+              <div className="px-4 py-3 bg-gray-50 text-right sm:px-6 space-x-3">
+                <button
+                  type="submit"
+                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  disabled={saving}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {saving ? 'Saving...' : 'Acknowledge & Comment'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
+
+        {/* Preparation Section */}
+        <div className="bg-white shadow rounded-lg overflow-hidden mb-6">
+          <div className="px-4 py-3 bg-gray-100 border-b">
+            <h3 className="text-lg font-semibold text-gray-900">Prepare for Your Evaluation</h3>
+          </div>
+          <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 className="font-medium text-gray-800 mb-2">Recent Feedback</h4>
+              {feedbackHistory.length === 0 ? (
+                <div className="text-gray-500 text-sm">No feedback found.</div>
+              ) : (
+                <ul className="space-y-2">
+                  {feedbackHistory.slice(0, 3).map((item: any) => (
+                    <li key={item.id} className="bg-blue-50 rounded p-2 text-sm">
+                      <span className="font-semibold">{item.type === 'received' ? `From: ${item.from?.name || item.from}` : `To: ${item.to?.name || item.to}`}</span>
+                      <span className="ml-2 text-xs text-gray-500">{item.date || item.createdAt}</span>
+                      <div>{item.message}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <h4 className="font-medium text-gray-800 mb-2">Checklist Progress</h4>
+              {checklistHistory.length === 0 ? (
+                <div className="text-gray-500 text-sm">No checklists found.</div>
+              ) : (
+                <ul className="space-y-2">
+                  {checklistHistory.slice(0, 3).map((assignment: any) => (
+                    <li key={assignment.id} className="bg-green-50 rounded p-2 text-sm">
+                      <span className="font-semibold">{assignment.checklist?.title || 'Checklist'}</span>
+                      <span className="ml-2 text-xs text-gray-500">Due: {assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : 'N/A'}</span>
+                      <div>Completion: {assignment.completionPercentage}%</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Coaching/Status Integration for Manager */}
+        {user?.role === 'manager' && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+            <h3 className="text-lg font-semibold text-yellow-800 mb-2">Coaching & Status Actions</h3>
+            <p className="text-sm text-yellow-700 mb-2">Use this evaluation to support coaching or status changes for the employee.</p>
+            <div className="flex gap-2">
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                onClick={() => window.location.href = `/coaching?employeeId=${evaluation.employeeId}`}
+              >
+                View Coaching History
+              </button>
+              <button
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                onClick={() => window.location.href = `/admin/employees/${evaluation.employeeId}/status`}
+              >
+                Change Employee Status
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );

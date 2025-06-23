@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Card, Input, Select, Slider, Button, Tag, Space, Tooltip, Modal, message, Row, Col, Form } from 'antd';
-import { SearchOutlined, EyeOutlined, DeleteOutlined, ExclamationCircleOutlined, WarningOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { SearchOutlined, EyeOutlined, DeleteOutlined, ExclamationCircleOutlined, WarningOutlined, EditOutlined, PlusOutlined, DownloadOutlined, RollbackOutlined, StepForwardOutlined, CheckSquareOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { EmployeeOnboarding, OnboardingStage } from '../../types/onboarding';
 import onboardingService from '../../services/onboardingService';
@@ -9,6 +9,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
 import Layout from '../../components/layout/Layout';
 import { ColumnsType } from 'antd/es/table';
 import userService from '../../services/userService';
+import checklistService from '../../services/checklistService';
+import checklistAssignmentService from '../../services/checklistAssignmentService';
 
 const { Option } = Select;
 const { confirm } = Modal;
@@ -27,6 +29,16 @@ const OnboardingManagement: React.FC = () => {
     completionRange: [0, 100],
     search: ''
   });
+  const [advanceModalVisible, setAdvanceModalVisible] = useState(false);
+  const [resetModalVisible, setResetModalVisible] = useState(false);
+  const [assignModalVisible, setAssignModalVisible] = useState(false);
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [assignChecklists, setAssignChecklists] = useState<string[]>([]);
+  const [availableChecklists, setAvailableChecklists] = useState<any[]>([]);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editPhase, setEditPhase] = useState<OnboardingStage>('prepare');
+  const [editCompletion, setEditCompletion] = useState<number>(0);
 
   useEffect(() => {
     fetchEmployees();
@@ -36,7 +48,22 @@ const OnboardingManagement: React.FC = () => {
     try {
       setLoading(true);
       const data = await onboardingService.getAllProgresses();
-      setEmployees(data);
+      // Map backend data to table row shape
+      const mapped = data.map((item: any) => ({
+        userId: item.UserId,
+        name: item.User?.name,
+        email: item.User?.email,
+        role: item.User?.role,
+        department: item.User?.department,
+        programType: item.User?.programType,
+        currentPhase: item.stage,
+        completionPercentage: item.progress,
+        status: 'active', // or use your own logic
+        startDate: item.User?.startDate,
+        daysSinceStart: 0, // calculate if needed
+        daysSinceLastActivity: 0, // calculate if needed
+      }));
+      setEmployees(mapped);
     } catch (error) {
       console.error('Failed to fetch employee onboarding data:', error);
       message.error('Failed to load employee data');
@@ -58,18 +85,13 @@ const OnboardingManagement: React.FC = () => {
   const handleCreateJourney = async (values: { employeeId: string }) => {
     try {
       setLoading(true);
-      const response = await api.post('/onboarding/journey', {
-        userId: values.employeeId
-      });
-      
+      await onboardingService.createJourney(values.employeeId);
       message.success('Onboarding journey created successfully');
       setCreateModalVisible(false);
       form.resetFields();
-      
       // Refresh the data
       await fetchEmployees();
       await fetchAllUsers();
-      
     } catch (error: any) {
       console.error('Failed to create journey:', error);
       message.error(error.response?.data?.message || 'Failed to create onboarding journey');
@@ -199,6 +221,121 @@ const OnboardingManagement: React.FC = () => {
     (emp.daysSinceLastActivity && emp.daysSinceLastActivity > 14)
   );
 
+  const handleAdvancePhase = (employee: any) => {
+    setSelectedEmployee(employee);
+    setAdvanceModalVisible(true);
+  };
+
+  const confirmAdvancePhase = async () => {
+    if (!selectedEmployee) return;
+    setActionLoading(true);
+    try {
+      await onboardingService.advanceToNextPhase(selectedEmployee.userId);
+      message.success('Phase advanced successfully');
+      setAdvanceModalVisible(false);
+      fetchEmployees();
+    } catch (error) {
+      message.error('Failed to advance phase');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleResetJourney = (employee: any) => {
+    setSelectedEmployee(employee);
+    setResetModalVisible(true);
+  };
+
+  const confirmResetJourney = async () => {
+    if (!selectedEmployee) return;
+    setActionLoading(true);
+    try {
+      await api.post(`/onboarding/${selectedEmployee.userId}/reset`, { resetToStage: 'prepare', keepCompletedTasks: false });
+      message.success('Journey reset successfully');
+      setResetModalVisible(false);
+      fetchEmployees();
+    } catch (error) {
+      message.error('Failed to reset journey');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleAssignChecklist = async (employee: any) => {
+    setSelectedEmployee(employee);
+    setAssignChecklists([]);
+    setAssignModalVisible(true);
+    try {
+      const checklists = await checklistService.getChecklists();
+      setAvailableChecklists(checklists);
+    } catch (error) {
+      setAvailableChecklists([]);
+      message.error('Failed to fetch checklists');
+    }
+  };
+
+  const confirmAssignChecklist = async () => {
+    if (!selectedEmployee || assignChecklists.length === 0) return;
+    setActionLoading(true);
+    try {
+      await Promise.all(assignChecklists.map(clId => checklistAssignmentService.assignChecklist({ userId: selectedEmployee.userId, checklistId: clId })));
+      message.success('Checklist(s) assigned successfully');
+      setAssignModalVisible(false);
+      fetchEmployees();
+    } catch (error) {
+      message.error('Failed to assign checklist(s)');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleExportCSV = async () => {
+    setCsvLoading(true);
+    try {
+      // Download CSV from backend
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/onboarding/export/csv', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to export CSV');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'onboarding_report.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      message.error('Failed to export CSV');
+    } finally {
+      setCsvLoading(false);
+    }
+  };
+
+  const handleEditProgress = (employee: any) => {
+    setSelectedEmployee(employee);
+    setEditPhase(employee.currentPhase || 'prepare');
+    setEditCompletion(employee.completionPercentage || 0);
+    setEditModalVisible(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!selectedEmployee) return;
+    setActionLoading(true);
+    try {
+      await onboardingService.updateUserProgress(selectedEmployee.userId, { stage: editPhase, progress: editCompletion });
+      message.success('Progress updated successfully');
+      setEditModalVisible(false);
+      fetchEmployees();
+    } catch (error) {
+      message.error('Failed to update progress');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Define columns with proper TypeScript typing
   const columns: ColumnsType<EmployeeOnboarding> = [
     {
@@ -257,10 +394,28 @@ const OnboardingManagement: React.FC = () => {
           <Tooltip title="Edit Progress">
             <Button 
               icon={<EditOutlined />} 
-              onClick={() => {
-                setSelectedEmployee(record);
-                // You can add edit modal logic here
-              }}
+              onClick={() => handleEditProgress(record)}
+              size="small"
+            />
+          </Tooltip>
+          <Tooltip title="Advance Phase">
+            <Button 
+              icon={<StepForwardOutlined />} 
+              onClick={() => handleAdvancePhase(record)}
+              size="small"
+            />
+          </Tooltip>
+          <Tooltip title="Reset Journey">
+            <Button 
+              icon={<RollbackOutlined />} 
+              onClick={() => handleResetJourney(record)}
+              size="small"
+            />
+          </Tooltip>
+          <Tooltip title="Assign Checklist">
+            <Button 
+              icon={<CheckSquareOutlined />} 
+              onClick={() => handleAssignChecklist(record)}
               size="small"
             />
           </Tooltip>
@@ -369,9 +524,11 @@ const OnboardingManagement: React.FC = () => {
                 onChange={value => setFilters({...filters, department: value})}
                 allowClear
               >
-                {[...new Set(employees.map(e => e.department))].map(dept => (
-                  <Option key={dept} value={dept}>{dept}</Option>
-                ))}
+                {[...new Set(employees.map(e => e.department))]
+                  .filter(dept => dept != null)
+                  .map(dept => (
+                    <Option key={dept} value={dept}>{dept}</Option>
+                  ))}
               </Select>
             </div>
             
@@ -383,9 +540,10 @@ const OnboardingManagement: React.FC = () => {
                 onChange={value => setFilters({...filters, phase: value})}
                 allowClear
               >
-                {['Prepare', 'Orient', 'Land', 'Integrate', 'Excel'].map(phase => (
-                  <Option key={phase} value={phase}>{phase}</Option>
-                ))}
+                {['Prepare', 'Orient', 'Land', 'Integrate', 'Excel']
+                  .map(phase => (
+                    <Option key={phase} value={phase}>{phase}</Option>
+                  ))}
               </Select>
             </div>
             
@@ -400,16 +558,23 @@ const OnboardingManagement: React.FC = () => {
           </div>
         </Card>
         
-        <div className="mb-4">
+        <div className="mb-4 flex gap-4">
           <Button 
             type="primary" 
-            icon={<PlusOutlined />}
+            icon={<PlusOutlined />} 
             onClick={() => {
               fetchAllUsers();
               setCreateModalVisible(true);
             }}
           >
             Create New Onboarding Journey
+          </Button>
+          <Button
+            icon={<DownloadOutlined />}
+            loading={csvLoading}
+            onClick={handleExportCSV}
+          >
+            Export CSV
           </Button>
         </div>
         
@@ -430,38 +595,107 @@ const OnboardingManagement: React.FC = () => {
           }}
           footer={null}
         >
-          <div className="space-y-4">
-            <div>
-              <label className="block mb-2">Select Employee:</label>
-              <Select
-                style={{ width: '100%' }}
-                placeholder="Choose an employee"
-                value={selectedEmployee?.userId}
-                onChange={(userId) => setSelectedEmployee({ userId })}
-              >
-                {allUsers.map(user => (
-                  <Option key={user.id} value={user.id}>
-                    {user.name} - {user.department}
-                  </Option>
-                ))}
-              </Select>
+          <Form form={form} layout="vertical">
+            <div className="space-y-4">
+              <div>
+                <label className="block mb-2">Select Employee:</label>
+                <Select
+                  style={{ width: '100%' }}
+                  placeholder="Choose an employee"
+                  value={selectedEmployee?.userId}
+                  onChange={(userId) => setSelectedEmployee({ userId })}
+                >
+                  {allUsers.map(user => (
+                    <Option key={user.id} value={user.id}>
+                      {user.name} - {user.department}
+                    </Option>
+                  ))}
+                </Select>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button onClick={() => {
+                  setCreateModalVisible(false);
+                  setSelectedEmployee(null);
+                }}>
+                  Cancel
+                </Button>
+                <Button 
+                  type="primary"
+                  onClick={() => selectedEmployee && handleCreateJourney({ employeeId: selectedEmployee.userId })}
+                  disabled={!selectedEmployee}
+                >
+                  Create Journey
+                </Button>
+              </div>
             </div>
-            
-            <div className="flex justify-end space-x-2">
-              <Button onClick={() => {
-                setCreateModalVisible(false);
-                setSelectedEmployee(null);
-              }}>
-                Cancel
-              </Button>
-              <Button 
-                type="primary"
-                onClick={() => selectedEmployee && handleCreateJourney({ employeeId: selectedEmployee.userId })}
-                disabled={!selectedEmployee}
-              >
-                Create Journey
-              </Button>
-            </div>
+          </Form>
+        </Modal>
+        <Modal
+          title="Advance Onboarding Phase"
+          open={advanceModalVisible}
+          onCancel={() => setAdvanceModalVisible(false)}
+          confirmLoading={actionLoading}
+          onOk={confirmAdvancePhase}
+        >
+          <p>Advance {selectedEmployee?.name}'s onboarding to the next phase?</p>
+        </Modal>
+        <Modal
+          title="Reset Onboarding Journey"
+          open={resetModalVisible}
+          onCancel={() => setResetModalVisible(false)}
+          confirmLoading={actionLoading}
+          onOk={confirmResetJourney}
+        >
+          <p>Reset {selectedEmployee?.name}'s onboarding journey? This cannot be undone.</p>
+        </Modal>
+        <Modal
+          title="Assign Checklist"
+          open={assignModalVisible}
+          onCancel={() => setAssignModalVisible(false)}
+          confirmLoading={actionLoading}
+          onOk={confirmAssignChecklist}
+        >
+          <p>Assign checklist(s) to {selectedEmployee?.name}:</p>
+          <Select
+            mode="multiple"
+            style={{ width: '100%' }}
+            placeholder="Select checklists"
+            value={assignChecklists}
+            onChange={setAssignChecklists}
+            loading={availableChecklists.length === 0}
+          >
+            {availableChecklists
+              .filter(cl => cl.id != null)
+              .map(cl => (
+                <Option key={cl.id} value={cl.id}>{cl.name}</Option>
+              ))}
+          </Select>
+        </Modal>
+        <Modal
+          title="Edit Onboarding Progress"
+          open={editModalVisible}
+          onCancel={() => setEditModalVisible(false)}
+          onOk={handleEditSave}
+          confirmLoading={actionLoading}
+        >
+          <div style={{ marginBottom: 16 }}>
+            <label>Phase:</label>
+            <Select value={editPhase} onChange={setEditPhase} style={{ width: '100%' }}>
+              {['prepare', 'orient', 'land', 'integrate', 'excel'].map(phase => (
+                <Option key={phase} value={phase}>{phase.charAt(0).toUpperCase() + phase.slice(1)}</Option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <label>Completion (%):</label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={editCompletion}
+              onChange={e => setEditCompletion(Number(e.target.value))}
+              style={{ width: '100%' }}
+            />
           </div>
         </Modal>
       </div>

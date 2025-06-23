@@ -36,10 +36,17 @@ import AdminPanel from '../pages/admin/AdminPanel';
 import UserManagement from '../pages/admin/UserManagement';
 import RolesPermissions from '../pages/admin/RolesPermissions';
 import SystemSettings from '../pages/admin/SystemSettings';
+import NotificationTemplates from '../pages/admin/NotificationTemplates';
+import SurveyTemplates from "../pages/admin/SurveyTemplates";
+import SurveySettings from '../pages/admin/SurveySettings';
+import SurveyMonitoring from '../pages/admin/SurveyMonitoring';
+import TeamSurveys from '../pages/supervisor/TeamSurveys';
+import DepartmentSurveys from '../pages/manager/DepartmentSurveys';
 
 // Additional Pages
 import EvaluationReview from '../pages/evaluations/EvaluationReview';
 import PerformanceAnalytics from '../pages/reports/PerformanceAnalytics';
+import EvaluationResult from '../pages/evaluations/EvaluationResult';
 
 // Onboarding Pages
 // Add these imports at the top with the other imports
@@ -49,6 +56,35 @@ import OnboardingManagement from '../pages/admin/OnboardingManagement';
 
 import ChecklistDetail from '../pages/ChecklistDetail';
 import ChecklistCreate from '../pages/ChecklistCreate';
+import HRChecklistDashboard from '../pages/HRChecklistDashboard';
+import HRChecklistReports from '../pages/HRChecklistReports';
+import HRChecklistNotifications from '../pages/HRChecklistNotifications';
+import HRChecklistBulkAssign from '../pages/HRChecklistBulkAssign';
+import HRChecklistPhaseManager from '../pages/HRChecklistPhaseManager';
+import EmployeeChecklists from '../pages/EmployeeChecklists';
+import SupervisorTeamChecklists from '../pages/SupervisorTeamChecklists';
+import ManagerChecklistDashboard from '../pages/ManagerChecklistDashboard';
+import ManagerChecklistDetail from '../pages/ManagerChecklistDetail';
+import ChecklistAssignmentDetailPage from '../pages/ChecklistAssignmentDetail';
+import SurveyDetail from '../pages/SurveyDetail';
+import SurveyResponseForm from '../pages/SurveyResponseForm';
+import SurveyHistory from '../pages/SurveyHistory';
+import SupervisorEvaluations from '../pages/supervisor/SupervisorEvaluations';
+import SupervisorEvaluationCreate from '../pages/supervisor/SupervisorEvaluationCreate';
+import SupervisorEvaluationCriteria from '../pages/supervisor/SupervisorEvaluationCriteria';
+import ManagerEvaluations from '../pages/manager/ManagerEvaluations';
+import ManagerEvaluationReports from '../pages/manager/ManagerEvaluationReports';
+import HREvaluations from '../pages/admin/HREvaluations';
+import HREvaluationCreate from '../pages/admin/HREvaluationCreate';
+import HREvaluationEdit from '../pages/admin/HREvaluationEdit';
+import HREvaluationCriteria from '../pages/admin/HREvaluationCriteria';
+import HREvaluationReports from '../pages/admin/HREvaluationReports';
+import EmployeeEvaluations from '../pages/admin/EmployeeEvaluations';
+import SupervisorEvaluationForm from '../pages/supervisor/SupervisorEvaluationForm';
+import EvaluationScheduling from '../pages/admin/EvaluationScheduling';
+import ManagerEvaluationDetail from '../pages/manager/ManagerEvaluationDetail';
+import HROnboardingManagement from '../pages/admin/HROnboardingManagement';
+import HRTaskValidation from '../pages/admin/HRTaskValidation';
 
 // Route protection component
 const ProtectedRoute: React.FC<{
@@ -70,6 +106,16 @@ const ProtectedRoute: React.FC<{
   }
   
   if (requiredRoles && !requiredRoles.includes(user.role)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
+const PrivateRoute: React.FC<{ children: React.ReactElement; role: string[] }> = ({ children, role }) => {
+  const { user } = useAuth();
+  
+  if (!user || !role.includes(user.role)) {
     return <Navigate to="/dashboard" replace />;
   }
   
@@ -183,6 +229,46 @@ const Router: React.FC = () => {
       ),
     },
     {
+      path: '/hr/checklist-dashboard',
+      element: (
+        <ProtectedRoute requiredRoles={['hr']}>
+          <HRChecklistDashboard />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/hr/checklist-reports',
+      element: (
+        <ProtectedRoute requiredRoles={['hr']}>
+          <HRChecklistReports />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/hr/checklist-notifications',
+      element: (
+        <ProtectedRoute requiredRoles={['hr']}>
+          <HRChecklistNotifications />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/hr/checklist-bulk-assign',
+      element: (
+        <ProtectedRoute requiredRoles={['hr']}>
+          <HRChecklistBulkAssign />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/hr/checklist-phase-manager',
+      element: (
+        <ProtectedRoute requiredRoles={['hr']}>
+          <HRChecklistPhaseManager />
+        </ProtectedRoute>
+      ),
+    },
+    {
       path: '/calendar',
       element: (
         <ProtectedRoute>
@@ -199,6 +285,26 @@ const Router: React.FC = () => {
       ),
     },
     {
+      path: '/surveys/:id',
+      element: (
+        <ProtectedRoute>
+          <SurveyDetail />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/surveys/:id/respond',
+      element: <SurveyResponseForm />,
+    },
+    {
+      path: '/surveys/history',
+      element: <SurveyHistory />,
+    },
+    {
+      path: '/resources',
+      element: <Resources />,
+    },
+    {
       path: '/evaluations',
       element: (
         <ProtectedRoute requiredRoles={['employee', 'supervisor', 'manager']}>
@@ -207,9 +313,25 @@ const Router: React.FC = () => {
       ),
     },
     {
+      path: '/evaluations/:id',
+      element: (
+        <ProtectedRoute requiredRoles={['employee', 'supervisor', 'manager']}>
+          <EvaluationReview />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/evaluations/:id/results',
+      element: (
+        <ProtectedRoute requiredRoles={['employee', 'supervisor', 'manager']}>
+          <EvaluationResult />
+        </ProtectedRoute>
+      ),
+    },
+    {
       path: '/evaluations/review/:id',
       element: (
-        <ProtectedRoute requiredRoles={['supervisor', 'manager']}>
+        <ProtectedRoute requiredRoles={['employee', 'supervisor', 'manager']}>
           <EvaluationReview />
         </ProtectedRoute>
       ),
@@ -227,14 +349,6 @@ const Router: React.FC = () => {
       element: (
         <ProtectedRoute requiredRoles={['supervisor', 'manager']}>
           <Team />
-        </ProtectedRoute>
-      ),
-    },
-    {
-      path: '/resources',
-      element: (
-        <ProtectedRoute>
-          <Resources />
         </ProtectedRoute>
       ),
     },
@@ -318,6 +432,38 @@ const Router: React.FC = () => {
         </ProtectedRoute>
       ),
     },
+    {
+      path: '/admin/notification-templates',
+      element: (
+        <ProtectedRoute requiredRoles={['hr']}>
+          <NotificationTemplates />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/admin/survey-settings',
+      element: (
+        <ProtectedRoute requiredRoles={['hr']}>
+          <SurveySettings />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/admin/survey-monitoring',
+      element: (
+        <ProtectedRoute requiredRoles={['hr']}>
+          <SurveyMonitoring />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/admin/survey-templates',
+      element: (
+        <ProtectedRoute requiredRoles={['hr']}>
+          <SurveyTemplates />
+        </ProtectedRoute>
+      ),
+    },
     // New onboarding routes
     {
       path: '/onboarding',
@@ -344,13 +490,41 @@ const Router: React.FC = () => {
       ),
     },
     {
-      path: '*',
-      element: <NotFound />,
+      path: '/employee/checklists',
+      element: (
+        <ProtectedRoute requiredRoles={['employee']}>
+          <EmployeeChecklists />
+        </ProtectedRoute>
+      ),
     },
     {
-      path: '/checklists/:id',
+      path: '/supervisor/team-checklists',
       element: (
-        <ProtectedRoute>
+        <ProtectedRoute requiredRoles={['supervisor']}>
+          <SupervisorTeamChecklists />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/manager/checklist-dashboard',
+      element: (
+        <ProtectedRoute requiredRoles={['manager']}>
+          <ManagerChecklistDashboard />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/manager/checklists/:id',
+      element: (
+        <ProtectedRoute requiredRoles={['manager']}>
+          <ManagerChecklistDetail />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/checklists/:id/details',
+      element: (
+        <ProtectedRoute requiredRoles={['employee', 'supervisor', 'manager', 'hr']}>
           <ChecklistDetail />
         </ProtectedRoute>
       ),
@@ -362,6 +536,98 @@ const Router: React.FC = () => {
           <ChecklistCreate />
         </ProtectedRoute>
       ),
+    },
+    {
+      path: '/supervisor/team-surveys',
+      element: (
+        <ProtectedRoute requiredRoles={['supervisor']}>
+          <TeamSurveys />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/manager/department-surveys',
+      element: (
+        <ProtectedRoute requiredRoles={['manager']}>
+          <DepartmentSurveys />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/supervisor/evaluations',
+      element: <SupervisorEvaluations />,
+    },
+    {
+      path: '/supervisor/evaluations/new',
+      element: <SupervisorEvaluationCreate />,
+    },
+    {
+      path: '/supervisor/evaluations/:evaluationId/criteria',
+      element: <SupervisorEvaluationCriteria />,
+    },
+    {
+      path: '/supervisor/evaluations/:evaluationId/form',
+      element: <SupervisorEvaluationForm />,
+    },
+    {
+      path: '/manager/evaluations',
+      element: <ManagerEvaluations />,
+    },
+    {
+      path: '/manager/evaluations/reports',
+      element: <ManagerEvaluationReports />,
+    },
+    {
+      path: '/manager/evaluations/:id',
+      element: <ManagerEvaluationDetail />,
+    },
+    {
+      path: '/admin/evaluations',
+      element: <HREvaluations />,
+    },
+    {
+      path: '/admin/evaluations/new',
+      element: <HREvaluationCreate />,
+    },
+    {
+      path: '/admin/evaluations/:id/edit',
+      element: <HREvaluationEdit />,
+    },
+    {
+      path: '/admin/evaluations/:id/criteria',
+      element: <HREvaluationCriteria />,
+    },
+    {
+      path: '/admin/evaluations/reports',
+      element: <HREvaluationReports />,
+    },
+    {
+      path: '/admin/employees/:id/evaluations',
+      element: <EmployeeEvaluations />,
+    },
+    {
+      path: '/admin/evaluation-scheduling',
+      element: <EvaluationScheduling />,
+    },
+    {
+      path: '/admin/onboarding-management',
+      element: (
+        <ProtectedRoute roles={['hr']}>
+          <HROnboardingManagement />
+        </ProtectedRoute>
+      )
+    },
+    {
+      path: '/admin/task-validation',
+      element: (
+        <ProtectedRoute roles={['hr']}>
+          <HRTaskValidation />
+        </ProtectedRoute>
+      )
+    },
+    {
+      path: '*',
+      element: <NotFound />,
     },
   ]);
   

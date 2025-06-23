@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, UserRole } from '../types/user';
+import { User} from '../types/user';
 import authService from '../services/authService';
 
 interface AuthContextType {
@@ -63,6 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('token');
     localStorage.removeItem('pmiUser');
     setUser(null);
+    window.location.href = '/login';
   };
 
   return (

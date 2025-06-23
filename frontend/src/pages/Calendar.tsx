@@ -1,42 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/layout/Layout';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, MapPin, Users } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, MapPin, Users, Edit2, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { eventsService, Event } from '../services/events';
+import { toast } from 'react-hot-toast';
+import EventForm from '../components/events/EventForm';
 
 const Calendar: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [events, setEvents] = useState<Event[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
 
-  // Mock events data
-  const events = [
-    {
-      id: 1,
-      title: 'Team Onboarding Session',
-      date: '2024-03-15',
-      time: '10:00 AM - 11:30 AM',
-      location: 'Conference Room A',
-      attendees: 5,
-      type: 'onboarding',
-    },
-    {
-      id: 2,
-      title: 'HR Training Workshop',
-      date: '2024-03-15',
-      time: '2:00 PM - 4:00 PM',
-      location: 'Training Room 2',
-      attendees: 12,
-      type: 'training',
-    },
-    {
-      id: 3,
-      title: 'New Hire Orientation',
-      date: '2024-03-20',
-      time: '9:00 AM - 12:00 PM',
-      location: 'Main Hall',
-      attendees: 8,
-      type: 'orientation',
-    },
-  ];
+  useEffect(() => {
+    fetchEvents();
+  }, [currentMonth]);
+
+  const fetchEvents = async () => {
+    try {
+      setIsLoading(true);
+      // Adjust filters to match backend expectation of startDate and endDate
+      const year = currentMonth.getFullYear();
+      const month = currentMonth.getMonth();
+      const startOfMonth = new Date(year, month, 1).toISOString();
+      const endOfMonth = new Date(year, month + 1, 0).toISOString();
+
+      const data = await eventsService.getAllEvents({
+        startDate: startOfMonth,
+        endDate: endOfMonth,
+      });
+      setEvents(data);
+    } catch (error) {
+      toast.error('Failed to fetch events');
+      console.error('Error fetching events:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    if (!window.confirm('Are you sure you want to delete this event?')) return;
+    
+    try {
+      await eventsService.deleteEvent(eventId);
+      toast.success('Event deleted successfully');
+      fetchEvents();
+    } catch (error) {
+      toast.error('Failed to delete event');
+      console.error('Error deleting event:', error);
+    }
+  };
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -74,7 +88,8 @@ const Calendar: React.FC = () => {
 
   const days = getDaysInMonth(currentMonth);
 
-  const canAddEvents = user?.role === 'hr' || user?.role === 'manager';
+  const canManageEvents = user?.role === 'hr' || user?.role === 'manager';
+  const canViewAllEvents = user?.role === 'hr';
 
   return (
     <Layout>
@@ -83,11 +98,16 @@ const Calendar: React.FC = () => {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Calendar</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Manage and view all scheduled events and activities
+              {canViewAllEvents 
+                ? 'View and manage all company events'
+                : 'View events relevant to your team'}
             </p>
           </div>
-          {canAddEvents && (
-            <button className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+          {canManageEvents && (
+            <button 
+              onClick={() => setSelectedEvent({} as Event)}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+            >
               <Plus className="h-5 w-5 mr-2" />
               Add Event
             </button>
@@ -115,7 +135,10 @@ const Calendar: React.FC = () => {
                 </button>
               </div>
               <div className="flex space-x-2">
-                <button className="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">
+                <button 
+                  onClick={() => setCurrentMonth(new Date())}
+                  className="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md"
+                >
                   Today
                 </button>
                 <select className="rounded-md border-gray-300 text-sm">
@@ -146,11 +169,12 @@ const Calendar: React.FC = () => {
                       <div className="text-sm font-medium text-gray-900">{day}</div>
                       <div className="mt-2 space-y-1">
                         {events
-                          .filter(event => new Date(event.date).getDate() === day)
+                          .filter(event => new Date(event.startDate).getDate() === day)
                           .map(event => (
                             <div
                               key={event.id}
-                              className={`px-2 py-1 rounded-md text-xs font-medium ${getEventTypeColor(
+                              onClick={() => setSelectedEvent(event)}
+                              className={`px-2 py-1 rounded-md text-xs font-medium cursor-pointer ${getEventTypeColor(
                                 event.type
                               )}`}
                             >
@@ -179,30 +203,53 @@ const Calendar: React.FC = () => {
                     <div className="mt-2 space-y-2">
                       <div className="flex items-center text-sm text-gray-500">
                         <CalendarIcon className="h-4 w-4 mr-2" />
-                        {event.date}
+                        {new Date(event.startDate).toLocaleDateString()}
                       </div>
                       <div className="flex items-center text-sm text-gray-500">
                         <Clock className="h-4 w-4 mr-2" />
-                        {event.time}
+                        {new Date(event.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}
+                        {event.endDate && ` - ${new Date(event.endDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}`}
                       </div>
                       <div className="flex items-center text-sm text-gray-500">
                         <MapPin className="h-4 w-4 mr-2" />
                         {event.location}
                       </div>
-                      <div className="flex items-center text-sm text-gray-500">
-                        <Users className="h-4 w-4 mr-2" />
-                        {event.attendees} attendees
-                      </div>
                     </div>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getEventTypeColor(event.type)}`}>
-                    {event.type}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getEventTypeColor(event.type)}`}>
+                      {event.type}
+                    </span>
+                    {canManageEvents && (
+                      <>
+                        <button
+                          onClick={() => setSelectedEvent(event)}
+                          className="p-1 hover:bg-gray-100 rounded-full"
+                        >
+                          <Edit2 className="h-4 w-4 text-gray-500" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEvent(event.id)}
+                          className="p-1 hover:bg-gray-100 rounded-full"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </div>
+
+        {selectedEvent && (
+          <EventForm
+            event={selectedEvent}
+            onClose={() => setSelectedEvent(null)}
+            onSuccess={fetchEvents}
+          />
+        )}
       </div>
     </Layout>
   );

@@ -1,4 +1,5 @@
 import api from './api';
+import { User } from '../types/user';
 
 export interface Team {
   id: string;
@@ -49,7 +50,12 @@ const teamService = {
   updateTeamSettings: async (settings: TeamSettings): Promise<TeamSettings> => {
     const response = await api.put('/teams/settings', settings);
     return response.data;
-  }
+  },
+
+  getMyTeam: async (): Promise<User[]> => {
+    const response = await api.get('/users/team/members');
+    return response.data;
+  },
 };
 
 export default teamService;

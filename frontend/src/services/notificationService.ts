@@ -47,7 +47,7 @@ const notificationService = {
     return response.data;
   },
 
-  // Specific notification types
+  // Specific notification types for all users
   getReminders: async (): Promise<Notification[]> => {
     const response = await api.get('/notifications/reminders');
     return response.data;
@@ -70,6 +70,54 @@ const notificationService = {
 
   getCoachingSessionNotifications: async (): Promise<Notification[]> => {
     const response = await api.get('/notifications/coaching-sessions');
+    return response.data;
+  },
+
+  getOverdueTasks: async (): Promise<Notification[]> => {
+    const response = await api.get('/notifications/overdue-tasks');
+    return response.data;
+  },
+
+  // Supervisor-specific notifications
+  getTeamProgress: async (): Promise<Notification[]> => {
+    const response = await api.get('/notifications/team-progress');
+    return response.data;
+  },
+
+  getFeedbackSubmissions: async (): Promise<Notification[]> => {
+    const response = await api.get('/notifications/feedback-submissions');
+    return response.data;
+  },
+
+  // Manager-specific notifications
+  getTeamFollowups: async (params?: { department?: string; status?: string }): Promise<Notification[]> => {
+    const response = await api.get('/notifications/team-followups', { params });
+    return response.data;
+  },
+
+  getProbationDeadlines: async (params?: { daysUntil?: number; department?: string }): Promise<Notification[]> => {
+    const response = await api.get('/notifications/probation-deadlines', { params });
+    return response.data;
+  },
+
+  getWeeklyReports: async (params?: { department?: string; week?: string }): Promise<Notification[]> => {
+    const response = await api.get('/notifications/weekly-reports', { params });
+    return response.data;
+  },
+
+  // HR-specific notifications
+  getSystemAlerts: async (params?: { severity?: string; category?: string }): Promise<Notification[]> => {
+    const response = await api.get('/notifications/system-alerts', { params });
+    return response.data;
+  },
+
+  getNewEmployees: async (params?: { days?: number; department?: string }): Promise<Notification[]> => {
+    const response = await api.get('/notifications/new-employees', { params });
+    return response.data;
+  },
+
+  getComplianceAlerts: async (): Promise<Notification[]> => {
+    const response = await api.get('/notifications/compliance-alerts');
     return response.data;
   },
 
