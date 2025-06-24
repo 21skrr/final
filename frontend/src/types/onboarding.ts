@@ -150,10 +150,19 @@ export interface OnboardingDashboardData {
 export interface Task extends OnboardingTask {
   completed: boolean;
   completedAt?: string;
+  completedBy?: string;
   dueDate?: string;
+  hrValidated?: boolean;
+  hrValidatedAt?: string;
+  hrComments?: string;
+  hrValidatedBy?: string;
+  evidenceRequired?: boolean;
+  evidenceUrl?: string;
+  evidenceDescription?: string;
   verificationStatus?: 'pending' | 'approved' | 'rejected';
   verificationNotes?: string;
   verifiedBy?: string;
   verifiedAt?: string;
   progressId?: string;
+  User?: User; // For user details who completed the task
 }
