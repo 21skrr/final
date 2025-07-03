@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Card, Spin, Alert, Typography, Button, message } from 'antd';
+import { Spin, Alert, Typography, Button, message } from 'antd';
 import { useAuth } from '../context/AuthContext';
 import OnboardingPhase from '../components/onboarding/OnboardingPhase';
 import OnboardingSummary from '../components/onboarding/OnboardingSummary';
-import { OnboardingJourney, Task } from '../types/onboarding';
+import { OnboardingJourney, Task, OnboardingStage } from '../types/onboarding';
 import onboardingService from '../services/onboardingService';
 
 const { Title } = Typography;
@@ -54,7 +54,48 @@ const OnboardingDetail: React.FC = () => {
           throw new Error('Insufficient permissions to view this onboarding journey');
         }
         
-        setJourney(data);
+        // Map API response to OnboardingJourney shape if needed
+        const rawData = data as unknown;
+        const tasksByPhase = (rawData as { tasksByPhase?: Record<string, Task[]> }).tasksByPhase || {};
+        const perPhaseProgress = typeof (rawData as { progress?: unknown }).progress === 'object' ? (rawData as { progress: Record<string, number> }).progress : {};
+        const mappedJourney = {
+          user: data.User,
+          progress: {
+            id: data.id,
+            stage: data.stage,
+            progress: typeof data.progress === 'number' ? data.progress : 0,
+            stageStartDate: data.stageStartDate,
+            estimatedCompletionDate: data.estimatedCompletionDate,
+            UserId: data.User?.id,
+            User: data.User,
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt,
+          },
+          overallProgress: typeof data.progress === 'number' ? data.progress : 0,
+          currentStage: data.stage,
+          tasksCompleted: Object.values(tasksByPhase).flat().filter((task: unknown) => {
+            const t = task as Task;
+            return t.completed || (typeof t === 'object' && t !== null && 'isCompleted' in t && (t as { isCompleted?: boolean }).isCompleted);
+          }).length,
+          totalTasks: Object.values(tasksByPhase).flat().length,
+          phases: (Object.keys(tasksByPhase) as string[]).map(phaseKey => ({
+            stage: phaseKey as OnboardingStage,
+            title: phaseKey.charAt(0).toUpperCase() + phaseKey.slice(1),
+            description: '',
+            tasks: (tasksByPhase[phaseKey] || []).map((task: unknown) => {
+              const t = task as Task;
+              return {
+                ...t,
+                id: t.id ?? '',
+                completed: typeof t.completed === 'boolean' ? t.completed : (typeof t === 'object' && t !== null && 'isCompleted' in t && (t as { isCompleted?: boolean }).isCompleted) || false,
+              };
+            }),
+            completionPercentage: typeof perPhaseProgress[phaseKey] === 'number' ? perPhaseProgress[phaseKey] : 0,
+            isActive: data.stage === phaseKey,
+            isCompleted: typeof perPhaseProgress[phaseKey] === 'number' && perPhaseProgress[phaseKey] === 100,
+          })),
+        };
+        setJourney(mappedJourney);
         setError(null);
       } catch (err) {
         console.error('Failed to fetch onboarding journey:', err);
@@ -77,8 +118,6 @@ const OnboardingDetail: React.FC = () => {
     }
     
     try {
-      const targetUserId = userId || user.id;
-      
       // Use role-appropriate endpoint
       if (isHR) {
         await onboardingService.updateTaskCompletion(taskId, true);
@@ -88,17 +127,16 @@ const OnboardingDetail: React.FC = () => {
         message.error('You do not have permission to complete tasks');
         return;
       }
-      
       // Update local state
       const updatedJourney = { ...journey };
-      const task = updatedJourney.phases[phaseIndex].tasks.find(t => t.id === taskId) as Task;
-      
-      if (task) {
-        task.completed = true;
-        task.completedAt = new Date().toISOString();
-        setJourney(updatedJourney);
+      if (updatedJourney.phases && updatedJourney.phases[phaseIndex]) {
+        const task = updatedJourney.phases[phaseIndex].tasks.find(t => t.id === taskId) as Task;
+        if (task) {
+          task.completed = true;
+          task.completedAt = new Date().toISOString();
+          setJourney(updatedJourney);
+        }
       }
-      
       message.success('Task marked as complete');
     } catch (err) {
       console.error('Failed to complete task:', err);
@@ -149,6 +187,7 @@ const OnboardingDetail: React.FC = () => {
         setJourney(updatedJourney);
       }
     } catch (err) {
+      console.error('Failed to verify task:', err);
       message.error('Failed to verify task. Please try again.');
     }
   };
@@ -206,7 +245,9 @@ const OnboardingDetail: React.FC = () => {
     <div className="max-w-5xl mx-auto py-8 px-4">
       <div className="flex justify-between items-center mb-6">
         <Title level={2}>
-          {isViewingOwnJourney ? 'My Onboarding Journey' : `${journey.user.name}'s Onboarding Journey`}
+          {isViewingOwnJourney
+            ? 'My Onboarding Journey'
+            : `${journey.user && journey.user.name ? journey.user.name : 'Employee'}'s Onboarding Journey`}
         </Title>
         
         {/* Show role-specific information */}

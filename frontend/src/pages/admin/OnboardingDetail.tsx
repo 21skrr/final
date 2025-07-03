@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { Button, Progress, Tag, message, Card, Timeline, Spin, Modal, Input, Divider, List, Checkbox } from 'antd';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Button, Progress, Tag, message, Card, Spin, Modal, Input, Divider, Checkbox } from 'antd';
 import { 
   CheckCircleOutlined, 
   ClockCircleOutlined, 
@@ -44,6 +44,7 @@ interface ProgressData {
 
 const OnboardingDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [employeeName, setEmployeeName] = useState('');
   const [progress, setProgress] = useState<OnboardingProgress | null>(null);
@@ -89,7 +90,7 @@ const OnboardingDetail: React.FC = () => {
   const fetchOnboardingDetails = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/onboarding/progress/${id}`);
+      const response = await fetch(`/api/onboarding/progress/${id}/hr`);
       if (!response.ok) {
         throw new Error('Failed to fetch onboarding details');
       }
@@ -98,13 +99,21 @@ const OnboardingDetail: React.FC = () => {
       
       setProgress({
         stage: data.currentStage,
-        progress: data.progress.overall || 0,
+        progress: data.progress?.overall || 0,
         status: data.status || 'in_progress',
         stageStartDate: data.stageStartDate,
         estimatedCompletionDate: data.estimatedCompletionDate
       });
 
-      setTasksByPhase(data.tasksByPhase || {});
+      // Map isCompleted to completed for each task in each phase
+      const tasksByPhase = data.tasksByPhase || {};
+      Object.keys(tasksByPhase).forEach(phase => {
+        tasksByPhase[phase] = tasksByPhase[phase].map((task: Record<string, unknown>) => ({
+          ...task,
+          completed: task.isCompleted
+        }));
+      });
+      setTasksByPhase(tasksByPhase);
       setProgressByPhase(data.progress || {});
 
       const userResponse = await fetch(`/api/users/${id}`);
@@ -198,6 +207,34 @@ const OnboardingDetail: React.FC = () => {
     setValidationModalVisible(true);
   };
 
+  // Add userRole detection (assume from localStorage for now)
+  const userRole = window.localStorage.getItem('role');
+
+  // Save & Exit handler for HR
+  const handleSaveAndExit = async () => {
+    try {
+      const response = await fetch(`/api/onboarding/progress/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tasks: Object.values(tasksByPhase).flat().map(task => ({
+            id: task.id,
+            completed: task.completed,
+            hrValidated: task.hrValidated,
+            // add other fields if needed
+          }))
+        })
+      });
+      if (!response.ok) throw new Error('Failed to save progress');
+      message.success('Progress saved!');
+      if (window.location.pathname !== '/admin/onboarding-management') {
+        navigate('/admin/onboarding-management');
+      }
+    } catch {
+      message.error('Failed to save progress');
+    }
+  };
+
   if (loading || !progress) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -219,13 +256,23 @@ const OnboardingDetail: React.FC = () => {
               }
             </div>
           </div>
-          <Button 
-            type="primary" 
-            onClick={handleAdvancePhase}
-            disabled={progress.progress < 100}
-          >
-            Advance to Next Phase
-          </Button>
+          <div className="flex gap-2">
+            {userRole === 'hr' && (
+              <Button
+                type="default"
+                onClick={handleSaveAndExit}
+              >
+                Save & Exit
+              </Button>
+            )}
+            <Button 
+              type="primary" 
+              onClick={handleAdvancePhase}
+              disabled={progress.progress < 100}
+            >
+              Advance to Next Phase
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4">

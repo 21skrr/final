@@ -59,6 +59,7 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
   };
 
   const canValidateTask = (task: Task) => {
+    if (!task || typeof task.completed !== 'boolean') return false;
     return currentUser?.role === 'hr' && task.completed && !task.hrValidated;
   };
 
