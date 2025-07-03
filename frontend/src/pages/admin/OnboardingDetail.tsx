@@ -7,7 +7,8 @@ import {
   ExclamationCircleOutlined,
   CheckOutlined,
   CloseOutlined,
-  CommentOutlined
+  CommentOutlined,
+  SaveOutlined
 } from '@ant-design/icons';
 
 interface Task {
@@ -54,6 +55,8 @@ const OnboardingDetail: React.FC = () => {
   const [validationModalVisible, setValidationModalVisible] = useState(false);
   const [validationComment, setValidationComment] = useState('');
   const [validationLoading, setValidationLoading] = useState(false);
+  const [completedTasks, setCompletedTasks] = useState<Record<string, boolean>>({});
+  const [hasChanges, setHasChanges] = useState(false);
 
   const phases = [
     {
@@ -87,6 +90,30 @@ const OnboardingDetail: React.FC = () => {
     fetchOnboardingDetails();
   }, [id]);
 
+  useEffect(() => {
+    if (Object.keys(tasksByPhase).length > 0) {
+      const initialCompleted: Record<string, boolean> = {};
+      Object.values(tasksByPhase).flat().forEach(task => {
+        initialCompleted[task.id] = task.completed;
+      });
+      setCompletedTasks(initialCompleted);
+    }
+  }, [tasksByPhase]);
+
+  useEffect(() => {
+    // Check for changes whenever completedTasks updates
+    if (Object.keys(tasksByPhase).length > 0) {
+      const initialCompletedTasks: Record<string, boolean> = Object.values(tasksByPhase).flat()
+        .reduce((acc, task) => ({ ...acc, [task.id]: task.completed }), {});
+      
+      const changesExist = Object.keys(completedTasks).some(
+        taskId => completedTasks[taskId] !== initialCompletedTasks[taskId]
+      );
+      
+      setHasChanges(changesExist);
+    }
+  }, [completedTasks, tasksByPhase]);
+
   const fetchOnboardingDetails = async () => {
     try {
       setLoading(true);
@@ -105,7 +132,6 @@ const OnboardingDetail: React.FC = () => {
         estimatedCompletionDate: data.estimatedCompletionDate
       });
 
-      // Map isCompleted to completed for each task in each phase
       const tasksByPhase = data.tasksByPhase || {};
       Object.keys(tasksByPhase).forEach(phase => {
         tasksByPhase[phase] = tasksByPhase[phase].map((task: Record<string, unknown>) => ({
@@ -128,6 +154,13 @@ const OnboardingDetail: React.FC = () => {
       message.error('Failed to load onboarding details');
       setLoading(false);
     }
+  };
+
+  const handleTaskCompletionChange = (taskId: string, isChecked: boolean) => {
+    setCompletedTasks(prev => ({
+      ...prev,
+      [taskId]: isChecked
+    }));
   };
 
   const handleValidateTask = async (taskId: string, isValidated: boolean) => {
@@ -207,30 +240,42 @@ const OnboardingDetail: React.FC = () => {
     setValidationModalVisible(true);
   };
 
-  // Add userRole detection (assume from localStorage for now)
-  const userRole = window.localStorage.getItem('role');
+  const confirmSaveAndExit = () => {
+    if (!hasChanges) {
+      navigate('/admin/onboarding-management');
+      return;
+    }
+    
+    Modal.confirm({
+      title: 'Save Changes',
+      content: 'Are you sure you want to save your changes and exit?',
+      okText: 'Yes, Save & Exit',
+      cancelText: 'Cancel',
+      onOk: handleSaveAndExit
+    });
+  };
 
-  // Save & Exit handler for HR
   const handleSaveAndExit = async () => {
     try {
       const response = await fetch(`/api/onboarding/progress/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tasks: Object.values(tasksByPhase).flat().map(task => ({
-            id: task.id,
-            completed: task.completed,
-            hrValidated: task.hrValidated,
-            // add other fields if needed
+          tasks: Object.entries(completedTasks).map(([taskId, isCompleted]) => ({
+            id: taskId,
+            completed: isCompleted,
+            hrValidated: tasksByPhase[Object.keys(tasksByPhase)[0]]
+              .find(t => t.id === taskId)?.hrValidated || false
           }))
         })
       });
+      
       if (!response.ok) throw new Error('Failed to save progress');
-      message.success('Progress saved!');
-      if (window.location.pathname !== '/admin/onboarding-management') {
-        navigate('/admin/onboarding-management');
-      }
-    } catch {
+      
+      message.success('Progress saved successfully!');
+      navigate('/admin/onboarding-management');
+    } catch (error) {
+      console.error('Error saving progress:', error);
       message.error('Failed to save progress');
     }
   };
@@ -244,7 +289,8 @@ const OnboardingDetail: React.FC = () => {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 relative pb-16">
+      {/* Header Section */}
       <Card className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <div>
@@ -257,18 +303,20 @@ const OnboardingDetail: React.FC = () => {
             </div>
           </div>
           <div className="flex gap-2">
-            {userRole === 'hr' && (
-              <Button
-                type="default"
-                onClick={handleSaveAndExit}
-              >
-                Save & Exit
-              </Button>
-            )}
+            <Button
+              type={hasChanges ? "primary" : "default"}
+              onClick={confirmSaveAndExit}
+              icon={<SaveOutlined />}
+              style={{ minWidth: 150 }}
+              size="large"
+            >
+              {hasChanges ? 'Save & Exit' : 'Exit'}
+            </Button>
             <Button 
-              type="primary" 
+              type="default" 
               onClick={handleAdvancePhase}
               disabled={progress.progress < 100}
+              size="large"
             >
               Advance to Next Phase
             </Button>
@@ -294,6 +342,7 @@ const OnboardingDetail: React.FC = () => {
         </div>
       </Card>
 
+      {/* Phases and Tasks */}
       {phases.map(phase => {
         const phaseTasks = tasksByPhase[phase.key] || [];
         const phaseProgress = progressByPhase[phase.key] || 0;
@@ -310,7 +359,7 @@ const OnboardingDetail: React.FC = () => {
                   <p className="text-sm text-gray-600 mt-1">{phase.description}</p>
                 </div>
                 <Tag color={isCurrentPhase ? 'blue' : undefined}>
-                  {isCurrentPhase ? 'Current' : 'Upcoming'}
+                  {isCurrentPhase ? 'Current' : phaseProgress > 0 ? 'In Progress' : 'Upcoming'}
                 </Tag>
               </div>
             }
@@ -334,8 +383,9 @@ const OnboardingDetail: React.FC = () => {
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-3">
                           <Checkbox 
-                            checked={task.completed}
-                            disabled={true}
+                            checked={completedTasks[task.id] || false}
+                            onChange={(e) => handleTaskCompletionChange(task.id, e.target.checked)}
+                            style={{ transform: 'scale(1.3)', marginRight: 16 }}
                           />
                           <div>
                             <h4 className="text-base font-medium m-0">{task.title}</h4>
@@ -344,7 +394,7 @@ const OnboardingDetail: React.FC = () => {
                         </div>
                         {getTaskStatusTag(task)}
                       </div>
-                      <div className="ml-7">
+                      <div className="ml-12">
                         <div className="flex flex-wrap gap-4 text-sm text-gray-500">
                           {task.completedAt && (
                             <span className="flex items-center">
@@ -389,6 +439,31 @@ const OnboardingDetail: React.FC = () => {
         );
       })}
 
+      {/* Floating Save Button */}
+      {hasChanges && (
+        <div style={{
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          zIndex: 1000
+        }}>
+          <Button 
+            type="primary"
+            size="large"
+            shape="round"
+            onClick={confirmSaveAndExit}
+            icon={<SaveOutlined />}
+            style={{
+              height: 48,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+            }}
+          >
+            Save Changes
+          </Button>
+        </div>
+      )}
+
+      {/* Validation Modal */}
       <Modal
         title="Task Validation"
         open={validationModalVisible}
@@ -444,4 +519,4 @@ const OnboardingDetail: React.FC = () => {
   );
 };
 
-export default OnboardingDetail; 
+export default OnboardingDetail;
