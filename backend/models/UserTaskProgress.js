@@ -56,6 +56,14 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: false,
       },
+      hrValidatedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      hrComments: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
     },
     {
       sequelize,

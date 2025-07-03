@@ -41,6 +41,11 @@ const OnboardingTask = sequelize.define(
       allowNull: false,
       defaultValue: false,
     },
+    hrValidated: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
   },
   {
     timestamps: true,

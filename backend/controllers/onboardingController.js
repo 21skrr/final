@@ -1167,6 +1167,7 @@ const getDetailedProgress = async (req, res) => {
 // HR validates a task (HR only)
 const validateTask = async (req, res) => {
   const { taskId } = req.params;
+  const { userId, comments } = req.body;
   
   try {
     // Only HR can validate tasks
@@ -1174,16 +1175,36 @@ const validateTask = async (req, res) => {
       return res.status(403).json({ error: 'Only HR can validate tasks' });
     }
 
+    // Find the task
     const task = await OnboardingTask.findByPk(taskId);
     
     if (!task) {
       return res.status(404).json({ error: 'Task not found' });
     }
     
+    // Update the task's hrValidated status
     await task.update({ hrValidated: true });
     
+    // If userId is provided, update the specific user's task progress
+    if (userId) {
+      const userTaskProgress = await UserTaskProgress.findOne({
+        where: { 
+          UserId: userId,
+          OnboardingTaskId: taskId 
+        }
+      });
+      
+      if (userTaskProgress) {
+        await userTaskProgress.update({
+          hrValidated: true,
+          hrValidatedAt: new Date(),
+          hrComments: comments || null
+        });
+      }
+    }
+    
     // Get updated phase progress
-    const phaseProgress = await calculatePhaseProgress(req.user.id, task.stage);
+    const phaseProgress = await calculatePhaseProgress(userId || req.user.id, task.stage);
     
     res.json({
       message: 'Task validated successfully',

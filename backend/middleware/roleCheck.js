@@ -135,6 +135,34 @@ const onboardingPermissions = {
     next();
   },
 
+  // Supervisor or HR can access
+  supervisorOrHR: async (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    if (!['supervisor', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({ message: "Supervisor or HR access only" });
+    }
+
+    // For supervisors, check if they're accessing their direct reports
+    if (req.user.role === 'supervisor') {
+      const targetUserId = req.params.userId || req.params.id;
+      if (targetUserId && targetUserId !== req.user.id) {
+        try {
+          const targetUser = await User.findByPk(targetUserId);
+          if (!targetUser || targetUser.supervisorId !== req.user.id) {
+            return res.status(403).json({ message: "Supervisors can only access their direct reports" });
+          }
+        } catch (error) {
+          return res.status(500).json({ message: "Error validating access" });
+        }
+      }
+    }
+
+    next();
+  },
+
   // Check if user can advance phases
   canAdvancePhases: async (req, res, next) => {
     if (!req.user) {

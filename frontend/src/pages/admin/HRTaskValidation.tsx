@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Tag, Card, Select, message, Tabs, Progress } from 'antd';
-import { CheckCircleOutlined, ClockCircleOutlined, UserOutlined } from '@ant-design/icons';
+import { Table, Button, Tag, Card, Select, message, Tabs, Progress, Modal, Input } from 'antd';
+import { CheckCircleOutlined, ClockCircleOutlined, UserOutlined, CommentOutlined } from '@ant-design/icons';
 import type { TabsProps } from 'antd';
 
 interface Employee {
@@ -30,6 +30,9 @@ const HRTaskValidation: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<ProgressData>({});
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [currentTask, setCurrentTask] = useState<{id: string, title: string} | null>(null);
+  const [comments, setComments] = useState('');
 
   const phases = ['prepare', 'orient', 'land', 'integrate', 'excel'];
   const phaseNames = {
@@ -78,13 +81,17 @@ const HRTaskValidation: React.FC = () => {
     }
   };
 
-  const handleValidateTask = async (taskId: string) => {
+  const handleValidateTask = async (taskId: string, userId: string, comments?: string) => {
     try {
       const response = await fetch(`/api/onboarding/tasks/${taskId}/validate`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({
+          userId,
+          comments
+        })
       });
       
       if (!response.ok) throw new Error('Failed to validate task');
@@ -129,12 +136,29 @@ const HRTaskValidation: React.FC = () => {
       key: 'actions',
       render: (task: Task) => (
         task.completed && !task.hrValidated ? (
-          <Button 
-            type="primary"
-            onClick={() => handleValidateTask(task.id)}
-          >
-            Validate
-          </Button>
+          <div className="flex space-x-2">
+            <Button 
+              type="primary"
+              onClick={() => {
+                if (selectedEmployee) {
+                  handleValidateTask(task.id, selectedEmployee);
+                }
+              }}
+            >
+              Validate
+            </Button>
+            <Button 
+              type="default"
+              icon={<CommentOutlined />}
+              onClick={() => {
+                setCurrentTask({ id: task.id, title: task.title });
+                setComments('');
+                setIsModalVisible(true);
+              }}
+            >
+              With Comments
+            </Button>
+          </div>
         ) : null
       )
     }
@@ -207,8 +231,29 @@ const HRTaskValidation: React.FC = () => {
           </div>
         )}
       </Card>
+
+      {/* Modal for adding comments */}
+      <Modal
+        title={`Validate Task: ${currentTask?.title || ''}`}
+        open={isModalVisible}
+        onOk={() => {
+          if (currentTask && selectedEmployee) {
+            handleValidateTask(currentTask.id, selectedEmployee, comments);
+            setIsModalVisible(false);
+          }
+        }}
+        onCancel={() => setIsModalVisible(false)}
+      >
+        <p>Add comments for this task validation:</p>
+        <Input.TextArea 
+          rows={4} 
+          value={comments} 
+          onChange={(e) => setComments(e.target.value)} 
+          placeholder="Enter your comments here..."
+        />
+      </Modal>
     </div>
   );
 };
 
-export default HRTaskValidation; 
+export default HRTaskValidation;

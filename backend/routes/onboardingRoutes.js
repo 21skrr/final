@@ -21,14 +21,14 @@ router.get('/progress/detailed', auth, onboardingPermissions.employee, onboardin
 // --- Supervisor Routes (Access to direct reports) ---
 
 // GET /api/onboarding/progress/:userId - Get specific user's data (Supervisor/HR)
-router.get("/progress/:userId", auth, onboardingPermissions.supervisor, onboardingController.getUserOnboardingProgress);
+router.get("/progress/:userId", auth, onboardingPermissions.supervisorOrHR, onboardingController.getUserOnboardingProgress);
 
 // PUT /api/onboarding/progress/:userId - Update user progress (Supervisor/HR)
 router.put(
   "/progress/:userId",
   [
     auth,
-    onboardingPermissions.supervisor,
+    onboardingPermissions.supervisorOrHR,
     check("stage", "Stage is required").optional().isIn(["prepare", "orient", "land", "integrate", "excel"]),
     check("progress", "Progress must be a number between 0 and 100").optional().isInt({ min: 0, max: 100 }),
   ],
