@@ -16,8 +16,8 @@ const { Parser } = require("json2csv");
 const { v4: uuidv4 } = require("uuid");
 const { getSystemSetting } = require("../utils/systemSettingsService");
 
-// Employee: Get my onboarding progress
-// GET /api/onboarding/journey
+// Employee: Get my onboarding progress (Read-only)
+// GET /api/onboarding/progress/me
 const getMyProgress = async (req, res) => {
   try {
     const progress = await OnboardingProgress.findOne({
@@ -41,18 +41,23 @@ const getMyProgress = async (req, res) => {
       return res.status(404).json({ message: "Onboarding progress not found" });
     }
 
-    // Get tasks and checklist data if needed
-    // (This can be expanded based on your specific requirements)
+    // For employees, return read-only data without task editing capabilities
+    const response = {
+      ...progress.toJSON(),
+      canEdit: false,
+      canAdvance: false,
+      canValidate: false
+    };
 
-    res.json(progress);
+    res.json(response);
   } catch (error) {
     console.error("Error fetching onboarding progress:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-// HR: Get onboarding progress for a specific employee
-// GET /api/onboarding/journey/:userId
+// Supervisor/HR: Get onboarding progress for a specific employee
+// GET /api/onboarding/progress/:userId
 const getUserProgress = async (req, res) => {
   try {
     const requestingUser = req.user;
@@ -67,6 +72,12 @@ const getUserProgress = async (req, res) => {
       const user = await User.findByPk(targetUserId);
       if (!user || user.supervisorId !== requestingUser.id) {
         return res.status(403).json({ message: "Supervisors can only view progress for their direct reports." });
+      }
+    } else if (requestingUser.role === 'manager') {
+      // Managers have read-only access
+      const user = await User.findByPk(targetUserId);
+      if (!user || user.department !== requestingUser.department) {
+        return res.status(403).json({ message: "Managers can only view progress for their department." });
       }
     } else {
       return res.status(403).json({ message: "Not authorized" });
@@ -93,15 +104,23 @@ const getUserProgress = async (req, res) => {
       return res.status(404).json({ message: "Onboarding progress not found" });
     }
 
-    res.json(progress);
+    // Add permission flags based on user role
+    const response = {
+      ...progress.toJSON(),
+      canEdit: requestingUser.role === 'hr' || (requestingUser.role === 'supervisor' && requestingUser.id !== targetUserId),
+      canAdvance: requestingUser.role === 'hr' || (requestingUser.role === 'supervisor' && requestingUser.id !== targetUserId),
+      canValidate: requestingUser.role === 'hr'
+    };
+
+    res.json(response);
   } catch (error) {
     console.error("Error fetching onboarding progress:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-// HR/Admin: Get all onboarding progresses
-// GET /api/onboarding/progresses
+// HR: Get all onboarding progresses
+// GET /api/onboarding/progress
 const getAllProgresses = async (req, res) => {
   try {
     // Verify the user has permission - Only HR can view all.
@@ -132,50 +151,20 @@ const getAllProgresses = async (req, res) => {
   }
 };
 
-// Employee: Update my onboarding progress
+// Employee: Update my onboarding progress (Read-only for employees)
 // PUT /api/onboarding/journey
 const updateMyProgress = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const progress = await OnboardingProgress.findOne({
-      where: { UserId: req.user.id },
-    });
-
-    if (!progress) {
-      return res.status(404).json({ message: "Onboarding progress not found" });
-    }
-
-    // Update progress with request data
-    // Note: You might want to restrict what an employee can update
-    const { progress: progressValue } = req.body;
-
-    if (progressValue !== undefined) {
-      await progress.update({ progress: progressValue });
-    }
-
-    const updatedProgress = await OnboardingProgress.findOne({
-      where: { UserId: req.user.id },
-      include: [
-        {
-          model: User,
-          attributes: ["id", "name", "email", "role", "department"],
-        },
-      ],
-    });
-
-    res.json(updatedProgress);
+    // Employees cannot update their own progress
+    return res.status(403).json({ message: "Employees cannot update their own onboarding progress" });
   } catch (error) {
     console.error("Error updating onboarding progress:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-// HR: Update onboarding progress for an employee
-// PUT /api/onboarding/journey/:userId
+// Supervisor/HR: Update onboarding progress for an employee
+// PUT /api/onboarding/progress/:userId
 const updateUserProgress = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -188,6 +177,14 @@ const updateUserProgress = async (req, res) => {
       return res.status(403).json({ message: "Not authorized" });
     }
 
+    // For supervisors, check if they're updating their direct report
+    if (req.user.role === "supervisor") {
+      const targetUser = await User.findByPk(req.params.userId);
+      if (!targetUser || targetUser.supervisorId !== req.user.id) {
+        return res.status(403).json({ message: "Supervisors can only update their direct reports' progress" });
+      }
+    }
+
     const progress = await OnboardingProgress.findOne({
       where: { UserId: req.params.userId },
     });
@@ -198,20 +195,13 @@ const updateUserProgress = async (req, res) => {
 
     const { stage, progress: progressValue } = req.body;
 
-    // Update progress
-    const updateData = {};
-    if (stage) {
-      updateData.stage = stage;
-      updateData.stageStartDate = new Date();
-      updateData.estimatedCompletionDate = new Date(
-        Date.now() + 30 * 24 * 60 * 60 * 1000
-      ); // 30 days from now
-    }
-    if (progressValue !== undefined) {
-      updateData.progress = progressValue;
+    if (stage !== undefined) {
+      await progress.update({ stage });
     }
 
-    await progress.update(updateData);
+    if (progressValue !== undefined) {
+      await progress.update({ progress: progressValue });
+    }
 
     const updatedProgress = await OnboardingProgress.findOne({
       where: { UserId: req.params.userId },
@@ -904,66 +894,100 @@ const createJourney = async (req, res) => {
 
 // Calculate progress for a specific phase and user
 const calculatePhaseProgress = async (userId, phase) => {
+  // Get all tasks for this phase
   const tasks = await OnboardingTask.findAll({
-    where: { 
-      stage: phase,
+    where: { stage: phase }
+  });
+  if (tasks.length === 0) return 0;
+
+  // Get user-specific progress for these tasks
+  const userTaskProgresses = await UserTaskProgress.findAll({
+    where: {
+      UserId: userId,
+      OnboardingTaskId: tasks.map(t => t.id)
     }
   });
-  
-  if (tasks.length === 0) return 0;
-  
-  const completedAndValidated = tasks.filter(task => 
-    task.completed && task.hrValidated
+
+  // Count completed and validated tasks for this user in this phase
+  const completedAndValidated = userTaskProgresses.filter(
+    utp => utp.isCompleted && utp.hrValidated
   ).length;
-  
+
   return Math.round((completedAndValidated / tasks.length) * 100);
 };
 
 // Get user's onboarding progress
 const getUserOnboardingProgress = async (req, res) => {
   const { userId } = req.params;
-  
   try {
     const phases = ['prepare', 'orient', 'land', 'integrate', 'excel'];
     const progress = {};
     const tasksByPhase = {};
-    
+
     // Get user's onboarding progress record
     const onboardingProgress = await OnboardingProgress.findOne({
       where: { UserId: userId }
     });
-    
     if (!onboardingProgress) {
       return res.status(404).json({ error: 'Onboarding progress not found for user' });
     }
-    
-    // Get all tasks grouped by phase
+
+    // For each phase, get all tasks and merge with user-specific progress
     for (const phase of phases) {
       const tasks = await OnboardingTask.findAll({
         where: { stage: phase },
         order: [['order', 'ASC']],
-        attributes: ['id', 'title', 'stage', 'completed', 'hrValidated', 'order', 'description']
       });
-      
-      tasksByPhase[phase] = tasks;
+
+      // Ensure every task has a UserTaskProgress for this user
+      for (const task of tasks) {
+        const userTask = await UserTaskProgress.findOne({
+          where: { UserId: userId, OnboardingTaskId: task.id }
+        });
+        if (!userTask) {
+          await UserTaskProgress.create({
+            UserId: userId,
+            OnboardingTaskId: task.id,
+            isCompleted: false,
+            hrValidated: false
+          });
+        }
+      }
+
+      // Now fetch with user progress as before
+      const tasksWithUserProgress = await Promise.all(tasks.map(async (task) => {
+        const userTask = await UserTaskProgress.findOne({
+          where: { UserId: userId, OnboardingTaskId: task.id }
+        });
+        return {
+          id: task.id,
+          title: task.title,
+          description: task.description,
+          stage: task.stage,
+          order: task.order,
+          controlledBy: task.controlledBy,
+          isDefault: task.isDefault,
+          isCompleted: userTask ? userTask.isCompleted : false,
+          completedAt: userTask ? userTask.completedAt : null,
+          hrValidated: userTask ? userTask.hrValidated : false,
+          notes: userTask ? userTask.notes : null,
+        };
+      }));
+      tasksByPhase[phase] = tasksWithUserProgress;
       progress[phase] = await calculatePhaseProgress(userId, phase);
     }
-    
-    // Calculate overall progress
-    const allTasks = await OnboardingTask.findAll();
-    const completedAndValidated = allTasks.filter(task => 
-      task.completed && task.hrValidated
-    ).length;
-    
-    progress.overall = allTasks.length === 0 ? 0 : 
-      Math.round((completedAndValidated / allTasks.length) * 100);
-    
+
+    // Calculate overall progress (percentage of completed+validated tasks for this user)
+    const allUserTasks = await UserTaskProgress.findAll({ where: { UserId: userId } });
+    const completedAndValidated = allUserTasks.filter(task => task.isCompleted && task.hrValidated).length;
+    progress.overall = allUserTasks.length === 0 ? 0 : Math.round((completedAndValidated / allUserTasks.length) * 100);
+
     // Update progress in onboardingprogresses table
     await onboardingProgress.update({
       progress: progress.overall,
       status: progress.overall === 100 ? 'completed' : 'in_progress'
     });
-    
+
     res.json({
       progress,
       tasksByPhase,
@@ -972,23 +996,41 @@ const getUserOnboardingProgress = async (req, res) => {
       stageStartDate: onboardingProgress.stageStartDate,
       estimatedCompletionDate: onboardingProgress.estimatedCompletionDate
     });
-    
   } catch (error) {
     console.error('Error getting user onboarding progress:', error);
     res.status(500).json({ error: 'Failed to get onboarding progress' });
   }
 };
 
-// Update task completion and validation status
+// Update task completion and validation status (Supervisor/HR only)
 const updateTaskStatus = async (req, res) => {
   const { taskId } = req.params;
   const { completed, hrValidated } = req.body;
   
   try {
+    // Check if user can edit tasks
+    if (!['hr', 'supervisor'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Task editing not allowed for this role' });
+    }
+
     const task = await OnboardingTask.findByPk(taskId);
     
     if (!task) {
       return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // For supervisors, check if they're editing their direct report's task
+    if (req.user.role === 'supervisor') {
+      const userTaskProgress = await UserTaskProgress.findOne({
+        where: { OnboardingTaskId: taskId }
+      });
+      
+      if (userTaskProgress) {
+        const targetUser = await User.findByPk(userTaskProgress.UserId);
+        if (!targetUser || targetUser.supervisorId !== req.user.id) {
+          return res.status(403).json({ error: 'Supervisors can only edit their direct reports\' tasks' });
+        }
+      }
     }
     
     await task.update({
@@ -1010,9 +1052,14 @@ const updateTaskStatus = async (req, res) => {
   }
 };
 
-// Get all default onboarding tasks grouped by stage
+// Get all default onboarding tasks grouped by stage (HR only)
 const getDefaultTasks = async (req, res) => {
   try {
+    // Allow employees and HR to access default tasks
+    if (!['hr', 'employee'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Only HR and employees can access default tasks' });
+    }
+
     const tasks = await OnboardingTask.findAll({
       where: { isDefault: 1 },
       order: [['stage', 'ASC'], ['order', 'ASC']]
@@ -1030,11 +1077,24 @@ const getDefaultTasks = async (req, res) => {
   }
 };
 
-// Advance to next onboarding phase
+// Advance to next onboarding phase (Supervisor/HR only)
 const advanceToNextPhase = async (req, res) => {
   try {
     const { userId } = req.params;
-    // Only HR/manager can advance, but route already checks role
+    
+    // Check if user can advance phases
+    if (!['hr', 'supervisor'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Phase advancement not allowed for this role' });
+    }
+
+    // For supervisors, check if they're advancing their direct report's phase
+    if (req.user.role === 'supervisor') {
+      const targetUser = await User.findByPk(userId);
+      if (!targetUser || targetUser.supervisorId !== req.user.id) {
+        return res.status(403).json({ message: 'Supervisors can only advance their direct reports\' phases' });
+      }
+    }
+
     const progress = await OnboardingProgress.findOne({ where: { UserId: userId } });
     if (!progress) {
       return res.status(404).json({ message: 'Onboarding progress not found' });
@@ -1061,9 +1121,14 @@ const advanceToNextPhase = async (req, res) => {
   }
 };
 
-// Get detailed progress for all phases
+// Get detailed progress for all phases (Employee only - read-only)
 const getDetailedProgress = async (req, res) => {
   try {
+    // Only employees can access their own detailed progress
+    if (req.user.role !== 'employee') {
+      return res.status(403).json({ message: 'Only employees can access their own detailed progress' });
+    }
+
     const phases = ['prepare', 'orient', 'land', 'integrate', 'excel'];
     const progress = {};
     const tasksByPhase = {};
@@ -1090,7 +1155,8 @@ const getDetailedProgress = async (req, res) => {
       progress,
       tasksByPhase,
       totalTasks,
-      totalValidated
+      totalValidated,
+      canEdit: false // Employees cannot edit tasks
     });
   } catch (error) {
     console.error('Error calculating progress:', error);
@@ -1098,11 +1164,16 @@ const getDetailedProgress = async (req, res) => {
   }
 };
 
-// HR validates a task
+// HR validates a task (HR only)
 const validateTask = async (req, res) => {
   const { taskId } = req.params;
   
   try {
+    // Only HR can validate tasks
+    if (req.user.role !== 'hr') {
+      return res.status(403).json({ error: 'Only HR can validate tasks' });
+    }
+
     const task = await OnboardingTask.findByPk(taskId);
     
     if (!task) {
@@ -1125,16 +1196,35 @@ const validateTask = async (req, res) => {
   }
 };
 
-// Update task completion status
+// Update task completion status (Supervisor/HR only)
 const updateTaskCompletion = async (req, res) => {
   const { taskId } = req.params;
   const { completed } = req.body;
   
   try {
+    // Check if user can edit tasks
+    if (!['hr', 'supervisor'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Task editing not allowed for this role' });
+    }
+
     const task = await OnboardingTask.findByPk(taskId);
     
     if (!task) {
       return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // For supervisors, check if they're editing their direct report's task
+    if (req.user.role === 'supervisor') {
+      const userTaskProgress = await UserTaskProgress.findOne({
+        where: { OnboardingTaskId: taskId }
+      });
+      
+      if (userTaskProgress) {
+        const targetUser = await User.findByPk(userTaskProgress.UserId);
+        if (!targetUser || targetUser.supervisorId !== req.user.id) {
+          return res.status(403).json({ error: 'Supervisors can only edit their direct reports\' tasks' });
+        }
+      }
     }
     
     await task.update({ completed });
@@ -1149,9 +1239,14 @@ const updateTaskCompletion = async (req, res) => {
   }
 };
 
-// Get tasks by phase
+// Get tasks by phase (Employee only - read-only)
 const getTasksByPhase = async (req, res) => {
   try {
+    // Only employees can access phase-specific tasks
+    if (req.user.role !== 'employee') {
+      return res.status(403).json({ message: 'Only employees can access phase-specific tasks' });
+    }
+
     const { phase } = req.params;
     const tasks = await OnboardingTask.findAll({
       where: { stage: phase },
@@ -1164,7 +1259,8 @@ const getTasksByPhase = async (req, res) => {
     res.json({
       phase,
       tasks,
-      progress
+      progress,
+      canEdit: false // Employees cannot edit tasks
     });
   } catch (error) {
     console.error('Error fetching tasks by phase:', error);

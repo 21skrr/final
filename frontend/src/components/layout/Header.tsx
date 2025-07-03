@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Bell, Menu, X, LogOut, User, Settings } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import NotificationsPanel from "../features/NotificationsPanel";
 import pmiLogo from "../../assets/pmi-logo.png";
@@ -8,12 +8,18 @@ import { useNotifications } from '../../context/NotificationContext';
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [prevScrollPos, setPrevScrollPos] = useState(0);
   const [visible, setVisible] = useState(true);
   const { unreadCount } = useNotifications();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   // Scroll detection
   useEffect(() => {
@@ -82,6 +88,30 @@ const Header: React.FC = () => {
                 Admin
               </Link>
             )}
+            {user?.role === "supervisor" && (
+              <Link
+                to="/supervisor/evaluations"
+                className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+              >
+                My Team Evaluations
+              </Link>
+            )}
+            {user?.role === "manager" && (
+              <Link
+                to="/manager/evaluations"
+                className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+              >
+                Team Evaluations
+              </Link>
+            )}
+            {user?.role === "employee" && (
+              <Link
+                to="/evaluations"
+                className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+              >
+                My Evaluations
+              </Link>
+            )}
           </nav>
 
           {/* Right icons */}
@@ -132,7 +162,7 @@ const Header: React.FC = () => {
                     Settings
                   </Link>
                   <button
-                    onClick={logout}
+                    onClick={handleLogout}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                   >
                     <LogOut size={16} className="mr-2" />

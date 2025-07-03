@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Layout from '../../components/layout/Layout';
 import { createEvaluation } from '../../services/evaluationService';
 import { useNavigate } from 'react-router-dom';
+import teamService from '../../services/teamService';
 
 const SupervisorEvaluationCreate: React.FC = () => {
   const [title, setTitle] = useState('');
@@ -18,6 +19,19 @@ const SupervisorEvaluationCreate: React.FC = () => {
   const [sessionTime, setSessionTime] = useState('');
   const [supervisorComments, setSupervisorComments] = useState('');
   const [developmentRecommendations, setDevelopmentRecommendations] = useState('');
+  const [teamMembers, setTeamMembers] = useState<User[]>([]);
+
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      try {
+        const members = await teamService.getMyTeam();
+        setTeamMembers(members);
+      } catch (err) {
+        // Optionally handle error
+      }
+    };
+    fetchTeamMembers();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,14 +73,18 @@ const SupervisorEvaluationCreate: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Employee ID</label>
-            <input
-              type="text"
+            <label className="block text-sm font-medium text-gray-700">Employee</label>
+            <select
               value={employeeId}
               onChange={e => setEmployeeId(e.target.value)}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
               required
-            />
+            >
+              <option value="">Select Employee</option>
+              {teamMembers.map(member => (
+                <option key={member.id} value={member.id}>{member.name}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Evaluation Type</label>

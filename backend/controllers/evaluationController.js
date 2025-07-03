@@ -106,35 +106,57 @@ const createEvaluation = async (req, res) => {
 
     const {
       employeeId,
-      evaluatorId,
       dueDate,
       status,
       comments,
       ratings,
       title,
       type,
-      criteria,
+      criteria = [],
     } = req.body;
 
-    console.log('Received type:', type);
-    console.log('Received dueDate:', dueDate);
+    // Fetch the employee to get their supervisorId
+    const User = require('../models/User');
+    const employee = await User.findByPk(employeeId);
+    if (!employee) {
+      return res.status(400).json({ message: 'Employee not found' });
+    }
+    const evaluatorId = employee.supervisorId;
+    if (!evaluatorId) {
+      return res.status(400).json({ message: 'Employee does not have a supervisor assigned' });
+    }
 
-    const evaluation = await Evaluation.create({
+    // Only pass allowed fields to Evaluation.create
+    const evalData = {
       employeeId,
       evaluatorId,
-      type: type,
-      dueDate: dueDate,
+      type,
+      dueDate,
       status,
       comments,
       ratings,
       title,
-      criteria,
-    });
+    };
+    console.log('Creating evaluation with:', evalData);
+    const evaluation = await Evaluation.create(evalData);
+
+    // Create criteria if provided
+    if (Array.isArray(criteria) && criteria.length > 0) {
+      const EvaluationCriteria = require('../models/EvaluationCriteria');
+      console.log('Creating criteria:', criteria);
+      await Promise.all(criteria.map(c => EvaluationCriteria.create({
+        evaluationId: evaluation.id,
+        category: c.category || '',
+        criteria: c.name || c.criteria || '',
+        rating: c.rating ?? null,
+        comments: c.comments || '',
+      })));
+    }
 
     res.status(201).json(evaluation);
   } catch (error) {
     console.error("Error creating evaluation:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
@@ -534,10 +556,23 @@ const addEmployeeComment = async (req, res) => {
     }
 
     // Update the comments.
-    const { comment } = req.body;
+    const { comment, criteria } = req.body;
     await evaluation.update({ comments: comment });
 
-    res.json(evaluation);
+    // If criteria ratings are provided, update them
+    if (Array.isArray(criteria)) {
+      const EvaluationCriteria = require('../models/EvaluationCriteria');
+      for (const c of criteria) {
+        if (c.id && typeof c.rating === 'number') {
+          await EvaluationCriteria.update(
+            { rating: c.rating },
+            { where: { id: c.id, evaluationId: evaluation.id } }
+          );
+        }
+      }
+    }
+
+    res.json({ message: 'Comment and ratings updated successfully.' });
   } catch (error) {
     console.error("Error adding employee comment:", error);
     res.status(500).json({ message: "Server error" });

@@ -36,6 +36,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(false);
   }, []);
 
+  // Listen for auth cleared events from API interceptor
+  useEffect(() => {
+    const handleAuthCleared = () => {
+      setUser(null);
+    };
+
+    window.addEventListener('auth:cleared', handleAuthCleared);
+    
+    return () => {
+      window.removeEventListener('auth:cleared', handleAuthCleared);
+    };
+  }, []);
+
   const login = async (email: string, password: string) => {
     setLoading(true);
     setError(null);
@@ -63,7 +76,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('token');
     localStorage.removeItem('pmiUser');
     setUser(null);
-    window.location.href = '/login';
+    // Remove window.location.href to prevent page reload and re-rendering
+    // Let components handle navigation using React Router
   };
 
   return (

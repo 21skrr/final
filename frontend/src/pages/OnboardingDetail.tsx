@@ -16,9 +16,17 @@ const OnboardingDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const isHR = user?.role === 'hr' || user?.role === 'manager';
+  // Determine permissions and endpoints based on user role
+  const isHR = user?.role === 'hr';
+  const isSupervisor = user?.role === 'supervisor';
+  const isManager = user?.role === 'manager';
+  const isEmployee = user?.role === 'employee';
   const isViewingOwnJourney = !userId || userId === user?.id;
-  const canEditTasks = isHR || isViewingOwnJourney;
+  
+  // Determine what actions the user can perform
+  const canEditTasks = onboardingService.canEditTasks(user?.role || 'employee');
+  const canAdvancePhases = onboardingService.canAdvancePhases(user?.role || 'employee');
+  const canValidateTasks = onboardingService.canValidateTasks(user?.role || 'employee');
 
   useEffect(() => {
     const fetchJourney = async () => {
@@ -27,7 +35,25 @@ const OnboardingDetail: React.FC = () => {
         const targetUserId = userId || user?.id;
         if (!targetUserId) throw new Error('User ID not available');
         
-        const data = await onboardingService.getJourney(targetUserId);
+        let data;
+        
+        // Use role-appropriate endpoint
+        if (isViewingOwnJourney) {
+          // Employee viewing their own journey
+          data = await onboardingService.getMyProgress();
+        } else if (isHR) {
+          // HR viewing any user's journey
+          data = await onboardingService.getUserProgressHR(targetUserId);
+        } else if (isSupervisor) {
+          // Supervisor viewing direct report's journey
+          data = await onboardingService.getUserProgress(targetUserId);
+        } else if (isManager) {
+          // Manager viewing department member's journey (read-only)
+          data = await onboardingService.getUserProgressManager(targetUserId);
+        } else {
+          throw new Error('Insufficient permissions to view this onboarding journey');
+        }
+        
         setJourney(data);
         setError(null);
       } catch (err) {
@@ -39,14 +65,29 @@ const OnboardingDetail: React.FC = () => {
     };
 
     fetchJourney();
-  }, [userId, user]);
+  }, [userId, user, isViewingOwnJourney, isHR, isSupervisor, isManager]);
 
   const handleTaskComplete = async (phaseIndex: number, taskId: string) => {
     if (!journey || !user) return;
     
+    // Check if user can edit tasks
+    if (!canEditTasks) {
+      message.error('You do not have permission to edit tasks');
+      return;
+    }
+    
     try {
       const targetUserId = userId || user.id;
-      await onboardingService.completeTask(targetUserId, taskId);
+      
+      // Use role-appropriate endpoint
+      if (isHR) {
+        await onboardingService.updateTaskCompletion(taskId, true);
+      } else if (isSupervisor) {
+        await onboardingService.updateTaskCompletion(taskId, true);
+      } else {
+        message.error('You do not have permission to complete tasks');
+        return;
+      }
       
       // Update local state
       const updatedJourney = { ...journey };
@@ -66,10 +107,21 @@ const OnboardingDetail: React.FC = () => {
   };
 
   const handleAdvancePhase = async () => {
-    if (!journey || !userId || !isHR) return;
+    if (!journey || !userId || !canAdvancePhases) {
+      message.error('You do not have permission to advance phases');
+      return;
+    }
     
     try {
-      await onboardingService.advanceToNextPhase(userId);
+      // Use role-appropriate endpoint
+      if (isHR) {
+        await onboardingService.advanceToNextPhaseHR(userId);
+      } else if (isSupervisor) {
+        await onboardingService.advanceToNextPhase(userId);
+      } else {
+        message.error('You do not have permission to advance phases');
+        return;
+      }
       
       // Refresh journey data
       const updatedJourney = await onboardingService.getJourney(userId);
@@ -83,6 +135,11 @@ const OnboardingDetail: React.FC = () => {
   };
 
   const handleTaskVerify = async (progressId: string, status: 'approved' | 'rejected', notes?: string) => {
+    if (!canValidateTasks) {
+      message.error('Only HR can validate tasks');
+      return;
+    }
+    
     try {
       await onboardingService.verifyChecklistItem(progressId, status, notes);
       // Refresh journey data
@@ -152,8 +209,15 @@ const OnboardingDetail: React.FC = () => {
           {isViewingOwnJourney ? 'My Onboarding Journey' : `${journey.user.name}'s Onboarding Journey`}
         </Title>
         
-        {isHR && !isViewingOwnJourney && (
-          <div>
+        {/* Show role-specific information */}
+        <div className="flex items-center gap-4">
+          {isEmployee && (
+            <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded">
+              Read-only view
+            </div>
+          )}
+          
+          {canAdvancePhases && !isViewingOwnJourney && (
             <Button 
               type="primary" 
               onClick={handleAdvancePhase}
@@ -161,8 +225,8 @@ const OnboardingDetail: React.FC = () => {
             >
               Advance to Next Phase
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <OnboardingSummary journey={journey} />

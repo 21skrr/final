@@ -47,8 +47,14 @@ const SupervisorEvaluationForm: React.FC = () => {
 
     // Validation: all criteria must have rating and comments
     for (const c of criteria) {
-      if (!c.rating || !c.comments || c.comments.trim() === "") {
-        setError("All criteria must have a rating and comments.");
+      if (
+        typeof c.rating !== 'number' ||
+        c.rating < 1 ||
+        c.rating > 5 ||
+        !c.comments ||
+        c.comments.trim() === ""
+      ) {
+        setError("All criteria must have a rating (1-5) and comments.");
         setSaving(false);
         return;
       }
@@ -62,8 +68,8 @@ const SupervisorEvaluationForm: React.FC = () => {
         setSuccess(true);
         setTimeout(() => navigate('/supervisor/evaluations'), 1500);
       }
-    } catch (err) {
-      setError('Failed to submit evaluation');
+    } catch (err: any) {
+      setError(err?.response?.data?.errors?.[0]?.msg || 'Failed to submit evaluation');
     } finally {
       setSaving(false);
     }

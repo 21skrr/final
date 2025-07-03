@@ -1,19 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Circle, Clock } from 'lucide-react';
+import { CheckCircle, Circle, Clock, Lock } from 'lucide-react';
 import { User, OnboardingStage } from '../../types/user';
 import onboardingService from '../../services/onboardingService';
 import type { OnboardingJourney } from '../../types/onboarding';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 interface OnboardingProgressProps {
   user: User;
 }
 
 const OnboardingProgress: React.FC<OnboardingProgressProps> = ({ user }) => {
+  const { user: currentUser } = useAuth();
   const [loading, setLoading] = useState<boolean>(true);
   const [journey, setJourney] = useState<OnboardingJourney | null>(null);
   const [defaultTasks, setDefaultTasks] = useState<Record<string, any[]> | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Determine permissions based on user role
+  const canEditTasks = onboardingService.canEditTasks(currentUser?.role || 'employee');
+  const canAdvancePhases = onboardingService.canAdvancePhases(currentUser?.role || 'employee');
+  const isEmployee = currentUser?.role === 'employee';
 
   useEffect(() => {
     const fetchData = async () => {
@@ -36,10 +43,15 @@ const OnboardingProgress: React.FC<OnboardingProgressProps> = ({ user }) => {
   }, []);
 
   const handleTaskToggle = async (taskId: string, completed: boolean) => {
+    // Prevent employees from editing tasks
+    if (isEmployee) {
+      return;
+    }
+
     try {
       // Use updateTaskProgress instead of updateMyProgress
       await onboardingService.updateTaskProgress(taskId, {
-        isCompleted: completed
+        completed
       });
       
       // You'll need to update your state accordingly
@@ -87,24 +99,24 @@ const OnboardingProgress: React.FC<OnboardingProgressProps> = ({ user }) => {
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      <div className="p-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Onboarding Journey</h2>
-        
-        {/* Progress percentage */}
-        <div className="mb-6">
-          <div className="flex justify-between mb-1">
-            <span className="text-sm font-medium text-gray-700">Overall Progress</span>
-            <span className="text-sm font-medium text-blue-600">{journey.overallProgress}%</span>
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Onboarding Progress</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              {isEmployee ? 'Your onboarding journey' : `${user.name}'s onboarding journey`}
+            </p>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2.5">
-            <div 
-              className="bg-blue-600 h-2.5 rounded-full transition-all duration-500 ease-in-out" 
-              style={{ width: `${journey.overallProgress}%` }}
-            ></div>
-          </div>
+          {isEmployee && (
+            <div className="flex items-center text-sm text-gray-500">
+              <Lock className="w-4 h-4 mr-1" />
+              Read-only view
+            </div>
+          )}
         </div>
-        
-        {/* Journey steps */}
+      </div>
+
+      <div className="p-6">
         <div className="space-y-6">
           {stages.map((stageKey, index) => {
             const isCurrentStage = stageKey === journey.currentStage;
@@ -148,7 +160,7 @@ const OnboardingProgress: React.FC<OnboardingProgressProps> = ({ user }) => {
                     <p className="text-sm text-gray-500 mt-1">{onboardingService.getPhaseDescription(stageKey)}</p>
                     
                     {/* Tasks list - only show for current and past stages */}
-                    {!isFutureStage && (
+                    {(isCurrentStage || isPastStage) && (
                       <div className="mt-3 space-y-2">
                         {tasks.map((task) => (
                           <div 
@@ -156,17 +168,24 @@ const OnboardingProgress: React.FC<OnboardingProgressProps> = ({ user }) => {
                             className="flex items-center text-sm"
                           >
                             <div 
-                              className="flex-shrink-0 mr-2 cursor-pointer" 
-                              onClick={() => handleTaskToggle(task.id, !task.completed)}
+                              className={`flex-shrink-0 mr-2 ${
+                                canEditTasks && !isEmployee ? 'cursor-pointer' : 'cursor-not-allowed'
+                              }`}
+                              onClick={() => canEditTasks && !isEmployee && handleTaskToggle(task.id, !task.completed)}
                             >
                               {task.completed ? (
-                                <CheckCircle className="w-4 h-4 text-green-500" />
+                                <CheckCircle className={`w-4 h-4 ${isEmployee ? 'text-gray-400' : 'text-green-500'}`} />
                               ) : (
-                                <Circle className="w-4 h-4 text-gray-300" />
+                                <Circle className={`w-4 h-4 ${isEmployee ? 'text-gray-300' : 'text-gray-300'}`} />
                               )}
                             </div>
-                            <span className={task.completed ? 'text-gray-600' : 'text-gray-400'}>
+                            <span className={`${task.completed ? 'text-gray-600' : 'text-gray-400'} ${
+                              isEmployee ? 'italic' : ''
+                            }`}>
                               {task.title}
+                              {isEmployee && !task.completed && (
+                                <span className="text-xs text-gray-400 ml-2">(Pending completion)</span>
+                              )}
                             </span>
                           </div>
                         ))}
@@ -174,10 +193,19 @@ const OnboardingProgress: React.FC<OnboardingProgressProps> = ({ user }) => {
                     )}
                     
                     {/* Current stage action button */}
-                    {isCurrentStage && (
+                    {isCurrentStage && canAdvancePhases && !isEmployee && (
                       <Link to="/onboarding" className="mt-3 inline-flex items-center px-3 py-1.5 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                         Continue Onboarding
                       </Link>
+                    )}
+                    
+                    {/* Employee view message */}
+                    {isCurrentStage && isEmployee && (
+                      <div className="mt-3 p-2 bg-gray-50 rounded-md">
+                        <p className="text-xs text-gray-600">
+                          Your supervisor or HR will mark tasks as complete. Contact them if you have questions.
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>

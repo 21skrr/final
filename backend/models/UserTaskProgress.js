@@ -51,10 +51,6 @@ module.exports = (sequelize) => {
         type: DataTypes.TEXT,
         allowNull: true,
       },
-      supervisorNotes: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-      },
       hrValidated: {
         type: DataTypes.BOOLEAN,
         allowNull: false,

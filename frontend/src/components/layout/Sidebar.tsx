@@ -72,6 +72,7 @@ const Sidebar: React.FC = () => {
         setExpandedItem(expandedItem === itemName ? null : itemName);
     };
 
+    // Only show navigation items allowed for the current user's role
     const filteredNavItems = user ? navItems.filter(item => item.roles.includes(user.role as UserRole)) : [];
 
     return (

@@ -29,10 +29,11 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Handle unauthorized access - redirect to login
+      // Handle unauthorized access - clear storage
       localStorage.removeItem('token');
       localStorage.removeItem('pmiUser');
-      window.location.href = '/login';
+      // Dispatch event to notify AuthContext
+      window.dispatchEvent(new CustomEvent('auth:cleared'));
     }
     return Promise.reject(error);
   }

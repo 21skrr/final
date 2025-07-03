@@ -10,87 +10,148 @@ import {
 } from '../types/onboarding';
 
 class OnboardingService {
-  // Employee endpoints
+  // Employee endpoints (read-only)
   async getMyProgress(): Promise<OnboardingProgressResponse> {
     const response = await api.get('/onboarding/progress/me');
     return response.data;
   }
 
-  async updateMyProgress(data: { taskId: string; completed: boolean }): Promise<OnboardingProgressResponse> {
-    const response = await api.put('/onboarding/progress/me', data);
+  async getTasksByPhase(phase: string): Promise<any> {
+    const response = await api.get(`/onboarding/phase/${phase}/tasks`);
     return response.data;
   }
 
-  // HR/Supervisor endpoints
+  async getDetailedProgress(): Promise<any> {
+    const response = await api.get('/onboarding/progress/detailed');
+    return response.data;
+  }
+
+  // Supervisor endpoints (for direct reports)
   async getUserProgress(userId: string): Promise<OnboardingProgressResponse> {
     const response = await api.get(`/onboarding/progress/${userId}`);
     return response.data;
   }
 
-  async updateUserProgress(
-    userId: string, 
-    data: { stage?: OnboardingStage; progress?: number }
-  ): Promise<OnboardingProgressResponse> {
+  async updateUserProgress(userId: string, data: any): Promise<OnboardingProgressResponse> {
     const response = await api.put(`/onboarding/progress/${userId}`, data);
     return response.data;
   }
 
-  async getAllProgresses(): Promise<EmployeeOnboarding[]> {
+  async advanceToNextPhase(userId: string): Promise<OnboardingProgressResponse> {
+    const response = await api.put(`/onboarding/progress/${userId}/advance`);
+    return response.data;
+  }
+
+  async updateTaskStatus(taskId: string, data: { completed: boolean; hrValidated?: boolean }): Promise<any> {
+    const response = await api.put(`/onboarding/tasks/${taskId}/status`, data);
+    return response.data;
+  }
+
+  async updateTaskCompletion(taskId: string, completed: boolean): Promise<any> {
+    const response = await api.put(`/onboarding/tasks/${taskId}/complete`, { completed });
+    return response.data;
+  }
+
+  // Manager endpoints (read-only)
+  async getUserProgressManager(userId: string): Promise<OnboardingProgressResponse> {
+    const response = await api.get(`/onboarding/progress/${userId}/manager`);
+    return response.data;
+  }
+
+  // HR endpoints (full access)
+  async getAllProgresses(): Promise<OnboardingProgressResponse[]> {
     const response = await api.get('/onboarding/progress');
     return response.data;
   }
 
-  async deleteJourney(userId: string): Promise<void> {
-    await api.delete(`/onboarding/progress/${userId}`);
-  }
-
-  // Task management
-  async completeTask(taskId: string, notes?: string): Promise<UserTaskProgress> {
-    const response = await api.put(`/tasks/${taskId}/complete`, { notes });
+  async getUserProgressHR(userId: string): Promise<OnboardingProgressResponse> {
+    const response = await api.get(`/onboarding/progress/${userId}/hr`);
     return response.data;
   }
 
-  async updateTaskProgress(
-    taskId: string, 
-    data: { isCompleted?: boolean; notes?: string; supervisorNotes?: string }
-  ): Promise<UserTaskProgress> {
-    // Use the correct endpoint
-    if (data.supervisorNotes) {
-      // If supervisor notes are provided, use the notes endpoint
-      const response = await api.put(`/tasks/${taskId}/notes`, { supervisorNotes: data.supervisorNotes });
+  async updateUserProgressHR(userId: string, data: any): Promise<OnboardingProgressResponse> {
+    const response = await api.put(`/onboarding/progress/${userId}/hr`, data);
+    return response.data;
+  }
+
+  async advanceToNextPhaseHR(userId: string): Promise<OnboardingProgressResponse> {
+    const response = await api.put(`/onboarding/progress/${userId}/advance/hr`);
+    return response.data;
+  }
+
+  async validateTask(taskId: string): Promise<any> {
+    const response = await api.put(`/onboarding/tasks/${taskId}/validate`);
+    return response.data;
+  }
+
+  async assignChecklists(userId: string, checklistIds: string[]): Promise<any> {
+    const response = await api.post('/onboarding/assign', { userId, checklistIds });
+    return response.data;
+  }
+
+  async resetJourney(userId: string, resetToStage?: string): Promise<any> {
+    const response = await api.post(`/onboarding/${userId}/reset`, { resetToStage });
+    return response.data;
+  }
+
+  async deleteUserProgress(userId: string): Promise<any> {
+    const response = await api.delete(`/onboarding/${userId}`);
+    return response.data;
+  }
+
+  async exportOnboardingCSV(): Promise<any> {
+    const response = await api.get('/onboarding/export/csv');
+    return response.data;
+  }
+
+  async createJourney(userId: string, templateId?: string): Promise<OnboardingProgressResponse> {
+    const response = await api.post('/onboarding/create', { userId, templateId });
+    return response.data;
+  }
+
+  async getDefaultTasks(): Promise<any> {
+    const response = await api.get('/onboarding/tasks/default');
+    return response.data;
+  }
+
+  // Legacy methods for backward compatibility
+  async getJourney(userId?: string): Promise<OnboardingJourney> {
+    if (userId) {
+      // Use role-appropriate endpoint
+      const response = await api.get(`/onboarding/progress/${userId}`);
       return response.data;
     } else {
-      // Otherwise use the progress endpoint
-      const response = await api.put(`/tasks/${taskId}/progress`, { 
-        isCompleted: data.isCompleted,
-        notes: data.notes 
-      });
+      // Get own progress
+      const response = await api.get('/onboarding/progress/me');
       return response.data;
     }
   }
 
-  // Dashboard data for different roles
-  async getDashboardData(): Promise<OnboardingDashboardData> {
-    const response = await api.get('/onboarding/dashboard');
-    return response.data;
+  async updateTaskProgress(taskId: string, data: any): Promise<any> {
+    // Use role-appropriate endpoint
+    return this.updateTaskStatus(taskId, data);
   }
 
-  // Phase management
-  async advanceToNextPhase(userId: string): Promise<OnboardingProgressResponse> {
-    const response = await api.put(`/onboarding/progress/${userId}/advance`);
-    return response.data;
+  async completeTask(userId: string, taskId: string): Promise<any> {
+    // Use role-appropriate endpoint
+    return this.updateTaskCompletion(taskId, true);
+  }
+
+  async verifyChecklistItem(progressId: string, status: 'approved' | 'rejected', notes?: string): Promise<any> {
+    // This would need to be implemented based on your checklist system
+    throw new Error('Method not implemented');
   }
 
   // Utility methods
   getPhaseTitle(stage: OnboardingStage): string {
     const titles = {
       prepare: 'Prepare',
-      orient: 'Orient', 
+      orient: 'Orient',
       land: 'Land',
       integrate: 'Integrate',
       excel: 'Excel'
     };
-    return titles[stage];
+    return titles[stage] || stage;
   }
 
   getPhaseDescription(stage: OnboardingStage): string {
@@ -101,89 +162,36 @@ class OnboardingService {
       integrate: 'Lead interactions, demonstrate autonomy, complete assessments',
       excel: 'Set up development plan, join coaching, and track KPIs'
     };
-    return descriptions[stage];
+    return descriptions[stage] || '';
   }
 
-  // Replace the getJourney function with this implementation
-  async getJourney(userId?: string): Promise<OnboardingJourney> {
-    // Get user's onboarding progress
-    const endpoint = userId ? `/onboarding/progress/${userId}` : '/onboarding/progress/me';
-    const response = await api.get(endpoint);
-    const progressData = response.data;
-    try {
-      // Get all tasks for the user (or specified user)
-      const tasksEndpoint = userId ? `/tasks/employee/${userId}` : '/tasks';
-      const tasksResponse = await api.get(tasksEndpoint);
-      const allTasks: Task[] = tasksResponse.data || [];
-
-      // Group tasks by onboardingStage
-      const stagesList: OnboardingStage[] = ['prepare', 'orient', 'land', 'integrate', 'excel'];
-      const phases = stagesList.map(stage => {
-        const stageTasks = allTasks.filter((task: Task) => task.stage === stage);
-        const completedTasks = stageTasks.filter(t => t.completed).length;
-        const completionPercentage = stageTasks.length > 0 ? Math.round((completedTasks / stageTasks.length) * 100) : 0;
-        return {
-          stage,
-          title: this.getPhaseTitle(stage),
-          description: this.getPhaseDescription(stage),
-          tasks: stageTasks,
-          completionPercentage,
-          isActive: progressData.stage === stage,
-          isCompleted: completionPercentage === 100,
-        };
-      });
-
-      // Create the journey object
-      const journey: OnboardingJourney = {
-        user: progressData.User,
-        progress: progressData,
-        phases,
-        overallProgress: progressData.progress,
-        currentStage: progressData.stage,
-        tasksCompleted: allTasks.filter((task: Task) => task.completed).length,
-        totalTasks: allTasks.length
-      };
-      return journey;
-    } catch (error) {
-      console.error('Error fetching task data:', error);
-      // Fallback to a basic journey structure
-      return {
-        user: progressData.User,
-        progress: progressData,
-        phases: [],
-        overallProgress: progressData.progress,
-        currentStage: progressData.stage,
-        tasksCompleted: 0,
-        totalTasks: 0
-      };
-    }
+  // Role-based permission checks
+  canEditTasks(userRole: string): boolean {
+    return ['hr', 'supervisor'].includes(userRole);
   }
 
-  // Add function to create new onboarding journey
-  async createJourney(userId: string, templateId?: string): Promise<OnboardingProgressResponse> {
-    const response = await api.post('/onboarding/create', { userId, templateId });
-    return response.data;
+  canAdvancePhases(userRole: string): boolean {
+    return ['hr', 'supervisor'].includes(userRole);
   }
 
-  // Add function to assign onboarding template
-  async assignTemplate(userId: string, templateId: string): Promise<OnboardingProgressResponse> {
-    const response = await api.post(`/onboarding/progress/${userId}/template`, { templateId });
-    return response.data;
+  canValidateTasks(userRole: string): boolean {
+    return userRole === 'hr';
   }
 
-  // Fetch all default onboarding tasks grouped by stage
-  async getDefaultTasks(): Promise<Record<string, unknown[]>> {
-    const response = await api.get('/onboarding/tasks/default');
-    return response.data;
+  canAccessAllData(userRole: string): boolean {
+    return userRole === 'hr';
   }
 
-  // HR/manager verification of checklist item
-  async verifyChecklistItem(progressId: string, verificationStatus: 'approved' | 'rejected', verificationNotes?: string): Promise<any> {
-    const response = await api.patch(`/checklist-progress/${progressId}/verify`, {
-      verificationStatus,
-      verificationNotes
-    });
-    return response.data;
+  canAccessDepartmentData(userRole: string): boolean {
+    return ['hr', 'manager'].includes(userRole);
+  }
+
+  canAccessDirectReports(userRole: string): boolean {
+    return ['hr', 'supervisor'].includes(userRole);
+  }
+
+  canAccessOwnData(userRole: string): boolean {
+    return ['employee', 'supervisor', 'manager', 'hr'].includes(userRole);
   }
 }
 

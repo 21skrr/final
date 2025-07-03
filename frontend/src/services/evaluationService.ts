@@ -4,7 +4,7 @@ import { Evaluation, EvaluationCriteria } from '../types/evaluation';
 // Employee
 export const getUserEvaluations = async () => api.get('/evaluations/user');
 export const getEvaluationById = async (id: string) => api.get(`/evaluations/${id}`);
-export const addEmployeeCommentToEvaluation = async (id: string, comment: string) => api.patch(`/evaluations/${id}/comment`, { comment });
+export const addEmployeeCommentToEvaluation = async (id: string, comment: string, criteria?: any[]) => api.patch(`/evaluations/${id}/comment`, criteria ? { comment, criteria } : { comment });
 
 // Supervisor
 export const getSupervisorEvaluations = async () => api.get('/evaluations');

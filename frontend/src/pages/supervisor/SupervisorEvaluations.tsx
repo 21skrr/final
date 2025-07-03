@@ -67,9 +67,9 @@ const SupervisorEvaluations: React.FC = () => {
                   <Link to={`/supervisor/evaluations/${evaluation.id}/form`} className="inline-flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200">View</Link>
                   <Link to={`/supervisor/evaluations/${evaluation.id}/criteria`} className="inline-flex items-center px-3 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Add Criteria</Link>
                   {evaluation.status !== 'completed' && (
-                    <button className="inline-flex items-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700" onClick={() => handleSubmit(evaluation.id)}>
+                    <Link to={`/supervisor/evaluations/${evaluation.id}/form`} className="inline-flex items-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700">
                       <Send className="h-4 w-4 mr-1" /> Submit
-                    </button>
+                    </Link>
                   )}
                 </div>
               </div>

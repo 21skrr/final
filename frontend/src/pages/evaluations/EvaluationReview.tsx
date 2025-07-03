@@ -21,6 +21,7 @@ const EvaluationReview: React.FC = () => {
   const [feedbackHistory, setFeedbackHistory] = useState<any[]>([]);
   const [checklistHistory, setChecklistHistory] = useState<any[]>([]);
   const { user } = useAuth();
+  const [editableCriteria, setEditableCriteria] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchEvaluation = async () => {
@@ -28,6 +29,9 @@ const EvaluationReview: React.FC = () => {
         if (id) {
           const response = await getEvaluationById(id);
           setEvaluation(response.data);
+          if (user?.role === 'employee' && response.data?.criteria) {
+            setEditableCriteria(response.data.criteria.map((c: any) => ({ ...c })));
+          }
         }
       } catch (err) {
         setError('Failed to load evaluation');
@@ -51,19 +55,27 @@ const EvaluationReview: React.FC = () => {
     fetchFeedbackAndChecklist();
   }, [id]);
 
+  const handleCriteriaChange = (idx: number, value: number) => {
+    const updated = [...editableCriteria];
+    updated[idx].rating = value;
+    setEditableCriteria(updated);
+  };
+
   const handleAcknowledgeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
     try {
-      if (id && employeeComment) {
-        await addEmployeeCommentToEvaluation(id, employeeComment);
+      if (id) {
+        if (user?.role === 'employee') {
+          await addEmployeeCommentToEvaluation(id, employeeComment, editableCriteria);
+        } else if (employeeComment) {
+          await addEmployeeCommentToEvaluation(id, employeeComment);
+        } else {
+          setSaveSuccess(true);
+        }
         setSaveSuccess(true);
-      } else {
-        // Handle case where there is no comment, maybe just acknowledge?
-        // For now, we only submit if there's a comment.
-        setSaveSuccess(true); // Or show a message that nothing was submitted.
       }
     } catch (err) {
       setSaveError('Failed to save acknowledgment or comment');
@@ -95,7 +107,7 @@ const EvaluationReview: React.FC = () => {
                 <div>
                   <h3 className="text-lg font-medium text-gray-900">Performance Categories</h3>
                   <div className="mt-4 space-y-4">
-                    {evaluation.criteria.map((category) => (
+                    {(user?.role === 'employee' ? editableCriteria : evaluation.criteria).map((category, idx) => (
                       <div key={category.id} className="space-y-2">
                         <div className="flex justify-between items-center">
                           <label className="block text-sm font-medium text-gray-700">
@@ -105,7 +117,7 @@ const EvaluationReview: React.FC = () => {
                             {[1, 2, 3, 4, 5].map((star) => (
                               <Star
                                 key={star}
-                                className={`h-5 w-5 ${star <= category.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+                                className={`h-5 w-5 ${star <= (category.rating || 0) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
                               />
                             ))}
                           </div>
@@ -114,9 +126,10 @@ const EvaluationReview: React.FC = () => {
                           type="range"
                           min="1"
                           max="5"
-                          defaultValue={category.rating}
+                          value={category.rating || 1}
+                          onChange={e => user?.role === 'employee' && handleCriteriaChange(idx, Number(e.target.value))}
                           className="w-full"
-                          disabled
+                          disabled={user?.role !== 'employee'}
                         />
                       </div>
                     ))}
