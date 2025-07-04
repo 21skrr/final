@@ -47,8 +47,8 @@ class OnboardingService {
     return response.data;
   }
 
-  async updateTaskCompletion(taskId: string, completed: boolean): Promise<any> {
-    const response = await api.put(`/onboarding/tasks/${taskId}/complete`, { completed });
+  async updateTaskCompletion(taskId: string, completed: boolean, userId?: string): Promise<any> {
+    const response = await api.put(`/onboarding/tasks/${taskId}/complete`, { completed, userId });
     return response.data;
   }
 

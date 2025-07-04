@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Spin, Alert, Typography, Button, message } from 'antd';
+import { SaveOutlined, RollbackOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import OnboardingPhase from '../components/onboarding/OnboardingPhase';
 import OnboardingSummary from '../components/onboarding/OnboardingSummary';
@@ -12,9 +13,12 @@ const { Title } = Typography;
 const OnboardingDetail: React.FC = () => {
   const { userId } = useParams<{ userId?: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [journey, setJourney] = useState<OnboardingJourney | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
   // Determine permissions and endpoints based on user role
   const isHR = user?.role === 'hr';
@@ -135,6 +139,7 @@ const OnboardingDetail: React.FC = () => {
           task.completed = true;
           task.completedAt = new Date().toISOString();
           setJourney(updatedJourney);
+          setHasChanges(true);
         }
       }
       message.success('Task marked as complete');
@@ -185,10 +190,59 @@ const OnboardingDetail: React.FC = () => {
       if (targetUserId) {
         const updatedJourney = await onboardingService.getJourney(targetUserId);
         setJourney(updatedJourney);
+        setHasChanges(false); // Reset changes after verification
       }
     } catch (err) {
       console.error('Failed to verify task:', err);
       message.error('Failed to verify task. Please try again.');
+    }
+  };
+  
+  const handleSaveProgress = async () => {
+    if (!journey || !user) return;
+    
+    try {
+      setSaving(true);
+      
+      // Collect all completed tasks
+      const completedTasks = journey.phases
+        .flatMap(phase => phase.tasks)
+        .filter(task => task.completed)
+        .map(task => ({
+          id: task.id,
+          completed: task.completed,
+          hrValidated: task.hrValidated || false
+        }));
+      
+      // Use role-appropriate endpoint
+      const targetUserId = userId || user.id;
+      if (!targetUserId) throw new Error('User ID not available');
+      
+      // For each task, update its completion status with the user ID
+      const updatePromises = completedTasks.map(task => {
+        return onboardingService.updateTaskCompletion(task.id, task.completed, targetUserId);
+      });
+      
+      // Wait for all updates to complete
+      await Promise.all(updatePromises);
+      
+      // Also update the overall progress using the existing endpoints
+      if (isHR) {
+        await onboardingService.updateUserProgressHR(targetUserId, { tasks: completedTasks });
+      } else if (isSupervisor) {
+        await onboardingService.updateUserProgress(targetUserId, { tasks: completedTasks });
+      } else {
+        message.error('You do not have permission to save progress');
+        return;
+      }
+      
+      message.success('Progress saved successfully');
+      setHasChanges(false);
+    } catch (err) {
+      console.error('Failed to save progress:', err);
+      message.error('Failed to save progress. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -258,13 +312,25 @@ const OnboardingDetail: React.FC = () => {
             </div>
           )}
           
-          {canAdvancePhases && !isViewingOwnJourney && (
+          {canEditTasks && !isViewingOwnJourney && (
             <Button 
-              type="primary" 
-              onClick={handleAdvancePhase}
-              disabled={currentPhaseIndex === -1 || currentPhaseIndex === journeyPhases.length - 1}
+              type="primary"
+              icon={<SaveOutlined />}
+              onClick={handleSaveProgress}
+              loading={saving}
+              disabled={!hasChanges}
             >
-              Advance to Next Phase
+              Save Progress
+            </Button>
+          )}
+          
+          {!isViewingOwnJourney && (
+            <Button 
+              type="default" 
+              icon={<RollbackOutlined />}
+              onClick={() => navigate('/admin/onboarding')}
+            >
+              Exit
             </Button>
           )}
         </div>

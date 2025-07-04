@@ -10,6 +10,7 @@ import {
   CommentOutlined,
   SaveOutlined
 } from '@ant-design/icons';
+import onboardingService from '../../services/onboardingService';
 
 interface Task {
   id: string;
@@ -255,29 +256,53 @@ const OnboardingDetail: React.FC = () => {
     });
   };
 
-  const handleSaveAndExit = async () => {
+  const saveProgress = async (shouldNavigate = false) => {
     try {
+      // Get the tasks that need to be updated
+      const tasksToUpdate = Object.entries(completedTasks).map(([taskId, isCompleted]) => ({
+        id: taskId,
+        completed: isCompleted,
+        hrValidated: tasksByPhase[Object.keys(tasksByPhase)[0]]
+          .find(t => t.id === taskId)?.hrValidated || false
+      }));
+      
+      // For each task, update its completion status with the user ID
+      const updatePromises = tasksToUpdate.map(task => {
+        return onboardingService.updateTaskCompletion(task.id, task.completed, id);
+      });
+      
+      // Wait for all updates to complete
+      await Promise.all(updatePromises);
+      
+      // Also update the overall progress using the existing endpoint
       const response = await fetch(`/api/onboarding/progress/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tasks: Object.entries(completedTasks).map(([taskId, isCompleted]) => ({
-            id: taskId,
-            completed: isCompleted,
-            hrValidated: tasksByPhase[Object.keys(tasksByPhase)[0]]
-              .find(t => t.id === taskId)?.hrValidated || false
-          }))
+          tasks: tasksToUpdate
         })
       });
       
       if (!response.ok) throw new Error('Failed to save progress');
       
       message.success('Progress saved successfully!');
-      navigate('/admin/onboarding-management');
+      setHasChanges(false);
+      
+      if (shouldNavigate) {
+        navigate('/admin/onboarding-management');
+      }
     } catch (error) {
       console.error('Error saving progress:', error);
       message.error('Failed to save progress');
     }
+  };
+  
+  const handleSaveProgress = () => {
+    saveProgress(false);
+  };
+  
+  const handleSaveAndExit = async () => {
+    saveProgress(true);
   };
 
   if (loading || !progress) {
@@ -305,6 +330,16 @@ const OnboardingDetail: React.FC = () => {
           <div className="flex gap-2">
             <Button
               type={hasChanges ? "primary" : "default"}
+              onClick={handleSaveProgress}
+              icon={<SaveOutlined />}
+              style={{ minWidth: 150 }}
+              size="large"
+              disabled={!hasChanges}
+            >
+              Save Progress
+            </Button>
+            <Button
+              type="default"
               onClick={confirmSaveAndExit}
               icon={<SaveOutlined />}
               style={{ minWidth: 150 }}
@@ -313,12 +348,13 @@ const OnboardingDetail: React.FC = () => {
               {hasChanges ? 'Save & Exit' : 'Exit'}
             </Button>
             <Button 
-              type="default" 
-              onClick={handleAdvancePhase}
-              disabled={progress.progress < 100}
+              type="primary" 
+              onClick={handleSaveProgress}
+              disabled={!hasChanges}
+              icon={<SaveOutlined />}
               size="large"
             >
-              Advance to Next Phase
+              Save Progress
             </Button>
           </div>
         </div>
@@ -451,14 +487,14 @@ const OnboardingDetail: React.FC = () => {
             type="primary"
             size="large"
             shape="round"
-            onClick={confirmSaveAndExit}
+            onClick={handleSaveProgress}
             icon={<SaveOutlined />}
             style={{
               height: 48,
               boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
             }}
           >
-            Save Changes
+            Save Progress
           </Button>
         </div>
       )}

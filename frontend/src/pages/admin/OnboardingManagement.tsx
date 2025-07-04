@@ -136,7 +136,7 @@ const OnboardingManagement: React.FC = () => {
       cancelText: 'Cancel',
       async onOk() {
         try {
-          await onboardingService.deleteJourney(userId);
+          await onboardingService.deleteUserProgress(userId);
           message.success('Onboarding journey deleted successfully');
           fetchEmployees();
         } catch (error) {

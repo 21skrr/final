@@ -810,18 +810,26 @@ const deleteUserProgress = async (req, res) => {
       return res.status(403).json({ message: "Not authorized" });
     }
 
+    const userId = req.params.userId;
+    
+    // Find the progress record
     const progress = await OnboardingProgress.findOne({
-      where: { UserId: req.params.userId },
+      where: { UserId: userId },
     });
 
     if (!progress) {
       return res.status(404).json({ message: "Onboarding progress not found" });
     }
 
-    // Delete the progress
+    // Delete all related UserTaskProgress records first
+    await UserTaskProgress.destroy({
+      where: { UserId: userId }
+    });
+
+    // Then delete the main progress record
     await progress.destroy();
 
-    res.json({ message: "Onboarding progress deleted successfully" });
+    res.json({ message: "Onboarding journey and all related progress deleted successfully" });
   } catch (error) {
     console.error("Error deleting onboarding progress:", error);
     res.status(500).json({ message: "Server error", error: error.message });
@@ -1220,7 +1228,7 @@ const validateTask = async (req, res) => {
 // Update task completion status (Supervisor/HR only)
 const updateTaskCompletion = async (req, res) => {
   const { taskId } = req.params;
-  const { completed } = req.body;
+  const { completed, userId } = req.body;
   
   try {
     // Check if user can edit tasks
@@ -1248,10 +1256,42 @@ const updateTaskCompletion = async (req, res) => {
       }
     }
     
+    // Update the OnboardingTask.completed field
     await task.update({ completed });
     
+    // Also update the corresponding UserTaskProgress.isCompleted field
+    // Find all UserTaskProgress records for this task
+    const userTaskProgressRecords = await UserTaskProgress.findAll({
+      where: { OnboardingTaskId: taskId }
+    });
+    
+    // If a specific userId is provided, only update that user's progress
+    if (userId) {
+      const userTaskProgress = await UserTaskProgress.findOne({
+        where: { 
+          OnboardingTaskId: taskId,
+          UserId: userId 
+        }
+      });
+      
+      if (userTaskProgress) {
+        await userTaskProgress.update({
+          isCompleted: completed,
+          completedAt: completed ? new Date() : null
+        });
+      }
+    } else {
+      // Otherwise update all users' progress for this task
+      for (const progress of userTaskProgressRecords) {
+        await progress.update({
+          isCompleted: completed,
+          completedAt: completed ? new Date() : null
+        });
+      }
+    }
+    
     res.json({
-      message: 'Task completion status updated',
+      message: 'Task completion status updated in both task and user progress',
       task
     });
   } catch (error) {

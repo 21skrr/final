@@ -8,14 +8,8 @@ interface OnboardingSummaryProps {
 }
 
 const OnboardingSummary: React.FC<OnboardingSummaryProps> = ({ journey }) => {
-  const getOverallProgress = () => {
-    const totalTasks = journey.phases.reduce((acc, phase) => acc + phase.tasks.length, 0);
-    const completedTasks = journey.phases.reduce(
-      (acc, phase) => acc + phase.tasks.filter(task => task.completed).length, 
-      0
-    );
-    return totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-  };
+  // Use the overall progress directly from the journey object
+  const overallProgress = journey.overallProgress;
 
   const getNextUpcomingTask = (): Task | null => {
     for (const phase of journey.phases) {
@@ -55,7 +49,6 @@ const OnboardingSummary: React.FC<OnboardingSummaryProps> = ({ journey }) => {
   };
 
   const nextTask = getNextUpcomingTask();
-  const overallProgress = getOverallProgress();
   const statusText = getStatusText();
   const statusColor = getStatusColor();
 
