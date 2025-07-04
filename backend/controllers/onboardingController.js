@@ -1259,39 +1259,27 @@ const updateTaskCompletion = async (req, res) => {
     // Update the OnboardingTask.completed field
     await task.update({ completed });
     
-    // Also update the corresponding UserTaskProgress.isCompleted field
-    // Find all UserTaskProgress records for this task
-    const userTaskProgressRecords = await UserTaskProgress.findAll({
-      where: { OnboardingTaskId: taskId }
+    // Always require userId and only update that user's progress
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const userTaskProgress = await UserTaskProgress.findOne({
+      where: { 
+        OnboardingTaskId: taskId,
+        UserId: userId 
+      }
     });
     
-    // If a specific userId is provided, only update that user's progress
-    if (userId) {
-      const userTaskProgress = await UserTaskProgress.findOne({
-        where: { 
-          OnboardingTaskId: taskId,
-          UserId: userId 
-        }
+    if (userTaskProgress) {
+      await userTaskProgress.update({
+        isCompleted: completed,
+        completedAt: completed ? new Date() : null
       });
-      
-      if (userTaskProgress) {
-        await userTaskProgress.update({
-          isCompleted: completed,
-          completedAt: completed ? new Date() : null
-        });
-      }
-    } else {
-      // Otherwise update all users' progress for this task
-      for (const progress of userTaskProgressRecords) {
-        await progress.update({
-          isCompleted: completed,
-          completedAt: completed ? new Date() : null
-        });
-      }
     }
     
     res.json({
-      message: 'Task completion status updated in both task and user progress',
+      message: 'Task completion status updated for the user',
       task
     });
   } catch (error) {

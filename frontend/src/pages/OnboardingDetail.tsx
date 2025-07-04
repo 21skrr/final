@@ -123,10 +123,11 @@ const OnboardingDetail: React.FC = () => {
     
     try {
       // Use role-appropriate endpoint
+      const targetUserId = userId || user.id;
       if (isHR) {
-        await onboardingService.updateTaskCompletion(taskId, true);
+        await onboardingService.updateTaskCompletion(taskId, true, targetUserId);
       } else if (isSupervisor) {
-        await onboardingService.updateTaskCompletion(taskId, true);
+        await onboardingService.updateTaskCompletion(taskId, true, targetUserId);
       } else {
         message.error('You do not have permission to complete tasks');
         return;
