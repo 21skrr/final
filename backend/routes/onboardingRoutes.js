@@ -171,4 +171,7 @@ router.post(
 // GET /api/onboarding/tasks/default - Get default tasks (Employee/HR)
 router.get("/tasks/default", auth, onboardingPermissions.employee, onboardingController.getDefaultTasks);
 
+// PUT /api/onboarding/user-task-progress/:userTaskProgressId/validate - Validate user task progress
+router.put('/user-task-progress/:userTaskProgressId/validate', auth, onboardingController.validateUserTaskProgress);
+
 module.exports = router;

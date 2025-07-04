@@ -11,10 +11,11 @@ interface OnboardingPhaseProps {
   progress: number;
   tasks: Task[];
   isCurrentPhase: boolean;
-  onTaskComplete: (taskId: string) => void;
+  onTaskComplete: (taskId: string, completed: boolean) => void;
   canEditTasks: boolean;
   userRole: string;
   onTaskVerify?: (progressId: string, status: 'approved' | 'rejected', notes?: string) => void;
+  refreshJourney?: () => Promise<void>;
 }
 
 const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
@@ -25,9 +26,11 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
   isCurrentPhase,
   onTaskComplete,
   canEditTasks,
-  userRole
+  userRole,
+  onTaskVerify,
+  refreshJourney
 }) => {
-  const { user: currentUser } = useAuth();
+  const { user } = useAuth();
   const [taskModalVisible, setTaskModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [verificationNotes, setVerificationNotes] = useState('');
@@ -46,13 +49,13 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
   
   // Determine permissions based on user role
   const canEditTask = (task: Task) => {
-    if (currentUser?.role === 'employee') {
+    if (user?.role === 'employee') {
       return false; // Employees cannot edit tasks
     }
-    if (currentUser?.role === 'supervisor') {
+    if (user?.role === 'supervisor') {
       return true; // Supervisors can edit their direct reports' tasks
     }
-    if (currentUser?.role === 'hr') {
+    if (user?.role === 'hr') {
       return true; // HR can edit all tasks
     }
     return false;
@@ -60,10 +63,10 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
 
   const canValidateTask = (task: Task) => {
     if (!task || typeof task.completed !== 'boolean') return false;
-    return currentUser?.role === 'hr' && task.completed && !task.hrValidated;
+    return user?.role === 'hr' && task.completed && !task.hrValidated;
   };
 
-  const isEmployee = currentUser?.role === 'employee';
+  const isEmployee = user?.role === 'employee';
   
   // Handle checklist item toggle
   const handleChecklistItemToggle = (id: number) => {
@@ -98,12 +101,15 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
 
   const handleValidation = async () => {
     if (!selectedTask) return;
-    
     setValidationLoading(true);
     try {
-      await onboardingService.validateTask(selectedTask.id);
+      const userTaskProgressId = selectedTask.progressId || selectedTask.id;
+      await onboardingService.validateUserTaskProgress(userTaskProgressId, verificationNotes);
       message.success('Task validated successfully');
       setValidationModalVisible(false);
+      if (typeof refreshJourney === 'function') {
+        await refreshJourney();
+      }
       // Refresh the task list or update the task status
     } catch (error) {
       message.error('Failed to validate task');
@@ -125,13 +131,13 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
     return <Tag>Not Started</Tag>;
   };
 
-  const handleTaskComplete = (taskId: string, e: React.MouseEvent) => {
+  const handleTaskComplete = (taskId: string, checked: boolean, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!canEditTask({ id: taskId } as Task)) {
       message.info('You do not have permission to edit this task');
       return;
     }
-    onTaskComplete(taskId);
+    onTaskComplete(taskId, checked);
   };
 
   return (
@@ -155,7 +161,7 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
               <Card 
                 key={task.id} 
                 className={`border hover:border-blue-300 transition-colors ${task.hrValidated ? 'border-green-200 bg-green-50' : (task.completed ? 'border-yellow-200 bg-yellow-50' : 'border-gray-200')}`}
-                bodyStyle={{ padding: '12px' }}
+                styles={{ body: { padding: '12px' } }}
                 onClick={() => handleTaskClick(task)}
                 style={{ cursor: 'pointer' }}
               >
@@ -165,7 +171,7 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
                       <div className="flex items-center gap-3">
                         <Checkbox 
                           checked={task.completed} 
-                          onChange={(e) => handleTaskComplete(task.id, e)}
+                          onChange={(e) => handleTaskComplete(task.id, e.target.checked, e)}
                           disabled={!canEditTask(task)}
                           className={!canEditTask(task) ? 'opacity-50' : ''}
                         />
@@ -186,7 +192,7 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
                     
                     {/* Task actions */}
                     <div className="flex gap-2 mt-2">
-                      {canValidateTask(task) && (
+                      {canValidateTask(task) && !task.hrValidated && (
                         <Button
                           size="small"
                           type="primary"
@@ -241,7 +247,7 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
               key="complete" 
               type="primary" 
               onClick={() => {
-                onTaskComplete(selectedTask.id);
+                onTaskComplete(selectedTask.id, true);
                 setTaskModalVisible(false);
               }}
             >
@@ -295,6 +301,7 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
             type="primary" 
             loading={validationLoading}
             onClick={handleValidation}
+            disabled={selectedTask?.hrValidated}
           >
             Validate Task
           </Button>

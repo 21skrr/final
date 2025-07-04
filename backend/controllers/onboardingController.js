@@ -979,16 +979,17 @@ const getUserOnboardingProgress = async (req, res) => {
           completedAt: userTask ? userTask.completedAt : null,
           hrValidated: userTask ? userTask.hrValidated : false,
           notes: userTask ? userTask.notes : null,
+          progressId: userTask ? userTask.id : null,
         };
       }));
       tasksByPhase[phase] = tasksWithUserProgress;
       progress[phase] = await calculatePhaseProgress(userId, phase);
     }
 
-    // Calculate overall progress (percentage of completed+validated tasks for this user)
+    // Calculate overall progress (percentage of completed tasks for this user)
     const allUserTasks = await UserTaskProgress.findAll({ where: { UserId: userId } });
-    const completedAndValidated = allUserTasks.filter(task => task.isCompleted && task.hrValidated).length;
-    progress.overall = allUserTasks.length === 0 ? 0 : Math.round((completedAndValidated / allUserTasks.length) * 100);
+    const completed = allUserTasks.filter(task => task.isCompleted).length;
+    progress.overall = allUserTasks.length === 0 ? 0 : Math.round((completed / allUserTasks.length) * 100);
 
     // Update progress in onboardingprogresses table
     await onboardingProgress.update({
@@ -1183,40 +1184,38 @@ const validateTask = async (req, res) => {
       return res.status(403).json({ error: 'Only HR can validate tasks' });
     }
 
-    // Find the task
-    const task = await OnboardingTask.findByPk(taskId);
-    
-    if (!task) {
-      return res.status(404).json({ error: 'Task not found' });
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
     }
-    
-    // Update the task's hrValidated status
-    await task.update({ hrValidated: true });
-    
-    // If userId is provided, update the specific user's task progress
-    if (userId) {
-      const userTaskProgress = await UserTaskProgress.findOne({
-        where: { 
-          UserId: userId,
-          OnboardingTaskId: taskId 
-        }
-      });
-      
-      if (userTaskProgress) {
-        await userTaskProgress.update({
-          hrValidated: true,
-          hrValidatedAt: new Date(),
-          hrComments: comments || null
-        });
+
+    // Find the user's task progress
+    const userTaskProgress = await UserTaskProgress.findOne({
+      where: { 
+        UserId: userId,
+        OnboardingTaskId: taskId 
       }
+    });
+    
+    if (!userTaskProgress) {
+      return res.status(404).json({ error: 'User task progress not found' });
     }
     
+    if (userTaskProgress.hrValidated) {
+      return res.status(400).json({ error: 'Task already validated' });
+    }
+
+    await userTaskProgress.update({
+      hrValidated: true,
+      hrValidatedAt: new Date(),
+      hrComments: comments || null
+    });
+
     // Get updated phase progress
-    const phaseProgress = await calculatePhaseProgress(userId || req.user.id, task.stage);
-    
+    const phaseProgress = await calculatePhaseProgress(userId, userTaskProgress.stage);
+
     res.json({
       message: 'Task validated successfully',
-      task,
+      userTaskProgress,
       phaseProgress
     });
   } catch (error) {
@@ -1317,6 +1316,42 @@ const getTasksByPhase = async (req, res) => {
   }
 };
 
+// Validate user task progress
+const validateUserTaskProgress = async (req, res) => {
+  const { userTaskProgressId } = req.params;
+  const { comments } = req.body;
+
+  try {
+    if (req.user.role !== 'hr') {
+      return res.status(403).json({ error: 'Only HR can validate tasks' });
+    }
+
+    const userTaskProgress = await UserTaskProgress.findByPk(userTaskProgressId);
+
+    if (!userTaskProgress) {
+      return res.status(404).json({ error: 'User task progress not found' });
+    }
+
+    if (userTaskProgress.hrValidated) {
+      return res.status(400).json({ error: 'Task already validated' });
+    }
+
+    await userTaskProgress.update({
+      hrValidated: true,
+      hrValidatedAt: new Date(),
+      hrComments: comments || null
+    });
+
+    res.json({
+      message: 'Task validated successfully',
+      userTaskProgress
+    });
+  } catch (error) {
+    console.error('Error validating user task progress:', error);
+    res.status(500).json({ error: 'Failed to validate user task progress' });
+  }
+};
+
 // Then keep the module.exports with createJourney included
 module.exports = {
   getMyProgress,
@@ -1343,7 +1378,8 @@ module.exports = {
   getDetailedProgress,
   validateTask,
   updateTaskCompletion,
-  getTasksByPhase
+  getTasksByPhase,
+  validateUserTaskProgress
 };
 
 // Remove the createJourney function that was here after module.exports

@@ -67,7 +67,7 @@ const OnboardingDetail: React.FC = () => {
           progress: {
             id: data.id,
             stage: data.stage,
-            progress: typeof data.progress === 'number' ? data.progress : 0,
+            progress: data.progress?.overall ?? 0,
             stageStartDate: data.stageStartDate,
             estimatedCompletionDate: data.estimatedCompletionDate,
             UserId: data.User?.id,
@@ -75,7 +75,7 @@ const OnboardingDetail: React.FC = () => {
             createdAt: data.createdAt,
             updatedAt: data.updatedAt,
           },
-          overallProgress: typeof data.progress === 'number' ? data.progress : 0,
+          overallProgress: data.progress?.overall ?? 0,
           currentStage: data.stage,
           tasksCompleted: Object.values(tasksByPhase).flat().filter((task: unknown) => {
             const t = task as Task;
@@ -112,22 +112,20 @@ const OnboardingDetail: React.FC = () => {
     fetchJourney();
   }, [userId, user, isViewingOwnJourney, isHR, isSupervisor, isManager]);
 
-  const handleTaskComplete = async (phaseIndex: number, taskId: string) => {
+  const handleTaskComplete = async (phaseIndex: number, taskId: string, completed: boolean) => {
     if (!journey || !user) return;
-    
     // Check if user can edit tasks
     if (!canEditTasks) {
       message.error('You do not have permission to edit tasks');
       return;
     }
-    
     try {
       // Use role-appropriate endpoint
       const targetUserId = userId || user.id;
       if (isHR) {
-        await onboardingService.updateTaskCompletion(taskId, true, targetUserId);
+        await onboardingService.updateTaskCompletion(taskId, completed, targetUserId);
       } else if (isSupervisor) {
-        await onboardingService.updateTaskCompletion(taskId, true, targetUserId);
+        await onboardingService.updateTaskCompletion(taskId, completed, targetUserId);
       } else {
         message.error('You do not have permission to complete tasks');
         return;
@@ -137,13 +135,13 @@ const OnboardingDetail: React.FC = () => {
       if (updatedJourney.phases && updatedJourney.phases[phaseIndex]) {
         const task = updatedJourney.phases[phaseIndex].tasks.find(t => t.id === taskId) as Task;
         if (task) {
-          task.completed = true;
-          task.completedAt = new Date().toISOString();
+          task.completed = completed;
+          task.completedAt = completed ? new Date().toISOString() : undefined;
           setJourney(updatedJourney);
           setHasChanges(true);
         }
       }
-      message.success('Task marked as complete');
+      message.success(completed ? 'Task marked as complete' : 'Task marked as not completed');
     } catch (err) {
       console.error('Failed to complete task:', err);
       message.error('Failed to update task. Please try again.');
@@ -244,6 +242,74 @@ const OnboardingDetail: React.FC = () => {
       message.error('Failed to save progress. Please try again.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Add a function to refresh the journey data
+  const refreshJourney = async () => {
+    try {
+      setLoading(true);
+      const targetUserId = userId || user?.id;
+      if (!targetUserId) throw new Error('User ID not available');
+      let data;
+      if (isViewingOwnJourney) {
+        data = await onboardingService.getMyProgress();
+      } else if (isHR) {
+        data = await onboardingService.getUserProgressHR(targetUserId);
+      } else if (isSupervisor) {
+        data = await onboardingService.getUserProgress(targetUserId);
+      } else if (isManager) {
+        data = await onboardingService.getUserProgressManager(targetUserId);
+      } else {
+        throw new Error('Insufficient permissions to view this onboarding journey');
+      }
+      // Map API response to OnboardingJourney shape if needed (same as in useEffect)
+      const rawData = data as unknown;
+      const tasksByPhase = (rawData as { tasksByPhase?: Record<string, Task[]> }).tasksByPhase || {};
+      const perPhaseProgress = typeof (rawData as { progress?: unknown }).progress === 'object' ? (rawData as { progress: Record<string, number> }).progress : {};
+      const mappedJourney = {
+        user: data.User,
+        progress: {
+          id: data.id,
+          stage: data.stage,
+          progress: data.progress?.overall ?? 0,
+          stageStartDate: data.stageStartDate,
+          estimatedCompletionDate: data.estimatedCompletionDate,
+          UserId: data.User?.id,
+          User: data.User,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+        },
+        overallProgress: data.progress?.overall ?? 0,
+        currentStage: data.stage,
+        tasksCompleted: Object.values(tasksByPhase).flat().filter((task: unknown) => {
+          const t = task as Task;
+          return t.completed || (typeof t === 'object' && t !== null && 'isCompleted' in t && (t as { isCompleted?: boolean }).isCompleted);
+        }).length,
+        totalTasks: Object.values(tasksByPhase).flat().length,
+        phases: (Object.keys(tasksByPhase) as string[]).map(phaseKey => ({
+          stage: phaseKey as OnboardingStage,
+          title: phaseKey.charAt(0).toUpperCase() + phaseKey.slice(1),
+          description: '',
+          tasks: (tasksByPhase[phaseKey] || []).map((task: unknown) => {
+            const t = task as Task;
+            return {
+              ...t,
+              id: t.id ?? '',
+              completed: typeof t.completed === 'boolean' ? t.completed : (typeof t === 'object' && t !== null && 'isCompleted' in t && (t as { isCompleted?: boolean }).isCompleted) || false,
+            };
+          }),
+          completionPercentage: typeof perPhaseProgress[phaseKey] === 'number' ? perPhaseProgress[phaseKey] : 0,
+          isActive: data.stage === phaseKey,
+          isCompleted: typeof perPhaseProgress[phaseKey] === 'number' && perPhaseProgress[phaseKey] === 100,
+        })),
+      };
+      setJourney(mappedJourney);
+      setError(null);
+    } catch (err) {
+      setError('Failed to load onboarding journey. Please try again later.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -348,10 +414,11 @@ const OnboardingDetail: React.FC = () => {
             progress={Math.round((phase.tasks.filter(t => t.completed).length / phase.tasks.length) * 100)}
             tasks={phase.tasks}
             isCurrentPhase={index === currentPhaseIndex}
-            onTaskComplete={(taskId) => handleTaskComplete(index, taskId)}
+            onTaskComplete={(taskId, completed) => handleTaskComplete(index, taskId, completed)}
             canEditTasks={canEditTasks}
             userRole={user?.role || 'employee'}
             onTaskVerify={handleTaskVerify}
+            refreshJourney={refreshJourney}
           />
         ))}
       </div>

@@ -79,8 +79,8 @@ class OnboardingService {
     return response.data;
   }
 
-  async validateTask(taskId: string): Promise<any> {
-    const response = await api.put(`/onboarding/tasks/${taskId}/validate`);
+  async validateTask(taskId: string, userId?: string): Promise<any> {
+    const response = await api.put(`/onboarding/tasks/${taskId}/validate`, { userId });
     return response.data;
   }
 
@@ -192,6 +192,11 @@ class OnboardingService {
 
   canAccessOwnData(userRole: string): boolean {
     return ['employee', 'supervisor', 'manager', 'hr'].includes(userRole);
+  }
+
+  async validateUserTaskProgress(userTaskProgressId: string, comments?: string): Promise<any> {
+    const response = await api.put(`/onboarding/user-task-progress/${userTaskProgressId}/validate`, { comments });
+    return response.data;
   }
 }
 
