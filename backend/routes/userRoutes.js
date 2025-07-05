@@ -6,7 +6,7 @@ const { auth, checkRole } = require("../middleware/auth");
 const evaluationController = require("../controllers/evaluationController");
 
 // Validation middleware
-const userValidation = [
+const createUserValidation = [
   check("name").notEmpty().withMessage("Name is required"),
   check("email").isEmail().withMessage("Valid email is required"),
   check("password")
@@ -28,6 +28,31 @@ const userValidation = [
     .withMessage("Invalid program type"),
 ];
 
+const updateUserValidation = [
+  check("name").optional().notEmpty().withMessage("Name is required"),
+  check("email").optional().isEmail().withMessage("Valid email is required"),
+  check("password")
+    .optional()
+    .isLength({ min: 6 })
+    .withMessage("Password must be at least 6 characters long"),
+  check("role")
+    .optional()
+    .isIn(["employee", "supervisor", "manager", "admin"])
+    .withMessage("Invalid role"),
+  check("department").optional().notEmpty().withMessage("Department is required"),
+  check("startDate").optional().isISO8601().withMessage("Valid start date is required"),
+  check("programType")
+    .optional()
+    .isIn([
+      "inkompass",
+      "earlyTalent",
+      "apprenticeship",
+      "academicPlacement",
+      "workExperience",
+    ])
+    .withMessage("Invalid program type"),
+];
+
 // Get all users (admin and hr only)
 router.get("/", auth, checkRole("admin", "hr"), userController.getAllUsers);
 
@@ -39,12 +64,12 @@ router.post(
   "/",
   auth,
   checkRole("admin", "hr"),
-  userValidation,
+  createUserValidation,
   userController.createUser
 );
 
 // Update user
-router.put("/:id", auth, userValidation, userController.updateUser);
+router.put("/:id", auth, updateUserValidation, userController.updateUser);
 
 // Delete user (admin only)
 router.delete("/:id", auth, checkRole("hr"), userController.deleteUser);

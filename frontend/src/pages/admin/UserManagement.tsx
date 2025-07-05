@@ -1,20 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../../components/layout/Layout';
-import { User, UserPlus, Search, Filter, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { User, UserPlus, Search, Edit, Trash2 } from 'lucide-react';
 import { Modal, Button, Input, Select, message, Form, Popconfirm } from 'antd';
 
 const { Option } = Select;
 
+type UserType = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  department: string;
+  programType?: string;
+  startDate?: string;
+  status?: string;
+};
+
 const UserManagement: React.FC = () => {
-  const [users, setUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState<UserType[]>([]);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [editingUser, setEditingUser] = useState<UserType | null>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [form] = Form.useForm();
+  const [passwordForm] = Form.useForm();
 
   const fetchUsers = async () => {
-    setLoading(true);
     try {
       const token = localStorage.getItem('token');
       const res = await fetch('http://localhost:5000/api/users', {
@@ -25,9 +36,8 @@ const UserManagement: React.FC = () => {
       const data = await res.json();
       setUsers(data);
     } catch (err) {
+      console.error('Error fetching users:', err);
       message.error('Failed to load users');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -39,7 +49,7 @@ const UserManagement: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleEdit = async (user: any) => {
+  const handleEdit = async (user: UserType) => {
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`http://localhost:5000/api/users/${user.id}`, {
@@ -59,6 +69,7 @@ const UserManagement: React.FC = () => {
         startDate: userData.startDate ? userData.startDate.slice(0, 10) : '',
         password: '',
       };
+      console.log('Form data to set:', formData);
       form.setFieldsValue(formData);
       setShowModal(true);
     } catch {
@@ -90,6 +101,10 @@ const UserManagement: React.FC = () => {
       const url = editingUser
         ? `http://localhost:5000/api/users/${editingUser.id}`
         : 'http://localhost:5000/api/users';
+      // Extra safeguard: remove password if not present or empty
+      if (!values.password) {
+        delete values.password;
+      }
       const res = await fetch(url, {
         method,
         headers: {
@@ -103,8 +118,37 @@ const UserManagement: React.FC = () => {
       message.success(editingUser ? 'User updated' : 'User created');
       setShowModal(false);
       fetchUsers();
-    } catch (err: any) {
-      message.error(err.message || 'Failed to save user');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save user';
+      message.error(errorMessage);
+    }
+  };
+
+  // Password change handler
+  const handlePasswordChange = async () => {
+    try {
+      const values = await passwordForm.validateFields();
+      if (values.newPassword !== values.repeatPassword) {
+        message.error('New passwords do not match');
+        return;
+      }
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5000/api/users/${editingUser?.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        credentials: 'include',
+        body: JSON.stringify({ currentPassword: values.currentPassword, password: values.newPassword }),
+      });
+      if (!res.ok) throw new Error('Failed to update password');
+      message.success('Password updated');
+      setShowPasswordModal(false);
+      passwordForm.resetFields();
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update password';
+      message.error(errorMessage);
     }
   };
 
@@ -214,25 +258,78 @@ const UserManagement: React.FC = () => {
           okText={editingUser ? 'Update' : 'Create'}
         >
           <Form form={form} layout="vertical">
-            <Form.Item name="name" label="Name" rules={[{ required: true }]}> <Input /> </Form.Item>
-            <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email' }]}> <Input /> </Form.Item>
-            <Form.Item name="password" label="Password" rules={[{ required: !editingUser, min: 6 }]}> <Input.Password /> </Form.Item>
-            <Form.Item name="role" label="Role" rules={[{ required: true }]}> <Select>
-              <Option value="employee">Employee</Option>
-              <Option value="supervisor">Supervisor</Option>
-              <Option value="manager">Manager</Option>
-              <Option value="admin">Admin</Option>
-              <Option value="hr">HR</Option>
-            </Select></Form.Item>
-            <Form.Item name="department" label="Department" rules={[{ required: true }]}> <Input /> </Form.Item>
-            <Form.Item name="programType" label="Program Type" rules={[{ required: true }]}> <Select>
-              <Option value="inkompass">Inkompass</Option>
-              <Option value="earlyTalent">Early Talent</Option>
-              <Option value="apprenticeship">Apprenticeship</Option>
-              <Option value="academicPlacement">Academic Placement</Option>
-              <Option value="workExperience">Work Experience</Option>
-            </Select></Form.Item>
-            <Form.Item name="startDate" label="Start Date" rules={[{ required: true }]}> <Input type="date" /> </Form.Item>
+            <Form.Item name="name" label="Name" rules={[{ required: true }]}> 
+              <Input />
+            </Form.Item>
+            <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email' }]}> 
+              <Input />
+            </Form.Item>
+            {/* Only show password field when adding a new user */}
+            {!editingUser && (
+              <Form.Item name="password" label="Password" rules={[{ required: true, min: 6 }]}> 
+                <Input.Password />
+              </Form.Item>
+            )}
+            <Form.Item name="role" label="Role" rules={[{ required: true }]}> 
+              <Select>
+                <Option value="employee">Employee</Option>
+                <Option value="supervisor">Supervisor</Option>
+                <Option value="manager">Manager</Option>
+                <Option value="admin">Admin</Option>
+                <Option value="hr">HR</Option>
+              </Select>
+            </Form.Item>
+            <Form.Item name="department" label="Department" rules={[{ required: true }]}> 
+              <Input />
+            </Form.Item>
+            <Form.Item name="programType" label="Program Type" rules={[{ required: true }]}> 
+              <Select>
+                <Option value="inkompass">Inkompass</Option>
+                <Option value="earlyTalent">Early Talent</Option>
+                <Option value="apprenticeship">Apprenticeship</Option>
+                <Option value="academicPlacement">Academic Placement</Option>
+                <Option value="workExperience">Work Experience</Option>
+              </Select>
+            </Form.Item>
+            <Form.Item name="startDate" label="Start Date" rules={[{ required: true }]}> 
+              <Input type="date" />
+            </Form.Item>
+          </Form>
+          {/* Show change password button when editing */}
+          {editingUser && (
+            <Button style={{ marginTop: 16 }} onClick={() => setShowPasswordModal(true)}>
+              Change Password
+            </Button>
+          )}
+        </Modal>
+        {/* Password Change Modal */}
+        <Modal
+          title="Change Password"
+          open={showPasswordModal}
+          onCancel={() => setShowPasswordModal(false)}
+          onOk={handlePasswordChange}
+          okText="Update Password"
+        >
+          <Form form={passwordForm} layout="vertical">
+            <Form.Item name="currentPassword" label="Current Password" rules={[{ required: true, min: 6 }]}> 
+              <Input.Password />
+            </Form.Item>
+            <Form.Item name="newPassword" label="New Password" rules={[{ required: true, min: 6 }]}> 
+              <Input.Password />
+            </Form.Item>
+            <Form.Item name="repeatPassword" label="Repeat New Password" dependencies={["newPassword"]} rules={[
+              { required: true, min: 6 },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('newPassword') === value) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error('The two passwords do not match!'));
+                },
+              }),
+            ]}>
+              <Input.Password />
+            </Form.Item>
           </Form>
         </Modal>
       </div>
