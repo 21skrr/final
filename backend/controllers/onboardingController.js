@@ -19,41 +19,10 @@ const { getSystemSetting } = require("../utils/systemSettingsService");
 // Employee: Get my onboarding progress (Read-only)
 // GET /api/onboarding/progress/me
 const getMyProgress = async (req, res) => {
-  try {
-    const progress = await OnboardingProgress.findOne({
-      where: { UserId: req.user.id },
-      include: [
-        {
-          model: User,
-          attributes: [
-            "id",
-            "name",
-            "email",
-            "role",
-            "department",
-            "startDate",
-          ],
-        },
-      ],
-    });
-
-    if (!progress) {
-      return res.status(404).json({ message: "Onboarding progress not found" });
-    }
-
-    // For employees, return read-only data without task editing capabilities
-    const response = {
-      ...progress.toJSON(),
-      canEdit: false,
-      canAdvance: false,
-      canValidate: false
-    };
-
-    res.json(response);
-  } catch (error) {
-    console.error("Error fetching onboarding progress:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
+  // Use the same logic as getUserOnboardingProgress, but for the current user
+  req.params = req.params || {};
+  req.params.userId = req.user.id;
+  return getUserOnboardingProgress(req, res);
 };
 
 // Supervisor/HR: Get onboarding progress for a specific employee
@@ -505,8 +474,27 @@ const updateOnboardingProgress = async (req, res) => {
 // Export onboarding progress as CSV
 const exportOnboardingCSV = async (req, res) => {
   try {
-    const progresses = await OnboardingProgress.findAll();
-    const fields = ["userId", "stage", "progress", "createdAt", "updatedAt"];
+    const progresses = await OnboardingProgress.findAll({
+      include: [
+        {
+          model: User,
+          attributes: ["id", "name", "email", "role", "department", "startDate"],
+        },
+      ],
+    });
+    const fields = [
+      "User.id",
+      "User.name",
+      "User.email",
+      "User.role",
+      "User.department",
+      "User.startDate",
+      "stage",
+      "progress",
+      "status",
+      "createdAt",
+      "updatedAt"
+    ];
     const parser = new Parser({ fields });
     const csv = parser.parse(progresses.map((p) => p.toJSON()));
     res.header("Content-Type", "text/csv");

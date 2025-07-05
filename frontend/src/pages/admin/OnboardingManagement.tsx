@@ -349,6 +349,52 @@ const OnboardingManagement: React.FC = () => {
     }
   ];
 
+  const handleExportCSV = async () => {
+    setCsvLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/onboarding/export/csv', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'text/csv',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Get filename from Content-Disposition header if available
+      let filename = 'onboarding_report.csv';
+      const contentDisposition = response.headers.get('content-disposition');
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // Read CSV as text and trigger download
+      const csvText = await response.text();
+      const blob = new Blob([csvText], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export CSV:', err);
+      message.error('Failed to export CSV. Please try again.');
+    } finally {
+      setCsvLoading(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="p-6">
@@ -489,11 +535,7 @@ const OnboardingManagement: React.FC = () => {
           <Button
             icon={<DownloadOutlined />}
             loading={csvLoading}
-            onClick={() => {
-              setCsvLoading(true);
-              // Implement CSV export logic here
-              setCsvLoading(false);
-            }}
+            onClick={handleExportCSV}
           >
             Export CSV
           </Button>
