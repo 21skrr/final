@@ -37,12 +37,18 @@ const User = sequelize.define(
     teamId: {
       type: DataTypes.INTEGER,
       allowNull: true
+    },
+    deletedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null
     }
   },
   {
     tableName: "users",
     modelName: "User",
-    timestamps: true
+    timestamps: true,
+    paranoid: true // This enables soft deletes automatically
   }
 );
 

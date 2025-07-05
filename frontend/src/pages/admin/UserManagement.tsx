@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../../components/layout/Layout';
-import { User, UserPlus, Search, Edit, Trash2 } from 'lucide-react';
-import { Modal, Button, Input, Select, message, Form, Popconfirm } from 'antd';
+import { User, UserPlus, Search, Edit, Trash2, RotateCcw } from 'lucide-react';
+import { Modal, Button, Input, Select, message, Form, Popconfirm, Tabs } from 'antd';
 
 const { Option } = Select;
 
@@ -14,16 +14,38 @@ type UserType = {
   programType?: string;
   startDate?: string;
   status?: string;
+  deletedAt?: string;
 };
 
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<UserType[]>([]);
+  const [deactivatedUsers, setDeactivatedUsers] = useState<UserType[]>([]);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserType | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  const [departmentFilter, setDepartmentFilter] = useState<string | undefined>(undefined);
+  const [roleFilter, setRoleFilter] = useState<string | undefined>(undefined);
+  const [programFilter, setProgramFilter] = useState<string | undefined>(undefined);
+  const [roles, setRoles] = useState<{ id: string; name: string; description: string }[]>([]);
+  const [selectedRole, setSelectedRole] = useState<string | undefined>(undefined);
+
+  const roleOptions = [
+    { value: 'employee', label: 'Employee' },
+    { value: 'supervisor', label: 'Supervisor' },
+    { value: 'manager', label: 'Manager' },
+    { value: 'hr', label: 'HR' },
+  ];
+  const programOptions = [
+    { value: 'inkompass', label: 'Inkompass' },
+    { value: 'earlyTalent', label: 'Early Talent' },
+    { value: 'apprenticeship', label: 'Apprenticeship' },
+    { value: 'academicPlacement', label: 'Academic Placement' },
+    { value: 'workExperience', label: 'Work Experience' },
+  ];
 
   const fetchUsers = async () => {
     try {
@@ -41,11 +63,65 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  const fetchDeactivatedUsers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/users/deactivated', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to fetch deactivated users');
+      const data = await res.json();
+      setDeactivatedUsers(data);
+    } catch (err) {
+      console.error('Error fetching deactivated users:', err);
+      message.error('Failed to load deactivated users');
+    }
+  };
+
+  useEffect(() => { 
+    fetchUsers(); 
+    fetchDeactivatedUsers();
+    // Fetch departments
+    const fetchDepartments = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/users/departments/all', {
+          headers: { 'Authorization': `Bearer ${token}` },
+          credentials: 'include',
+        });
+        if (!res.ok) throw new Error('Failed to fetch departments');
+        const data = await res.json();
+        setDepartments(data);
+      } catch (err) {
+        console.error('Error fetching departments:', err);
+        message.error('Failed to load departments');
+      }
+    };
+    fetchDepartments();
+    // Fetch roles
+    const fetchRoles = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/roles', {
+          headers: { 'Authorization': `Bearer ${token}` },
+          credentials: 'include',
+        });
+        if (!res.ok) throw new Error('Failed to fetch roles');
+        const data = await res.json();
+        setRoles(data);
+      } catch (err) {
+        console.error('Error fetching roles:', err);
+        message.error('Failed to load roles');
+      }
+    };
+    fetchRoles();
+  }, []);
 
   const handleAdd = () => {
     setEditingUser(null);
     form.resetFields();
+    setSelectedRole(undefined);
     setShowModal(true);
   };
 
@@ -71,6 +147,7 @@ const UserManagement: React.FC = () => {
       };
       console.log('Form data to set:', formData);
       form.setFieldsValue(formData);
+      setSelectedRole(formData.role);
       setShowModal(true);
     } catch {
       message.error('Failed to fetch user data');
@@ -85,11 +162,29 @@ const UserManagement: React.FC = () => {
         headers: { 'Authorization': `Bearer ${token}` },
         credentials: 'include',
       });
-      if (!res.ok) throw new Error('Failed to delete user');
-      message.success('User deleted');
+      if (!res.ok) throw new Error('Failed to deactivate user');
+      message.success('User deactivated successfully');
       fetchUsers();
+      fetchDeactivatedUsers();
     } catch {
-      message.error('Failed to delete user');
+      message.error('Failed to deactivate user');
+    }
+  };
+
+  const handleRestore = async (userId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5000/api/users/${userId}/restore`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to restore user');
+      message.success('User restored successfully');
+      fetchUsers();
+      fetchDeactivatedUsers();
+    } catch {
+      message.error('Failed to restore user');
     }
   };
 
@@ -153,8 +248,11 @@ const UserManagement: React.FC = () => {
   };
 
   const filteredUsers = users.filter(u =>
-    u.name?.toLowerCase().includes(search.toLowerCase()) ||
-    u.email?.toLowerCase().includes(search.toLowerCase())
+    (departmentFilter ? u.department === departmentFilter : true) &&
+    (roleFilter ? u.role === roleFilter : true) &&
+    (programFilter ? u.programType === programFilter : true) &&
+    (u.name?.toLowerCase().includes(search.toLowerCase()) ||
+      u.email?.toLowerCase().includes(search.toLowerCase()))
   );
 
   return (
@@ -176,79 +274,180 @@ const UserManagement: React.FC = () => {
           </Button>
         </div>
 
-        <div className="bg-white shadow rounded-lg">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                <input
-                  type="text"
-                  placeholder="Search users..."
-                  className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
-              </div>
-              {/* Filters can be added here */}
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Join Date</th>
-                  <th className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 flex-shrink-0">
-                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                            <User className="h-6 w-6 text-blue-600" />
-                          </div>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                          <div className="text-sm text-gray-500">{user.email}</div>
-                        </div>
+        <Tabs
+          defaultActiveKey="active"
+          items={[
+            {
+              key: 'active',
+              label: `Active Users (${filteredUsers.length})`,
+              children: (
+                <div className="bg-white shadow rounded-lg">
+                  <div className="p-6 border-b border-gray-200">
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <div className="flex-1 relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                        <input
+                          type="text"
+                          placeholder="Search active users..."
+                          className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          value={search}
+                          onChange={e => setSearch(e.target.value)}
+                        />
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900 capitalize">{user.role}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900">{user.department}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900">{user.programType || '-'}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{user.status || 'active'}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.startDate ? new Date(user.startDate).toLocaleDateString() : '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                      <Button icon={<Edit className="h-4 w-4" />} size="small" onClick={() => handleEdit(user)} />
-                      <Popconfirm title="Delete this user?" onConfirm={() => handleDelete(user.id)} okText="Delete" cancelText="Cancel">
-                        <Button icon={<Trash2 className="h-4 w-4" />} size="small" danger />
-                      </Popconfirm>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                      <Select
+                        allowClear
+                        placeholder="Filter by Department"
+                        style={{ minWidth: 160 }}
+                        value={departmentFilter}
+                        onChange={setDepartmentFilter}
+                      >
+                        {departments.map(dep => (
+                          <Option key={dep.id} value={dep.name}>{dep.name}</Option>
+                        ))}
+                      </Select>
+                      <Select
+                        allowClear
+                        placeholder="Filter by Role"
+                        style={{ minWidth: 140 }}
+                        value={roleFilter}
+                        onChange={setRoleFilter}
+                      >
+                        {roles.map(opt => (
+                          <Option key={opt.name} value={opt.name}>{opt.name.charAt(0).toUpperCase() + opt.name.slice(1)}</Option>
+                        ))}
+                      </Select>
+                      <Select
+                        allowClear
+                        placeholder="Filter by Program"
+                        style={{ minWidth: 180 }}
+                        value={programFilter}
+                        onChange={setProgramFilter}
+                      >
+                        {programOptions.map(opt => (
+                          <Option key={opt.value} value={opt.value}>{opt.label}</Option>
+                        ))}
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Join Date</th>
+                          <th className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {filteredUsers.map((user) => (
+                          <tr key={user.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="h-10 w-10 flex-shrink-0">
+                                  <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <User className="h-6 w-6 text-blue-600" />
+                                  </div>
+                                </div>
+                                <div className="ml-4">
+                                  <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                                  <div className="text-sm text-gray-500">{user.email}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm text-gray-900 capitalize">{user.role}</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm text-gray-900">{user.department}</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm text-gray-900">{user.programType || '-'}</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{user.status || 'active'}</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {user.startDate ? new Date(user.startDate).toLocaleDateString() : '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                              <Button icon={<Edit className="h-4 w-4" />} size="small" onClick={() => handleEdit(user)} />
+                              <Popconfirm title="Deactivate this user?" onConfirm={() => handleDelete(user.id)} okText="Deactivate" cancelText="Cancel">
+                                <Button icon={<Trash2 className="h-4 w-4" />} size="small" danger />
+                              </Popconfirm>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ),
+            },
+            {
+              key: 'deactivated',
+              label: `Deactivated Users (${deactivatedUsers.length})`,
+              children: (
+                <div className="bg-white shadow rounded-lg">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deactivated Date</th>
+                          <th className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {deactivatedUsers.map((user) => (
+                          <tr key={user.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="h-10 w-10 flex-shrink-0">
+                                  <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+                                    <User className="h-6 w-6 text-gray-600" />
+                                  </div>
+                                </div>
+                                <div className="ml-4">
+                                  <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                                  <div className="text-sm text-gray-500">{user.email}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm text-gray-900 capitalize">{user.role}</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm text-gray-900">{user.department}</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm text-gray-900">{user.programType || '-'}</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {user.deletedAt ? new Date(user.deletedAt).toLocaleDateString() : '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                              <Popconfirm title="Restore this user?" onConfirm={() => handleRestore(user.id)} okText="Restore" cancelText="Cancel">
+                                <Button icon={<RotateCcw className="h-4 w-4" />} size="small" type="primary" />
+                              </Popconfirm>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ),
+            },
+          ]}
+        />
 
         <Modal
           title={editingUser ? 'Edit User' : 'Add New User'}
@@ -257,7 +456,13 @@ const UserManagement: React.FC = () => {
           onOk={handleModalOk}
           okText={editingUser ? 'Update' : 'Create'}
         >
-          <Form form={form} layout="vertical">
+          <Form
+            form={form}
+            onValuesChange={(changed, all) => {
+              if ('role' in changed) setSelectedRole(changed.role);
+            }}
+            layout="vertical"
+          >
             <Form.Item name="name" label="Name" rules={[{ required: true }]}> 
               <Input />
             </Form.Item>
@@ -270,27 +475,60 @@ const UserManagement: React.FC = () => {
                 <Input.Password />
               </Form.Item>
             )}
-            <Form.Item name="role" label="Role" rules={[{ required: true }]}> 
-              <Select>
-                <Option value="employee">Employee</Option>
-                <Option value="supervisor">Supervisor</Option>
-                <Option value="manager">Manager</Option>
-                <Option value="admin">Admin</Option>
-                <Option value="hr">HR</Option>
+            <Form.Item
+              name="role"
+              label="Role"
+              rules={[{ required: true, message: 'Please select a role' }]}
+            >
+              <Select
+                placeholder="Select role"
+                onChange={() => {
+                  // Reset programType if role changes
+                  form.setFieldsValue({ programType: undefined });
+                }}
+              >
+                {roles.map(opt => (
+                  <Option key={opt.name} value={opt.name}>{opt.name.charAt(0).toUpperCase() + opt.name.slice(1)}</Option>
+                ))}
               </Select>
             </Form.Item>
-            <Form.Item name="department" label="Department" rules={[{ required: true }]}> 
-              <Input />
-            </Form.Item>
-            <Form.Item name="programType" label="Program Type" rules={[{ required: true }]}> 
-              <Select>
-                <Option value="inkompass">Inkompass</Option>
-                <Option value="earlyTalent">Early Talent</Option>
-                <Option value="apprenticeship">Apprenticeship</Option>
-                <Option value="academicPlacement">Academic Placement</Option>
-                <Option value="workExperience">Work Experience</Option>
+            <Form.Item
+              name="department"
+              label="Department"
+              rules={[{ required: true, message: 'Please select a department' }]}
+            >
+              <Select placeholder="Select department">
+                {departments.map(dep => (
+                  <Option key={dep.id} value={dep.name}>{dep.name}</Option>
+                ))}
               </Select>
             </Form.Item>
+            {/* Program Type: required only for employees */}
+            {selectedRole === 'employee' && (
+              <Form.Item
+                name="programType"
+                label="Program Type"
+                rules={[{ required: true, message: 'Please select a program type' }]}
+              >
+                <Select placeholder="Select program type">
+                  <Option value="inkompass">Inkompass</Option>
+                  <Option value="earlyTalent">Early Talent</Option>
+                  <Option value="apprenticeship">Apprenticeship</Option>
+                  <Option value="academicPlacement">Academic Placement</Option>
+                  <Option value="workExperience">Work Experience</Option>
+                </Select>
+              </Form.Item>
+            )}
+            {selectedRole !== 'employee' && (
+              <Form.Item
+                name="programType"
+                label="Program Type"
+                rules={[]}
+                style={{ display: 'none' }}
+              >
+                <Input disabled />
+              </Form.Item>
+            )}
             <Form.Item name="startDate" label="Start Date" rules={[{ required: true }]}> 
               <Input type="date" />
             </Form.Item>

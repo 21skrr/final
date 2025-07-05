@@ -56,6 +56,9 @@ const updateUserValidation = [
 // Get all users (admin and hr only)
 router.get("/", auth, checkRole("admin", "hr"), userController.getAllUsers);
 
+// Get deactivated users (admin and hr only)
+router.get("/deactivated", auth, checkRole("admin", "hr"), userController.getDeactivatedUsers);
+
 // Get user by ID
 router.get("/:id", auth, userController.getUserById);
 
@@ -73,6 +76,9 @@ router.put("/:id", auth, updateUserValidation, userController.updateUser);
 
 // Delete user (admin only)
 router.delete("/:id", auth, checkRole("hr"), userController.deleteUser);
+
+// Restore user (admin only)
+router.patch("/:id/restore", auth, checkRole("hr"), userController.restoreUser);
 
 // Get team members (supervisor/manager only)
 router.get(
@@ -128,5 +134,8 @@ router.put(
   // Role check for manager is done in the controller
   userController.updateManagerPreferences
 );
+
+// Get all departments (for dropdowns)
+router.get("/departments/all", auth, userController.getAllDepartments);
 
 module.exports = router;

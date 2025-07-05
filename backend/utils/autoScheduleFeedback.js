@@ -15,7 +15,7 @@ const scheduleFeedbackCyclesForUser = async (user) => {
     scheduledDate.setMonth(scheduledDate.getMonth() + months);
 
     await Feedback.create({
-      fromUserId: null, // system generated
+      fromUserId: user.id, // Use the new user's ID as the sender for now
       toUserId: user.id,
       toDepartment: user.department,
       type: "automated-cycle",

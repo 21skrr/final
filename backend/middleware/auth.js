@@ -15,6 +15,11 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ message: "User not found" });
     }
 
+    // Check if user is soft deleted
+    if (user.deletedAt) {
+      return res.status(401).json({ message: "Account has been deactivated" });
+    }
+
     req.user = user;
     next();
   } catch (error) {

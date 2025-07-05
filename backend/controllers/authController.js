@@ -78,8 +78,13 @@ const login = async (req, res) => {
     const { email, password } = req.body;
     console.log("Login attempt for email:", email);
 
-    // Find user
-    const user = await User.findOne({ where: { email } });
+    // Find user (excluding soft deleted users)
+    const user = await User.findOne({ 
+      where: { 
+        email,
+        deletedAt: null // Only allow non-deleted users to login
+      } 
+    });
     if (!user) {
       console.log("User not found for email:", email);
       return res.status(400).json({ message: "Invalid credentials" });
@@ -144,6 +149,7 @@ const getMe = async (req, res) => {
 const getAllUsers = async (req, res) => {
   try {
     const users = await User.findAll({
+      where: { deletedAt: null }, // Only show non-deleted users
       attributes: { exclude: ["passwordHash"] },
       include: [
         {

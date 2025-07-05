@@ -32,6 +32,13 @@ api.interceptors.response.use(
       // Handle unauthorized access - clear storage
       localStorage.removeItem('token');
       localStorage.removeItem('pmiUser');
+      
+      // Check if it's a deactivated account
+      if (error.response.data?.message === 'Account has been deactivated') {
+        // Show specific message for deactivated accounts
+        console.error('Account deactivated:', error.response.data.message);
+      }
+      
       // Dispatch event to notify AuthContext
       window.dispatchEvent(new CustomEvent('auth:cleared'));
     }

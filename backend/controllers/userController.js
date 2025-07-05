@@ -2,15 +2,19 @@ const express = require("express");
 const { validationResult } = require("express-validator");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
+const { Op } = require("sequelize");
 const models = require("../models");
 const { User, UserSetting, TeamSettings } = require("../models");
 const scheduleFeedbackCyclesForUser = require("../utils/autoScheduleFeedback");
+const Department = require("../models/Department");
 
 // Get all users (admin only)
 const getAllUsers = async (req, res) => {
   try {
     const { role } = req.query;
-    const whereClause = {};
+    const whereClause = {
+      deletedAt: null // Only show non-deleted users
+    };
 
     if (role) {
       whereClause.role = role;
@@ -24,6 +28,32 @@ const getAllUsers = async (req, res) => {
     res.json(users);
   } catch (error) {
     console.error("Error fetching users:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get deactivated users (admin only)
+const getDeactivatedUsers = async (req, res) => {
+  try {
+    const { role } = req.query;
+    const whereClause = {
+      deletedAt: { [Op.not]: null } // Only show deleted users
+    };
+
+    if (role) {
+      whereClause.role = role;
+    }
+
+    const users = await User.findAll({
+      where: whereClause,
+      attributes: { exclude: ["passwordHash"] },
+      order: [["deletedAt", "DESC"]],
+      paranoid: false, // Ensure soft-deleted users are included
+    });
+    console.log("Deactivated users found:", users.length, users.map(u => u.id));
+    res.json(users);
+  } catch (error) {
+    console.error("Error fetching deactivated users:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -90,8 +120,12 @@ const createUser = async (req, res) => {
       startDate,
       programType,
     });
-    await scheduleFeedbackCyclesForUser(user);
-
+    try {
+      await scheduleFeedbackCyclesForUser(user);
+    } catch (err) {
+      console.error('Error scheduling feedback cycles:', err);
+      // Optionally: return res.status(500).json({ message: 'Error scheduling feedback cycles' });
+    }
 
     // Remove password from response
     const userResponse = user.toJSON();
@@ -166,15 +200,54 @@ const updateUser = async (req, res) => {
 // Delete user (soft delete)
 const deleteUser = async (req, res) => {
   try {
+    console.log('Attempting to deactivate user with ID:', req.params.id);
+    
     const user = await User.findByPk(req.params.id);
     if (!user) {
+      console.log('User not found for ID:', req.params.id);
       return res.status(404).json({ message: "User not found" });
     }
-    // Soft delete: set isActive to false
-    await user.update({ isActive: false });
+    
+    console.log('Found user:', user.name, 'Current deletedAt:', user.deletedAt);
+    
+    // Use Sequelize's destroy() method for soft delete (since paranoid: true)
+    await user.destroy();
+    
+    // Verify the soft delete worked
+    const deletedUser = await User.findByPk(req.params.id, { paranoid: false });
+    console.log('User after destroy - deletedAt:', deletedUser?.deletedAt);
+    
     res.json({ message: "User deactivated successfully" });
   } catch (error) {
-    console.error("Error deleting user:", error);
+    console.error("Error deactivating user:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Restore user (soft delete)
+const restoreUser = async (req, res) => {
+  try {
+    console.log('Attempting to restore user with ID:', req.params.id);
+    
+    // Find the user including soft deleted ones
+    const user = await User.findByPk(req.params.id, { paranoid: false });
+    if (!user) {
+      console.log('User not found for ID:', req.params.id);
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    console.log('Found user:', user.name, 'Current deletedAt:', user.deletedAt);
+    
+    // Use Sequelize's restore() method
+    await user.restore();
+    
+    // Verify the restore worked
+    const restoredUser = await User.findByPk(req.params.id);
+    console.log('User after restore - deletedAt:', restoredUser?.deletedAt);
+    
+    res.json({ message: "User restored successfully" });
+  } catch (error) {
+    console.error("Error restoring user:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -183,7 +256,10 @@ const deleteUser = async (req, res) => {
 const getTeamMembers = async (req, res) => {
   try {
     const users = await User.findAll({
-      where: { supervisorId: req.user.id },
+      where: { 
+        supervisorId: req.user.id,
+        deletedAt: null // Only show non-deleted users
+      },
       attributes: { exclude: ["passwordHash"] },
       order: [["name", "ASC"]],
     });
@@ -446,12 +522,25 @@ const getUsersWithoutOnboarding = async (req, res) => {
   }
 };
 
+// Get all departments
+const getAllDepartments = async (req, res) => {
+  try {
+    const departments = await Department.findAll({ attributes: ["id", "name"] });
+    res.json(departments);
+  } catch (error) {
+    console.error("Error fetching departments:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   getAllUsers,
+  getDeactivatedUsers,
   getUserById,
   createUser,
   updateUser,
   deleteUser,
+  restoreUser,
   getTeamMembers,
   getUserSettings,
   updateUserSettings,
@@ -459,4 +548,5 @@ module.exports = {
   updateManagerPreferences,
   getManagerPreferencesMe,
   updateManagerPreferencesMe,
+  getAllDepartments,
 };
