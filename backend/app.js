@@ -43,13 +43,16 @@ const activityLogRoutes = require('./routes/activityLogRoutes');
 
 const app = express();
 
-// Middleware - MUST be before routes
+// Place these FIRST, before anything else:
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Then CORS, session, etc.
 app.use(cors({
   origin: 'http://localhost:5173', // Allow frontend origin
   credentials: true // Allow cookies/auth headers
 }));
 
-// Session middleware (must be before routes)
 app.use(session({
   secret: 'your-secret-key', // Change to a strong secret in production
   resave: false,
@@ -59,9 +62,6 @@ app.use(session({
     secure: false     // false for localhost, true for HTTPS/production
   }
 }));
-
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Custom middleware to log query parameters after parsing
 app.use((req, res, next) => {

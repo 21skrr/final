@@ -18,7 +18,10 @@ import {
   Bell,
   Shield,
   PieChart,
-  BookOpen
+  BookOpen,
+  Settings,
+  Monitor,
+  BarChart
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { UserRole } from "../../types/user";
@@ -36,7 +39,7 @@ const navItems: NavLink[] = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['employee', 'hr', 'manager', 'supervisor'] },
     { name: 'Programs', path: '/programs', icon: Briefcase, roles: ['employee', 'hr', 'manager', 'supervisor'] },
     { name: 'Checklists', path: '/checklists', icon: CheckSquare, roles: ['employee', 'hr', 'manager', 'supervisor'] },
-    { name: 'Forms & Surveys', path: '/forms', icon: FileText, roles: ['employee', 'hr', 'manager', 'supervisor'] },
+    { name: 'Forms & Surveys', path: '/forms', icon: FileText, roles: ['employee', 'hr'] },
     { name: 'Calendar', path: '/calendar', icon: Calendar, roles: ['employee', 'hr', 'manager', 'supervisor'] },
     { name: 'Feedback', path: '/feedback', icon: MessageSquare, roles: ['employee', 'hr', 'manager', 'supervisor'] },
     { name: 'Help & Resources', path: '/resources', icon: BookOpen, roles: ['employee', 'hr', 'manager', 'supervisor'] },
@@ -55,6 +58,18 @@ const navItems: NavLink[] = [
     { name: 'Admin', path: '/admin', icon: Shield, roles: ['hr'] },
     { name: 'Department Surveys', path: '/manager/department-surveys', icon: PieChart, roles: ['manager'] },
     { name: 'Team Surveys', path: '/supervisor/team-surveys', icon: Users, roles: ['supervisor'] },
+    {
+      name: 'Surveys',
+      path: '/admin/surveys',
+      icon: BarChart,
+      roles: ['hr'],
+      children: [
+        { name: 'Survey Templates', path: '/admin/survey-templates', icon: FileText, roles: ['hr'] },
+        { name: 'Survey Settings', path: '/admin/survey-settings', icon: Settings, roles: ['hr'] },
+        { name: 'Survey Monitoring', path: '/admin/survey-monitoring', icon: Monitor, roles: ['hr'] },
+        { name: 'Survey Analytics', path: '/admin/survey-analytics', icon: BarChart, roles: ['hr'] },
+      ]
+    },
 ];
 
 const Sidebar: React.FC = () => {
@@ -134,16 +149,6 @@ const Sidebar: React.FC = () => {
                     </div>
                 ))}
             </nav>
-
-            <div className="absolute bottom-0 w-full p-4 border-t">
-                <button
-                    onClick={handleLogout}
-                    className="flex items-center w-full px-4 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-100"
-                >
-                    <LogOut className="w-5 h-5 mr-3" />
-                    Logout
-                </button>
-            </div>
         </aside>
     );
 };

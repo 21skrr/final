@@ -73,30 +73,42 @@ const getAvailableSurveys = async (req, res) => {
     const currentUser = req.user;
     const currentDate = new Date();
 
-    // Find all active surveys that match the user's role and program
+    // 1. Find all active schedules that have started
+    const schedules = await SurveySchedule.findAll({
+      where: {
+        startDate: { [Op.lte]: currentDate }
+      }
+    });
+
+    // 2. Determine which schedules target this user
+    const eligibleSurveyIds = new Set();
+    for (const schedule of schedules) {
+      let targetAudience = schedule.targetAudience;
+      if (typeof targetAudience === 'string') {
+        try { targetAudience = JSON.parse(targetAudience); } catch { targetAudience = {}; }
+      }
+      let targetEmployeeIds = [];
+      if (schedule.targetEmployeeIds && typeof schedule.targetEmployeeIds === 'string' && schedule.targetEmployeeIds.trim() !== '') {
+        try { targetEmployeeIds = JSON.parse(schedule.targetEmployeeIds); } catch { targetEmployeeIds = []; }
+      } else if (Array.isArray(schedule.targetEmployeeIds)) {
+        targetEmployeeIds = schedule.targetEmployeeIds;
+      }
+      const matchesDepartment = Array.isArray(targetAudience?.departments) && targetAudience.departments.includes(currentUser.department);
+      const matchesProgram = Array.isArray(targetAudience?.programs) && targetAudience.programs.includes(currentUser.programType);
+      const matchesEmployee = Array.isArray(targetEmployeeIds) && targetEmployeeIds.includes(currentUser.id);
+      if (matchesDepartment || matchesProgram || matchesEmployee) {
+        eligibleSurveyIds.add(schedule.surveyId);
+      }
+    }
+
+    // 3. Fetch surveys by those IDs, only active
     const surveys = await Survey.findAll({
       where: {
+        id: Array.from(eligibleSurveyIds),
         status: 'active',
-        [Op.and]: [
-          // Match user's role or 'all'
-          {
-            targetRole: {
-              [Op.or]: ['all', currentUser.role]
-            }
-          },
-          // Match user's program or 'all'
-          {
-            targetProgram: {
-              [Op.or]: ['all', currentUser.programType]
-            }
-          },
-          // Check due date if exists
-          {
-            [Op.or]: [
-              { dueDate: { [Op.gt]: currentDate } },
-              { dueDate: null }
-            ]
-          }
+        [Op.or]: [
+          { dueDate: { [Op.gt]: currentDate } },
+          { dueDate: null }
         ]
       },
       include: [
@@ -107,22 +119,56 @@ const getAvailableSurveys = async (req, res) => {
           required: false,
         }
       ],
-      order: [
-        ['createdAt', 'DESC'],
-      ]
+      order: [['createdAt', 'DESC']]
     });
 
-    // Format the response to include completion status and progress
-    const formattedSurveys = surveys.map(survey => {
+    // 4. Fetch completed surveys for this user (even if not currently active)
+    const completedResponses = await SurveyResponse.findAll({
+      where: {
+        userId: currentUser.id,
+        status: 'completed'
+      },
+      include: [
+        {
+          model: Survey,
+          as: 'survey',
+        }
+      ]
+    });
+    const completedSurveyIds = new Set(completedResponses.map(r => r.surveyId));
+    // Add completed surveys not already in eligibleSurveyIds
+    for (const resp of completedResponses) {
+      if (!eligibleSurveyIds.has(resp.surveyId)) {
+        eligibleSurveyIds.add(resp.surveyId);
+      }
+    }
+
+    // 5. Fetch all surveys by eligibleSurveyIds (active or completed)
+    const allSurveys = await Survey.findAll({
+      where: {
+        id: Array.from(eligibleSurveyIds)
+      },
+      include: [
+        {
+          model: SurveyResponse,
+          as: 'responses',
+          where: { userId: currentUser.id },
+          required: false,
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    // 6. Format the response to include completion status and progress
+    const formattedSurveys = allSurveys.map(survey => {
       const surveyJson = survey.toJSON();
-      const hasResponded = surveyJson.responses && surveyJson.responses.length > 0;
-      
+      const hasCompleted = surveyJson.responses && surveyJson.responses.some(r => r.status === 'completed');
       return {
         ...surveyJson,
-        status: hasResponded ? 'Completed' : 'Pending',
-        progress: hasResponded ? 100 : 0,
-        type: 'survey', // Standardize type for the card
-        responses: undefined // Don't send detailed response data to this list view
+        status: hasCompleted ? 'Completed' : 'Pending',
+        progress: hasCompleted ? 100 : 0,
+        type: 'survey',
+        responses: undefined
       };
     });
 
@@ -137,6 +183,7 @@ const getAvailableSurveys = async (req, res) => {
 const getSurveyById = async (req, res) => {
   try {
     const surveyId = req.params.id;
+    const userId = req.user.id;
 
     const survey = await Survey.findByPk(surveyId, {
       include: [
@@ -153,8 +200,7 @@ const getSurveyById = async (req, res) => {
           model: SurveyResponse,
           as: 'responses',
           where: {
-            // Only filter by user ID for employees looking at their own history
-            ...(req.user.role === 'employee' && { userId: req.user.id }),
+            userId: userId,
           },
           required: false, // LEFT JOIN
           include: [
@@ -171,7 +217,18 @@ const getSurveyById = async (req, res) => {
       return res.status(404).json({ message: "Survey not found" });
     }
 
-    res.json(survey);
+    // Determine if the user has already submitted a response
+    let alreadySubmitted = false;
+    if (survey.responses && survey.responses.some(r => r.status === 'completed')) {
+      alreadySubmitted = true;
+    }
+
+    const surveyJson = survey.toJSON();
+    surveyJson.alreadySubmitted = alreadySubmitted;
+    // Optionally, remove the detailed responses array for privacy
+    // delete surveyJson.responses;
+
+    res.json(surveyJson);
   } catch (error) {
     console.error("Error fetching survey:", error);
     res.status(500).json({ message: "Server error" });
@@ -1037,62 +1094,109 @@ const generateInterventions = (insights) => {
 // Get department survey analytics
 const getDepartmentAnalytics = async (req, res) => {
   try {
-    // Validate user is a manager or HR
     if (!['manager', 'hr'].includes(req.user.role)) {
       return res.status(403).json({ message: 'Not authorized to view department analytics' });
     }
-
-    const { 
+    let { 
       department = req.user.department,
       timeframe = '6months',
       surveyType,
       programType
     } = req.query;
-
-    if (req.user.role === 'manager' && department?.trim().toLowerCase() !== req.user.department?.trim().toLowerCase()) {
+    // Treat 'all' as no filter
+    if (department === 'all') department = undefined;
+    if (programType === 'all') programType = undefined;
+    if (req.user.role === 'manager' && department && department.trim().toLowerCase() !== req.user.department?.trim().toLowerCase()) {
       return res.status(403).json({ message: 'Managers can only view their own department analytics' });
     }
-
     const { startDate, endDate } = calculateDateRange(timeframe);
-
-    // --- Data Fetching ---
-    
-    // 1. Get Department Employees (for participation rates)
+    // 1. Get Department Employees
     const employees = await getDepartmentUsers(department, programType, ['employee']);
     const employeeIds = employees.map(e => e.id);
-
-    // 2. Get Department Supervisors (for performance tab)
-    const supervisors = await getDepartmentUsers(department, programType, ['supervisor']);
-    const supervisorIds = supervisors.map(s => s.id);
-
-    // 3. Get all relevant surveys and their responses
-    const surveys = await getSurveysWithResponses(surveyType, employeeIds.concat(supervisorIds), startDate, endDate);
-
-    // --- Data Processing & Calculation ---
-
-    // 1. Calculate main analytics for the "Analytics" tab
-    const analytics = calculateMainAnalytics(surveys, employees);
-
-    // 2. Calculate insights for the "Insights" tab
-    const insights = await calculateInsights(surveys, employees, department, startDate, endDate);
-
-    // 3. Calculate supervisor performance for the "Supervisor Performance" tab
-    const supervisorPerformance = calculateSupervisorPerformance(supervisors, surveys, employees);
-    
-    // 4. Generate intervention data (placeholder for now)
-    const interventions = generateInterventions(insights);
-
+    console.log('Department:', department, 'ProgramType:', programType, 'EmployeeIds:', employeeIds);
+    // 2. Get all relevant survey schedules (assignments)
+    const schedules = await SurveySchedule.findAll({
+      where: {
+        startDate: { [Op.lte]: endDate }
+      }
+    });
+    console.log('Schedules found:', schedules.length);
+    // 3. Determine assigned surveys for department employees
+    const assignedSurveyIds = new Set();
+    for (const schedule of schedules) {
+      let targetAudience = schedule.targetAudience;
+      if (typeof targetAudience === 'string') {
+        try { targetAudience = JSON.parse(targetAudience); } catch { targetAudience = {}; }
+      }
+      let targetEmployeeIds = [];
+      if (schedule.targetEmployeeIds && typeof schedule.targetEmployeeIds === 'string' && schedule.targetEmployeeIds.trim() !== '') {
+        try { targetEmployeeIds = JSON.parse(schedule.targetEmployeeIds); } catch { targetEmployeeIds = []; }
+      } else if (Array.isArray(schedule.targetEmployeeIds)) {
+        targetEmployeeIds = schedule.targetEmployeeIds;
+      }
+      const matchesDepartment = department && Array.isArray(targetAudience?.departments) && targetAudience.departments.includes(department);
+      const matchesProgram = programType && Array.isArray(targetAudience?.programs) && targetAudience.programs.includes(programType);
+      const matchesEmployee = Array.isArray(targetEmployeeIds) && employeeIds.some(id => targetEmployeeIds.includes(id));
+      if (matchesDepartment || matchesProgram || matchesEmployee) {
+        assignedSurveyIds.add(schedule.surveyId);
+      }
+    }
+    // 4. Get all assigned surveys
+    const assignedSurveys = await Survey.findAll({
+      where: { id: Array.from(assignedSurveyIds) }
+    });
+    // 5. Get all completed survey responses for these employees
+    const completedResponses = await SurveyResponse.findAll({
+      where: {
+        userId: { [Op.in]: employeeIds },
+        status: 'completed',
+        submittedAt: { [Op.between]: [startDate, endDate] }
+      }
+    });
+    // 6. Calculate analytics
+    // Find employees who were assigned at least one survey
+    const assignedEmployeeIds = new Set();
+    for (const schedule of schedules) {
+      let targetAudience = schedule.targetAudience;
+      if (typeof targetAudience === 'string') {
+        try { targetAudience = JSON.parse(targetAudience); } catch { targetAudience = {}; }
+      }
+      let targetEmployeeIds = [];
+      if (schedule.targetEmployeeIds && typeof schedule.targetEmployeeIds === 'string' && schedule.targetEmployeeIds.trim() !== '') {
+        try { targetEmployeeIds = JSON.parse(schedule.targetEmployeeIds); } catch { targetEmployeeIds = []; }
+      } else if (Array.isArray(schedule.targetEmployeeIds)) {
+        targetEmployeeIds = schedule.targetEmployeeIds;
+      }
+      // Add employees targeted by department/program
+      if (department && Array.isArray(targetAudience?.departments) && targetAudience.departments.includes(department)) {
+        employeeIds.forEach(id => assignedEmployeeIds.add(id));
+      }
+      if (programType && Array.isArray(targetAudience?.programs) && targetAudience.programs.includes(programType)) {
+        employeeIds.forEach(id => assignedEmployeeIds.add(id));
+      }
+      // Add employees targeted directly
+      targetEmployeeIds.forEach(id => assignedEmployeeIds.add(id));
+    }
+    // Find unique employees who completed at least one assigned survey
+    const completedEmployeeIds = new Set(completedResponses.map(r => r.userId));
+    // Participation rate: (unique completed / unique assigned) * 100, capped at 100%
+    const totalAssigned = assignedSurveys.length;
+    const totalResponses = completedResponses.length;
+    const totalAssignedEmployees = assignedEmployeeIds.size;
+    const totalCompletedEmployees = Array.from(completedEmployeeIds).filter(id => assignedEmployeeIds.has(id)).length;
+    const participationRate = totalAssignedEmployees > 0 ? Math.min((totalCompletedEmployees / totalAssignedEmployees) * 100, 100) : 0;
+    const analytics = {
+      totalSurveys: totalAssigned,
+      totalResponses,
+      participationRate,
+    };
     res.json({
       filters: { department, timeframe, surveyType, programType },
-      analytics,
-      insights,
-      supervisorPerformance,
-      interventions
+      analytics
     });
-
   } catch (error) {
     console.error('Error fetching department analytics:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message, stack: error.stack });
   }
 };
 
@@ -1524,7 +1628,8 @@ const scheduleSurvey = async (req, res) => {
       scheduleType, 
       targetDate,
       targetDepartments,
-      targetPrograms
+      targetPrograms,
+      targetEmployeeIds // new field
     } = req.body;
 
     // Verify survey exists
@@ -1534,11 +1639,16 @@ const scheduleSurvey = async (req, res) => {
       return res.status(404).json({ message: "Survey not found" });
     }
 
-    // Validate dates
+    // Validate dates - allow current date and future dates
     const startDate = new Date(targetDate);
-    if (startDate < new Date()) {
+    const now = new Date();
+    // Set time to start of day for comparison to allow same-day scheduling
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfTargetDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    
+    if (startOfTargetDate < startOfToday) {
       await transaction.rollback();
-      return res.status(400).json({ message: "Target date must be in the future" });
+      return res.status(400).json({ message: "Target date must be today or in the future" });
     }
 
     // Create target audience JSON
@@ -1553,6 +1663,7 @@ const scheduleSurvey = async (req, res) => {
       scheduleType,
       startDate,
       targetAudience,
+      targetEmployeeIds: targetEmployeeIds || null,
       createdAt: new Date(),
       updatedAt: new Date()
     }, { transaction });
@@ -1566,7 +1677,8 @@ const scheduleSurvey = async (req, res) => {
         surveyId: schedule.surveyId,
         scheduleType: schedule.scheduleType,
         startDate: schedule.startDate,
-        targetAudience: JSON.parse(schedule.targetAudience)
+        targetAudience: JSON.parse(schedule.targetAudience),
+        targetEmployeeIds: schedule.targetEmployeeIds
       }
     });
 
@@ -2495,6 +2607,64 @@ const getSurveySchedules = async (req, res) => {
   }
 };
 
+// Get survey settings
+const getSurveySettings = async (req, res) => {
+  try {
+    let settings = await SurveySettings.findOne();
+    if (!settings) {
+      settings = await SurveySettings.create({
+        defaultAnonymous: false,
+        allowComments: true,
+        requireEvidence: false,
+        autoReminders: true,
+        reminderFrequency: 7,
+        responseDeadlineDays: 14,
+        dataRetentionDays: 90
+      });
+    }
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch survey settings" });
+  }
+};
+
+// Get department survey insights
+const getDepartmentInsights = async (req, res) => {
+  try {
+    if (!['manager', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Not authorized to view department insights' });
+    }
+    const department = req.user.department;
+    if (!department) {
+      return res.status(400).json({ message: 'No department assigned to user' });
+    }
+    // Only allow managers to view their own department
+    if (req.user.role === 'manager' && req.user.department !== department) {
+      return res.status(403).json({ message: 'Managers can only view their own department insights' });
+    }
+    // Get all employees in the department
+    const employees = await User.findAll({
+      where: { department, role: 'employee' },
+      attributes: ['id', 'name', 'email', 'department', 'programType']
+    });
+    const employeeIds = employees.map(e => e.id);
+    // Get all survey responses for these employees
+    const surveys = await SurveyResponse.findAll({
+      where: { userId: { [Op.in]: employeeIds } },
+      include: [
+        { model: Survey, as: 'survey' },
+        { model: SurveyQuestionResponse, as: 'questionResponses', include: [{ model: SurveyQuestion, as: 'question' }] }
+      ]
+    });
+    // Calculate insights
+    const insights = await calculateInsights(surveys, employees, department);
+    res.json({ insights });
+  } catch (error) {
+    console.error('Error fetching department insights:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   getAllSurveys,
   getUserSurveys,
@@ -2522,5 +2692,7 @@ module.exports = {
   getSurveyTemplateQuestions,
   createSurveyTemplateQuestion,
   deleteSurveyTemplateQuestion,
-  getSurveySchedules
+  getSurveySchedules,
+  getSurveySettings,
+  getDepartmentInsights
 };

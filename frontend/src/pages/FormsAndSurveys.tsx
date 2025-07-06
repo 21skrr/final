@@ -178,6 +178,10 @@ const FormsAndSurveys: React.FC = () => {
   
   const pendingForms = surveys.filter(s => s.status === 'Pending' || s.status === 'In progress');
 
+  if (user?.role !== 'employee') {
+    return null;
+  }
+
   if (loading) {
     return (
       <Layout>

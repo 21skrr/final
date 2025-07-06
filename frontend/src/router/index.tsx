@@ -85,6 +85,7 @@ import EvaluationScheduling from '../pages/admin/EvaluationScheduling';
 import ManagerEvaluationDetail from '../pages/manager/ManagerEvaluationDetail';
 import HROnboardingManagement from '../pages/admin/HROnboardingManagement';
 import HRTaskValidation from '../pages/admin/HRTaskValidation';
+import SurveyAnalytics from '../pages/admin/SurveyAnalytics';
 
 // Route protection component
 const ProtectedRoute: React.FC<{
@@ -461,6 +462,14 @@ const Router: React.FC = () => {
       element: (
         <ProtectedRoute requiredRoles={['hr']}>
           <SurveyTemplates />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/admin/survey-analytics',
+      element: (
+        <ProtectedRoute requiredRoles={['hr']}>
+          <SurveyAnalytics />
         </ProtectedRoute>
       ),
     },

@@ -20,7 +20,9 @@ const SurveyHistory: React.FC = () => {
       try {
         setLoading(true);
         const response = await surveyService.getSurveyHistory();
-        setCompletedSurveys(response.data);
+        // Handle both Axios response and direct array
+        const data = Array.isArray(response) ? response : response.data;
+        setCompletedSurveys(data || []);
       } catch (error) {
         console.error("Failed to fetch survey history", error);
       } finally {
@@ -51,13 +53,13 @@ const SurveyHistory: React.FC = () => {
             ) : (
               completedSurveys.map(historyItem => (
                 <li key={historyItem.id}>
-                  <Link to={`/surveys/${historyItem.survey.id}`} className="block hover:bg-gray-50 p-6">
+                  <Link to={`/surveys/${historyItem.survey?.id || ''}`} className="block hover:bg-gray-50 p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center">
                         <FileText className="h-6 w-6 text-gray-400 mr-4"/>
                         <div>
-                          <p className="text-md font-semibold text-blue-600">{historyItem.survey.title}</p>
-                          <p className="text-sm text-gray-500">Completed on: {new Date(historyItem.submittedAt || '').toLocaleDateString()}</p>
+                          <p className="text-md font-semibold text-blue-600">{historyItem.survey?.title || 'Untitled Survey'}</p>
+                          <p className="text-sm text-gray-500">Completed on: {historyItem.submittedAt ? new Date(historyItem.submittedAt).toLocaleDateString() : 'Unknown'}</p>
                         </div>
                       </div>
                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">

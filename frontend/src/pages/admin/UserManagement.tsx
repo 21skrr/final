@@ -281,19 +281,19 @@ const UserManagement: React.FC = () => {
               key: 'active',
               label: `Active Users (${filteredUsers.length})`,
               children: (
-                <div className="bg-white shadow rounded-lg">
-                  <div className="p-6 border-b border-gray-200">
-                    <div className="flex flex-col sm:flex-row gap-4">
-                      <div className="flex-1 relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                        <input
-                          type="text"
+        <div className="bg-white shadow rounded-lg">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <input
+                  type="text"
                           placeholder="Search active users..."
-                          className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                           value={search}
                           onChange={e => setSearch(e.target.value)}
-                        />
-                      </div>
+                />
+              </div>
                       <Select
                         allowClear
                         placeholder="Filter by Department"
@@ -327,13 +327,13 @@ const UserManagement: React.FC = () => {
                           <Option key={opt.value} value={opt.value}>{opt.label}</Option>
                         ))}
                       </Select>
-                    </div>
-                  </div>
+            </div>
+          </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
@@ -341,50 +341,50 @@ const UserManagement: React.FC = () => {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Join Date</th>
                           <th className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
                         {filteredUsers.map((user) => (
-                          <tr key={user.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="h-10 w-10 flex-shrink-0">
-                                  <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                    <User className="h-6 w-6 text-blue-600" />
-                                  </div>
-                                </div>
-                                <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                                  <div className="text-sm text-gray-500">{user.email}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="text-sm text-gray-900 capitalize">{user.role}</span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="text-sm text-gray-900">{user.department}</span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                  <tr key={user.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-10 w-10 flex-shrink-0">
+                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <User className="h-6 w-6 text-blue-600" />
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                          <div className="text-sm text-gray-500">{user.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-900 capitalize">{user.role}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-900">{user.department}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                               <span className="text-sm text-gray-900">{user.programType || '-'}</span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{user.status || 'active'}</span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               {user.startDate ? new Date(user.startDate).toLocaleDateString() : '-'}
-                            </td>
+                    </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                               <Button icon={<Edit className="h-4 w-4" />} size="small" onClick={() => handleEdit(user)} />
                               <Popconfirm title="Deactivate this user?" onConfirm={() => handleDelete(user.id)} okText="Deactivate" cancelText="Cancel">
                                 <Button icon={<Trash2 className="h-4 w-4" />} size="small" danger />
                               </Popconfirm>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
                 </div>
               ),
             },
@@ -414,12 +414,12 @@ const UserManagement: React.FC = () => {
                                   <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
                                     <User className="h-6 w-6 text-gray-600" />
                                   </div>
-                                </div>
+              </div>
                                 <div className="ml-4">
                                   <div className="text-sm font-medium text-gray-900">{user.name}</div>
                                   <div className="text-sm text-gray-500">{user.email}</div>
-                                </div>
-                              </div>
+              </div>
+            </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className="text-sm text-gray-900 capitalize">{user.role}</span>
@@ -442,8 +442,8 @@ const UserManagement: React.FC = () => {
                         ))}
                       </tbody>
                     </table>
-                  </div>
-                </div>
+          </div>
+        </div>
               ),
             },
           ]}

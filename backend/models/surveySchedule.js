@@ -46,6 +46,10 @@ module.exports = (sequelize) => {
       type: DataTypes.JSON,
       allowNull: true
     },
+    targetEmployeeIds: {
+      type: DataTypes.JSON,
+      allowNull: true
+    },
     createdAt: {
       type: DataTypes.DATE,
       allowNull: false

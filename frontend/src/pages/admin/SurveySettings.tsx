@@ -11,6 +11,7 @@ const defaultSettings = {
   autoReminders: true,
   reminderFrequency: 7,
   responseDeadlineDays: 14,
+  dataRetentionDays: 90,
 };
 
 const SurveySettings: React.FC = () => {
@@ -151,6 +152,18 @@ const SurveySettings: React.FC = () => {
                 type="number"
                 name="responseDeadlineDays"
                 value={settings.responseDeadlineDays}
+                onChange={handleChange}
+                className="border rounded px-3 py-2 w-24"
+                min={1}
+                disabled={saving}
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <label htmlFor="dataRetentionDays" className="font-medium w-48">Data Retention (days)</label>
+              <input
+                type="number"
+                name="dataRetentionDays"
+                value={settings.dataRetentionDays}
                 onChange={handleChange}
                 className="border rounded px-3 py-2 w-24"
                 min={1}

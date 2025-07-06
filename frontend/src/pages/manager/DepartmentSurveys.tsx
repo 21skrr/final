@@ -134,8 +134,8 @@ const AnalyticsTab: React.FC<{ data: Analytics | null }> = ({ data }) => {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       <StatCard icon={BarChart2} title="Total Surveys" value={data.totalSurveys} />
       <StatCard icon={Users} title="Total Responses" value={data.totalResponses} />
-      <StatCard icon={TrendingUp} title="Participation Rate" value={`${data.participationRate.toFixed(1)}%`} />
-      <StatCard icon={Target} title="Avg. Satisfaction" value={data.averageSatisfaction.toFixed(2)} />
+      <StatCard icon={TrendingUp} title="Participation Rate" value={`${(data.participationRate ?? 0).toFixed(1)}%`} />
+      <StatCard icon={Target} title="Avg. Satisfaction" value={(data.averageSatisfaction ?? 0).toFixed(2)} />
     </div>
   );
 };
@@ -148,7 +148,7 @@ const InsightsTab: React.FC<{ data: Insights | null }> = ({ data }) => {
         <h3 className="font-semibold text-lg">Key Strengths</h3>
         <ul className="mt-2 list-disc list-inside">
           {data.keyFindings.strengths.map(item => (
-            <li key={item.question}>{item.question} (Avg: {item.averageRating.toFixed(2)})</li>
+            <li key={item.question}>{item.question} (Avg: {(item.averageRating ?? 0).toFixed(2)})</li>
           ))}
         </ul>
       </div>
@@ -156,7 +156,7 @@ const InsightsTab: React.FC<{ data: Insights | null }> = ({ data }) => {
         <h3 className="font-semibold text-lg text-red-600">Areas for Improvement</h3>
          <ul className="mt-2 list-disc list-inside">
           {data.keyFindings.areasForImprovement.map(item => (
-            <li key={item.question} className="text-red-500">{item.question} (Avg: {item.averageRating.toFixed(2)})</li>
+            <li key={item.question} className="text-red-500">{item.question} (Avg: {(item.averageRating ?? 0).toFixed(2)})</li>
           ))}
         </ul>
       </div>
@@ -165,7 +165,7 @@ const InsightsTab: React.FC<{ data: Insights | null }> = ({ data }) => {
 };
 
 const SupervisorPerformanceTab: React.FC<{ data: SupervisorPerformance[] }> = ({ data }) => {
-  if (!data.length) return <div className="p-8 text-center">No supervisor performance data available.</div>;
+  if (!Array.isArray(data) || !data.length) return <div className="p-8 text-center">No supervisor performance data available.</div>;
   return (
     <table className="min-w-full bg-white">
       <thead>
@@ -181,8 +181,8 @@ const SupervisorPerformanceTab: React.FC<{ data: SupervisorPerformance[] }> = ({
           <tr key={supervisor.id} className="text-center border-t">
             <td className="py-2">{supervisor.name}</td>
             <td className="py-2">{supervisor.teamSize}</td>
-            <td className="py-2">{supervisor.completionRate.toFixed(1)}%</td>
-            <td className="py-2">{supervisor.avgSatisfaction.toFixed(2)}</td>
+            <td className="py-2">{(supervisor.completionRate ?? 0).toFixed(1)}%</td>
+            <td className="py-2">{(supervisor.avgSatisfaction ?? 0).toFixed(2)}</td>
           </tr>
         ))}
       </tbody>

@@ -1,5 +1,5 @@
 const express = require("express");
-const { check } = require("express-validator");
+const { check, body } = require("express-validator");
 const surveyController = require("../controllers/surveyController");
 const { auth, checkRole } = require("../middleware/auth");
 
@@ -21,7 +21,7 @@ router.get("/history", auth, surveyController.getSurveyHistory);
 router.get(
   "/monitoring",
   auth,
-  checkRole("hr", "manager", "supervisor"),
+  checkRole("hr"),
   surveyController.monitorSurveyParticipation
 );
 
@@ -29,7 +29,7 @@ router.get(
 router.get(
   "/export",
   auth,
-  checkRole("hr", "manager", "supervisor"),
+  checkRole("hr"),
   surveyController.exportSurveyResults
 );
 
@@ -55,6 +55,14 @@ router.get(
   auth,
   checkRole("manager", "hr"),
   surveyController.getDepartmentAnalytics
+);
+
+// GET /api/surveys/department/insights
+router.get(
+  "/department/insights",
+  auth,
+  checkRole("manager", "hr"),
+  surveyController.getDepartmentInsights
 );
 
 // GET /api/surveys/templates
@@ -162,34 +170,50 @@ router.put(
 router.post(
   "/schedule",
   [
+    (req, res, next) => { 
+      console.log('=== SURVEY SCHEDULE DEBUG ===');
+      console.log('Method:', req.method);
+      console.log('URL:', req.url);
+      console.log('Headers:', req.headers);
+      console.log('Body:', req.body);
+      console.log('Body type:', typeof req.body);
+      console.log('Body keys:', Object.keys(req.body || {}));
+      console.log('=============================');
+      next(); 
+    },
     auth,
     checkRole("hr"),
     check("surveyId", "Survey ID is required").not().isEmpty(),
     check("scheduleType", "Schedule type must be one-time or recurring").isIn(["one-time", "recurring"]),
     check("targetDate", "Target date is required").isISO8601(),
+    body().custom(body => {
+      console.log('Custom validation body:', body);
+      if (
+        (!Array.isArray(body.targetDepartments) || body.targetDepartments.length === 0) &&
+        (!Array.isArray(body.targetPrograms) || body.targetPrograms.length === 0) &&
+        (!Array.isArray(body.targetEmployeeIds) || body.targetEmployeeIds.length === 0)
+      ) {
+        throw new Error("At least one of departments, programs, or employees must be selected.");
+      }
+      return true;
+    }),
     check("targetDepartments", "Target departments must be an array").optional().isArray(),
     check("targetPrograms", "Target programs must be an array").optional().isArray(),
-    check("recurringInterval", "Recurring interval must be weekly, monthly, or quarterly")
-      .optional()
-      .isIn(["weekly", "monthly", "quarterly"]),
-    check("endDate", "End date must be a valid date")
-      .optional()
-      .isISO8601()
-      .custom((value, { req }) => {
-        if (req.body.scheduleType === "recurring" && !value) {
-          throw new Error("End date is required for recurring schedules");
-        }
-        if (value && new Date(value) <= new Date(req.body.targetDate)) {
-          throw new Error("End date must be after target date");
-        }
-        return true;
-      }),
+    check("targetEmployeeIds", "Target employees must be an array").optional().isArray(),
   ],
   surveyController.scheduleSurvey
 );
 
 // GET /api/surveys/schedule
 router.get("/schedule", auth, checkRole("hr"), surveyController.getSurveySchedules);
+
+// Add GET route for survey settings (move above /:id route)
+router.get(
+  "/settings",
+  auth,
+  checkRole("hr"),
+  surveyController.getSurveySettings
+);
 
 // GET /api/surveys/:id
 router.get("/:id", auth, surveyController.getSurveyById);
