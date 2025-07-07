@@ -78,6 +78,11 @@ const userService = {
     const response = await api.get('/users?role=employee');
     return response.data;
   },
+
+  async getAllDepartments(): Promise<string[]> {
+    const response = await api.get('/users/departments/all');
+    return response.data;
+  },
 };
 
 export default userService;

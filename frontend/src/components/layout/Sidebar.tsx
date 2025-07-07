@@ -54,7 +54,7 @@ const navItems: NavLink[] = [
     { name: 'Checklist Reports', path: '/hr/checklist-reports', icon: BarChart2, roles: ['hr'] },
     { name: 'Bulk Assign Checklist', path: '/hr/checklist-bulk-assign', icon: Send, roles: ['hr'] },
     { name: 'Phase Manager', path: '/hr/checklist-phase-manager', icon: Layers, roles: ['hr'] },
-    { name: 'Checklist Notifications', path: '/hr/checklist-notifications', icon: Bell, roles: ['hr'] },
+    { name: 'Notification Control Center', path: '/admin/notification-center', icon: Bell, roles: ['hr'] },
     { name: 'Admin', path: '/admin', icon: Shield, roles: ['hr'] },
     { name: 'Department Surveys', path: '/manager/department-surveys', icon: PieChart, roles: ['manager'] },
     { name: 'Team Surveys', path: '/supervisor/team-surveys', icon: Users, roles: ['supervisor'] },

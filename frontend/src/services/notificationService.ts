@@ -265,6 +265,12 @@ const notificationService = {
   getTemplate: async (templateId: string): Promise<NotificationTemplate> => {
     const response = await api.get(`/notifications/templates/${templateId}`);
     return response.data;
+  },
+
+  // Send bulk notifications (HR)
+  sendBulkNotification: async (payload: any): Promise<any> => {
+    const response = await api.post('/notifications/send-bulk', payload);
+    return response.data;
   }
 };
 

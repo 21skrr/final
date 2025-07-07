@@ -58,7 +58,6 @@ import ChecklistDetail from '../pages/ChecklistDetail';
 import ChecklistCreate from '../pages/ChecklistCreate';
 import HRChecklistDashboard from '../pages/HRChecklistDashboard';
 import HRChecklistReports from '../pages/HRChecklistReports';
-import HRChecklistNotifications from '../pages/HRChecklistNotifications';
 import HRChecklistBulkAssign from '../pages/HRChecklistBulkAssign';
 import HRChecklistPhaseManager from '../pages/HRChecklistPhaseManager';
 import EmployeeChecklists from '../pages/EmployeeChecklists';
@@ -86,6 +85,7 @@ import ManagerEvaluationDetail from '../pages/manager/ManagerEvaluationDetail';
 import HROnboardingManagement from '../pages/admin/HROnboardingManagement';
 import HRTaskValidation from '../pages/admin/HRTaskValidation';
 import SurveyAnalytics from '../pages/admin/SurveyAnalytics';
+import HRNotificationCenter from '../pages/admin/HRNotificationCenter';
 
 // Route protection component
 const ProtectedRoute: React.FC<{
@@ -242,14 +242,6 @@ const Router: React.FC = () => {
       element: (
         <ProtectedRoute requiredRoles={['hr']}>
           <HRChecklistReports />
-        </ProtectedRoute>
-      ),
-    },
-    {
-      path: '/hr/checklist-notifications',
-      element: (
-        <ProtectedRoute requiredRoles={['hr']}>
-          <HRChecklistNotifications />
         </ProtectedRoute>
       ),
     },
@@ -633,6 +625,14 @@ const Router: React.FC = () => {
           <HRTaskValidation />
         </ProtectedRoute>
       )
+    },
+    {
+      path: '/admin/notification-center',
+      element: (
+        <ProtectedRoute requiredRoles={['hr']}>
+          <HRNotificationCenter />
+        </ProtectedRoute>
+      ),
     },
     {
       path: '*',

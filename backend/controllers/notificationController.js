@@ -2,6 +2,7 @@ const { Notification, CoachingSession, User, Team, OnboardingProgress, Checklist
 const { Op } = require("sequelize");
 const { sequelize } = require("../models");
 const { v4: uuidv4 } = require('uuid');
+const { sendNotification } = require('../utils/notificationHelper');
 
 // Get user's notifications
 const getUserNotifications = async (req, res) => {
@@ -20,12 +21,15 @@ const getUserNotifications = async (req, res) => {
 // Create a new notification
 const createNotification = async (req, res) => {
   try {
-    const { userId, message, type } = req.body;
-    const notification = await Notification.create({
+    const { userId, message, type, title, metadata, templateName, templateVars } = req.body;
+    const notification = await sendNotification({
       userId,
-      message,
       type,
-      isRead: false,
+      title: title || type,
+      message,
+      metadata,
+      templateName,
+      templateVars
     });
     res.status(201).json(notification);
   } catch (error) {
@@ -907,6 +911,48 @@ const getFeedbackCheckpoints = async (req, res) => {
   }
 };
 
+// HR: Send bulk notifications by user, department, or role
+const sendBulkNotification = async (req, res) => {
+  try {
+    const { userIds = [], departments = [], roles = [], type, title, message, metadata, templateName, templateVars } = req.body;
+    let users = [];
+
+    if (userIds.length) {
+      users = users.concat(await User.findAll({ where: { id: userIds } }));
+    }
+    if (departments.length) {
+      users = users.concat(await User.findAll({ where: { department: departments } }));
+    }
+    if (roles.length) {
+      users = users.concat(await User.findAll({ where: { role: roles } }));
+    }
+
+    // Remove duplicate users by id
+    const uniqueUsers = Array.from(new Map(users.map(u => [u.id, u])).values());
+
+    if (!uniqueUsers.length) return res.status(400).json({ message: 'No users found for the selected criteria.' });
+
+    const notifications = await Promise.all(
+      uniqueUsers.map(user =>
+        sendNotification({
+          userId: user.id,
+          type,
+          title,
+          message,
+          metadata,
+          templateName,
+          templateVars,
+        })
+      )
+    );
+
+    res.status(201).json({ message: 'Notifications sent', notifications });
+  } catch (error) {
+    console.error('Error sending bulk notification:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   getUserNotifications,
   createNotification,
@@ -940,4 +986,5 @@ module.exports = {
   getNotificationTemplate,
   updateNotificationTemplate,
   deleteNotificationTemplate,
+  sendBulkNotification,
 };

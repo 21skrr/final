@@ -106,4 +106,7 @@ router.put("/preferences", auth, notificationController.updateNotificationPrefer
 router.get("/notification_preferences", auth, notificationController.getNotificationPreferences);
 router.put("/notification_preferences", auth, notificationController.updateNotificationPreferences);
 
+// HR bulk notification route
+router.post('/send-bulk', auth, isRH, notificationController.sendBulkNotification);
+
 module.exports = router;

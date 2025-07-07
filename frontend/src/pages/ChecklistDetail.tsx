@@ -36,6 +36,8 @@ const ChecklistDetail: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
 
+  const [completionPercent, setCompletionPercent] = useState(0);
+
   useEffect(() => {
     const fetchChecklistDetails = async () => {
       if (!id) return;
@@ -43,14 +45,23 @@ const ChecklistDetail: React.FC = () => {
         setLoading(true);
         // Try to get all assignments to find the current one
         const assignments = await checklistAssignmentService.getMyAssignments();
-        const currentAssignment = assignments.find(a => a.id === id);
+        let currentAssignment = assignments.find(a => a.id === id);
+        // If not found, try to find an assignment for the current user and checklist
+        if (!currentAssignment && assignments.length > 0) {
+          const possible = assignments.find(a => a.checklistId === id && a.userId === user?.id);
+          if (possible) currentAssignment = possible;
+        }
+        console.log('Current assignment:', currentAssignment);
         if (currentAssignment) {
           setAssignment(currentAssignment);
           // Fetch progress records for this user and checklist
           const progress = await checklistAssignmentService.getChecklistProgressByUserAndChecklist(currentAssignment.userId, currentAssignment.checklistId);
           console.log('Fetched progress:', progress);
-          console.log('Assignment:', currentAssignment);
-          setProgressItems(progress);
+          setProgressItems(progress.map(item => ({ ...item, isCompleted: !!item.isCompleted })));
+          // Calculate completion percent
+          const completedCount = progress.filter(item => !!item.isCompleted).length;
+          const percentComplete = progress.length > 0 ? Math.round((completedCount / progress.length) * 100) : 0;
+          setCompletionPercent(percentComplete);
           setError(null);
         } else {
           // Fallback: Try to fetch checklist directly by ID
@@ -66,6 +77,7 @@ const ChecklistDetail: React.FC = () => {
               isCompleted: false,
               checklistItem: item
             })));
+            setCompletionPercent(0);
             setError(null);
           } else {
             setError('Checklist not found');
@@ -79,7 +91,7 @@ const ChecklistDetail: React.FC = () => {
       }
     };
     fetchChecklistDetails();
-  }, [id]);
+  }, [id, user?.id]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Not completed';
@@ -252,8 +264,7 @@ const ChecklistDetail: React.FC = () => {
         <div className="flex justify-between items-center mb-6">
           <div>
             <div className="text-sm text-gray-500">Overall Progress</div>
-            <div className="font-bold text-lg">{percentComplete}%</div>
-            <progress value={percentComplete} max={100} className="w-40 h-2 align-middle" />
+            <div className="font-bold text-lg">{completionPercent}%</div>
           </div>
           <div>
             <div className="text-sm text-gray-500">Status</div>
@@ -275,6 +286,12 @@ const ChecklistDetail: React.FC = () => {
             {saving ? 'Saving...' : 'Save Progress'}
           </button>
           {saveMessage && <span className="ml-4 text-green-600 font-medium">{saveMessage}</span>}
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2 mb-8">
+          <div
+            className="bg-blue-600 h-2 rounded-full"
+            style={{ width: `${completionPercent}%` }}
+          ></div>
         </div>
         {Object.entries(groupedByPhase).map(([phase, items]) => (
           <div key={phase} className="mb-8 border rounded-lg bg-blue-50/30">
