@@ -186,16 +186,17 @@ const getSurveyTrends = async (req, res) => {
         ],
         include: [{
           model: SurveyResponse,
+          as: 'surveyResponse',
           where: { surveyId: survey.id },
           attributes: [],
         }, {
           model: SurveyQuestion,
-          as: 'question', // Use the correct alias defined in models/index.js
-          where: { type: 'rating' }, // Filter for rating questions
+          as: 'question',
+          where: { type: 'rating' },
           attributes: [],
         }],
-        where: { ratingValue: { [Op.ne]: null } }, // Only consider responses with a rating
-        group: ['SurveyResponse.surveyId'] // Group by the default alias + foreign key
+        where: { ratingValue: { [Op.ne]: null } },
+        group: ['surveyResponse.surveyId']
       });
 
       return {

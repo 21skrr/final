@@ -6,6 +6,7 @@ import teamService from '../../services/teamService';
 import * as evaluationService from '../../services/evaluationService';
 import eventService from '../../services/eventService';
 import analyticsService from '../../services/analyticsService';
+import onboardingService from '../../services/onboardingService';
 
 interface SupervisorDashboardProps {
   user: User;
@@ -55,12 +56,13 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
         // Fetch onboarding progress for each member
         const teamWithProgress: TeamMember[] = await Promise.all(
           team.map(async (member: TeamMember) => {
-            let progress = 0;
-            // TODO: Update analyticsService.getPersonalOnboarding to accept a userId for supervisor view
-            // For now, fallback to 0 or member.progress
-            // const progressData = await analyticsService.getPersonalOnboarding(member.id);
-            // progress = progressData?.progress ?? 0;
-            progress = member.progress ?? 0;
+            let progress = null;
+            try {
+              const journey = await onboardingService.getJourney(member.id);
+              progress = journey?.progress?.overall ?? null;
+            } catch {
+              progress = null;
+            }
             return {
               ...member,
               progress,
@@ -280,11 +282,13 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="w-full bg-gray-200 rounded-full h-2.5 max-w-[100px]">
                       <div 
-                        className="bg-blue-600 h-2.5 rounded-full" 
-                        style={{ width: `${member.progress ?? 0}%` }}
+                        className={`h-2.5 rounded-full ${member.progress === null || member.progress === undefined ? 'bg-gray-300' : 'bg-blue-600'}`}
+                        style={{ width: member.progress === null || member.progress === undefined ? '0%' : `${member.progress}%` }}
                       ></div>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">{member.progress ?? 0}%</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {member.progress === null || member.progress === undefined ? 'N/A' : `${member.progress}%`}
+                    </div>
                   </td>
                 </tr>
               ))}

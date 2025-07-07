@@ -103,7 +103,7 @@ SurveyResponse.belongsTo(User, { foreignKey: "userId", as: "user" });
 
 // SurveyResponse and SurveyQuestionResponse associations
 SurveyResponse.hasMany(SurveyQuestionResponse, { foreignKey: "surveyResponseId", as: "questionResponses" });
-SurveyQuestionResponse.belongsTo(SurveyQuestionResponse, { foreignKey: "surveyResponseId" });
+SurveyQuestionResponse.belongsTo(SurveyResponse, { foreignKey: "surveyResponseId", as: "surveyResponse" });
 
 // SurveyQuestion and SurveyQuestionResponse associations
 SurveyQuestion.hasMany(SurveyQuestionResponse, { foreignKey: "questionId" });
@@ -218,6 +218,8 @@ UserTaskProgress.belongsTo(OnboardingTask, { foreignKey: 'OnboardingTaskId', as:
 // UserCourse associations
 UserCourse.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
 Course.hasMany(UserCourse, { foreignKey: 'courseId', as: 'userCourses' });
+User.hasMany(UserCourse, { foreignKey: 'userId', as: 'userCourses' });
+UserCourse.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 // Feedback Form and Submission associations
 FeedbackForm.hasMany(FeedbackSubmission, {

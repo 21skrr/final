@@ -28,6 +28,7 @@ export interface OnboardingProgress {
   User?: User;
   createdAt: string;
   updatedAt: string;
+  overall?: number;
 }
 
 export interface OnboardingTask {

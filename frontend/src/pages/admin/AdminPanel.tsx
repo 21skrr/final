@@ -11,7 +11,6 @@ const adminFeatures = [
   { name: 'Onboarding Management', path: '/admin/onboarding', icon: Briefcase, description: 'Configure onboarding programs and tasks.' },
   { name: 'Notification Templates', path: '/admin/notification-templates', icon: Bell, description: 'Create and edit notification templates.' },
   { name: 'Survey Templates', path: '/admin/survey-templates', icon: Edit, description: 'Create and manage reusable survey templates.' },
-  { name: 'Schedule Surveys', path: '/admin/surveys/schedule', icon: Calendar, description: 'Schedule surveys for roles or programs.' },
   { name: 'Monitor Surveys', path: '/admin/survey-monitoring', icon: BarChart2, description: 'Track survey progress and participation.' },
   { name: 'Survey Settings', path: '/admin/survey-settings', icon: MessageSquare, description: 'Configure global settings for all surveys.' },
   { name: 'System Settings', path: '/admin/settings', icon: Settings, description: 'Manage global application settings.' },
