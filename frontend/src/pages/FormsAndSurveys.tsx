@@ -99,7 +99,6 @@ const HRSurveyDashboard: React.FC = () => {
   const navigate = useNavigate();
   const features = [
     { name: 'Survey Templates', path: '/admin/survey-templates', icon: Edit, description: 'Create and manage reusable survey templates.' },
-    { name: 'Schedule Surveys', path: '/admin/surveys/schedule', icon: Calendar, description: 'Schedule surveys for specific roles or programs.' },
     { name: 'Monitor Surveys', path: '/admin/survey-monitoring', icon: BarChart2, description: 'Track survey progress and view participation.' },
     { name: 'Survey Settings', path: '/admin/survey-settings', icon: Settings, description: 'Configure global settings for all surveys.' }
   ];
@@ -113,10 +112,6 @@ const HRSurveyDashboard: React.FC = () => {
             Administer all survey-related activities from one place.
           </p>
         </div>
-        <Link to="/surveys/history" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200">
-          <History size={16} className="mr-2" />
-          View My History
-        </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -204,10 +199,6 @@ const FormsAndSurveys: React.FC = () => {
                   Complete required forms and provide valuable feedback
                 </p>
               </div>
-              <Link to="/surveys/history" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200">
-                <History size={16} className="mr-2" />
-                View History
-              </Link>
             </div>
 
             {error && (

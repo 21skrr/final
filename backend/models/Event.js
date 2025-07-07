@@ -24,7 +24,7 @@ const Event = sequelize.define(
     },
     endDate: {
       type: DataTypes.DATE,
-      allowNull: false,
+      allowNull: true,
     },
     location: {
       type: DataTypes.STRING,

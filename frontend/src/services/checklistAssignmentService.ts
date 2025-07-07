@@ -26,6 +26,12 @@ const checklistAssignmentService = {
     return response.data;
   },
 
+  // Get a specific assignment by ID
+  getAssignmentById: async (assignmentId: string): Promise<ChecklistAssignmentDetail> => {
+    const response = await api.get(`/checklist-assignments/${assignmentId}`);
+    return response.data;
+  },
+
   // Get items for a specific assignment
   getAssignmentItems: async (assignmentId: string): Promise<ChecklistProgressItem[]> => {
     const response = await api.get(`/checklist-assignments/${assignmentId}/items`);
@@ -81,9 +87,41 @@ const checklistAssignmentService = {
     return response.data;
   },
 
+  // Send reminder for a checklist item
+  sendReminder: async (itemId: string, note: string): Promise<void> => {
+    const response = await api.post(`/checklist-assignments/checklist-progress/${itemId}/reminder`, { note });
+    return response.data;
+  },
+
   // Get progress for a specific user and checklist
   getChecklistProgressByUserAndChecklist: async (userId: string, checklistId: string): Promise<ChecklistProgressItem[]> => {
     const response = await api.get(`/checklist-assignments/progress/${userId}/${checklistId}`);
+    return response.data;
+  },
+
+  // Get department analytics (Manager/HR only)
+  getDepartmentAnalytics: async (department: string): Promise<{
+    totalAssignments: number;
+    completedAssignments: number;
+    inProgressAssignments: number;
+    overdueAssignments: number;
+    completionRate: number;
+    assignmentsByStage: Record<string, number>;
+  }> => {
+    const response = await api.get(`/checklist-assignments/analytics/department/${department}`);
+    return response.data;
+  },
+
+  // Get team analytics (Supervisor/HR only)
+  getTeamAnalytics: async (teamId: string): Promise<{
+    totalAssignments: number;
+    completedAssignments: number;
+    inProgressAssignments: number;
+    overdueAssignments: number;
+    completionRate: number;
+    assignmentsByStage: Record<string, number>;
+  }> => {
+    const response = await api.get(`/checklist-assignments/analytics/team/${teamId}`);
     return response.data;
   }
 };

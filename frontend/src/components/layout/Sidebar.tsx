@@ -50,7 +50,9 @@ const navItems: NavLink[] = [
     { name: 'Evaluation Reports', path: '/manager/evaluations/reports', icon:BarChart2, roles: ['manager'] },
     { name: 'All Evaluations', path: '/admin/evaluations', icon:FileText, roles: ['hr'] },
     { name: 'Evaluation Analytics', path: '/admin/evaluations/reports', icon:BarChart2, roles: ['hr'] },
-    // Role-specific links
+    // Role-specific checklist links
+    { name: 'Team Checklists', path: '/supervisor/team-checklists', icon: CheckSquare, roles: ['supervisor'] },
+    { name: 'Department Checklists', path: '/manager/checklist-dashboard', icon: CheckSquare, roles: ['manager'] },
     { name: 'Checklist Reports', path: '/hr/checklist-reports', icon: BarChart2, roles: ['hr'] },
     { name: 'Bulk Assign Checklist', path: '/hr/checklist-bulk-assign', icon: Send, roles: ['hr'] },
     { name: 'Phase Manager', path: '/hr/checklist-phase-manager', icon: Layers, roles: ['hr'] },

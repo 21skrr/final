@@ -4,7 +4,7 @@ import Layout from '../components/layout/Layout';
 import checklistAssignmentService from '../services/checklistAssignmentService';
 import { ChecklistAssignmentDetail, ChecklistItem } from '../types/checklist';
 import { useAuth } from '../context/AuthContext';
-import { CheckCircle, XCircle, AlertCircle, Send } from 'lucide-react';
+import { AlertCircle, Send, Eye } from 'lucide-react';
 
 const ManagerChecklistDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,17 +31,6 @@ const ManagerChecklistDetail: React.FC = () => {
     };
     if (id) fetchAssignment();
   }, [id]);
-
-  const handleValidate = async (itemId: string, isValid: boolean) => {
-    try {
-      await checklistAssignmentService.validateItem(itemId, isValid);
-      // Refresh assignment data
-      const data = await checklistAssignmentService.getAssignmentById(id || '');
-      setAssignment(data);
-    } catch (err) {
-      setError('Failed to validate item.');
-    }
-  };
 
   const handleSendReminder = async (itemId: string) => {
     try {
@@ -113,24 +102,7 @@ const ManagerChecklistDetail: React.FC = () => {
                   )}
                 </div>
                 <div className="ml-4 flex items-center space-x-2">
-                  {item.status === 'completed' && !item.validated && (
-                    <>
-                      <button
-                        onClick={() => handleValidate(item.id, true)}
-                        className="p-2 text-green-600 hover:text-green-700"
-                        title="Validate"
-                      >
-                        <CheckCircle size={20} />
-                      </button>
-                      <button
-                        onClick={() => handleValidate(item.id, false)}
-                        className="p-2 text-red-600 hover:text-red-700"
-                        title="Reject"
-                      >
-                        <XCircle size={20} />
-                      </button>
-                    </>
-                  )}
+                  {/* Managers can only view and send reminders - no validation actions */}
                   {item.status !== 'completed' && (
                     <button
                       onClick={() => setSelectedItem(item)}
@@ -142,7 +114,12 @@ const ManagerChecklistDetail: React.FC = () => {
                   )}
                   {item.validated && (
                     <span className="text-green-600" title="Validated">
-                      <CheckCircle size={20} />
+                      <Eye size={20} />
+                    </span>
+                  )}
+                  {item.status === 'completed' && !item.validated && (
+                    <span className="text-blue-600" title="Completed - Pending Validation">
+                      <Eye size={20} />
                     </span>
                   )}
                 </div>

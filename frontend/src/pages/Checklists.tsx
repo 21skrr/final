@@ -6,6 +6,8 @@ import checklistAssignmentService from '../services/checklistAssignmentService';
 import checklistService from '../services/checklistService';
 import { ChecklistAssignmentDetail, Checklist } from '../types/checklist';
 import { Link, useLocation } from 'react-router-dom';
+import Select from 'react-select';
+import userService from '../services/userService';
 
 const Checklists: React.FC = () => {
   const { user } = useAuth();
@@ -21,6 +23,10 @@ const Checklists: React.FC = () => {
   const [dueDate, setDueDate] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
+  const [users, setUsers] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedDepartment, setSelectedDepartment] = useState(null);
 
   const location = useLocation();
 
@@ -52,6 +58,14 @@ const Checklists: React.FC = () => {
     fetchData();
     // Refetch when coming back to this page
   }, [user?.role, location.key]);
+
+  // Fetch users and departments when modal opens
+  useEffect(() => {
+    if (showAssignModal) {
+      userService.getUsers().then(setUsers);
+      userService.getAllDepartments().then(setDepartments);
+    }
+  }, [showAssignModal]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'No due date';
@@ -88,23 +102,29 @@ const Checklists: React.FC = () => {
   // New function to handle checklist assignment
   const handleAssignChecklist = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!selectedChecklist) return;
-    
-    if (!userId) {
-      setAssignError('Please enter a user ID');
+    if (!selectedUser && !selectedDepartment) {
+      setAssignError('Please select a user or department');
       return;
     }
-    
     try {
       setAssignLoading(true);
-      
-      await checklistAssignmentService.assignChecklist({
-        userId,
-        checklistId: selectedChecklist.id,
-        dueDate: dueDate || undefined
-      });
-      
+      if (selectedDepartment) {
+        // Fetch users in department
+        const deptUsers = users.filter(u => u.department === selectedDepartment.value);
+        const userIds = deptUsers.map(u => u.id);
+        await checklistAssignmentService.bulkAssignChecklist({
+          checklistId: selectedChecklist.id,
+          userIds,
+          dueDate: dueDate || undefined
+        });
+      } else if (selectedUser) {
+        await checklistAssignmentService.assignChecklist({
+          userId: selectedUser.value,
+          checklistId: selectedChecklist.id,
+          dueDate: dueDate || undefined
+        });
+      }
       setShowAssignModal(false);
       alert('Checklist assigned successfully!');
     } catch (err) {
@@ -114,6 +134,14 @@ const Checklists: React.FC = () => {
       setAssignLoading(false);
     }
   };
+
+  // For react-select, define the option type
+  const userOptions = users.map(u => ({ value: u.id, label: `${u.name} (${u.email})` }));
+  console.log('departments:', departments);
+  const departmentOptions = departments.map(d => ({
+    value: typeof d === 'string' ? d : d.name,
+    label: typeof d === 'string' ? d : d.name
+  }));
 
   return (
     <Layout>
@@ -278,28 +306,42 @@ const Checklists: React.FC = () => {
               <h3 className="text-lg font-medium text-gray-900 mb-4">
                 Assign Checklist: {selectedChecklist.title}
               </h3>
-              
               {assignError && (
                 <div className="mb-4 bg-red-50 border-l-4 border-red-400 p-3">
                   <p className="text-sm text-red-700">{assignError}</p>
                 </div>
               )}
-              
               <form onSubmit={handleAssignChecklist}>
                 <div className="mb-4">
-                  <label htmlFor="userId" className="block text-sm font-medium text-gray-700 mb-1">
-                    User ID *
-                  </label>
-                  <input
-                    type="text"
-                    id="userId"
-                    value={userId}
-                    onChange={(e) => setUserId(e.target.value)}
-                    required
-                    className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  <label className="block text-sm font-medium text-gray-700 mb-1">User</label>
+                  <Select
+                    isClearable
+                    isSearchable
+                    options={userOptions}
+                    value={userOptions.find(opt => opt.value === selectedUser?.value) || null}
+                    onChange={option => {
+                      setSelectedUser(option);
+                      setSelectedDepartment(null);
+                    }}
+                    placeholder="Select a user..."
+                    isDisabled={!!selectedDepartment}
                   />
                 </div>
-                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                  <Select
+                    isClearable
+                    isSearchable
+                    options={departmentOptions}
+                    value={departmentOptions.find(opt => opt.value === selectedDepartment?.value) || null}
+                    onChange={option => {
+                      setSelectedDepartment(option);
+                      setSelectedUser(null);
+                    }}
+                    placeholder="Select a department..."
+                    isDisabled={!!selectedUser}
+                  />
+                </div>
                 <div className="mb-6">
                   <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 mb-1">
                     Due Date
@@ -312,7 +354,6 @@ const Checklists: React.FC = () => {
                     className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   />
                 </div>
-                
                 <div className="flex justify-end space-x-3">
                   <button
                     type="button"

@@ -22,7 +22,7 @@ router.post(
     auth,
     check("title", "Title is required").not().isEmpty(),
     check("startDate", "Start date is required").isISO8601(),
-    check("endDate", "End date is required").isISO8601(),
+    check("endDate", "End date must be a valid date").optional().isISO8601(),
     check("type", "Type must be meeting, training, event, or planning").isIn([
       "meeting",
       "training",

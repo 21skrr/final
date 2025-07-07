@@ -1132,8 +1132,10 @@ const getAssignmentsByDepartment = async (req, res) => {
     // Find users in the department
     const users = await User.findAll({
       where: { department },
-      attributes: ["id"],
+      attributes: ["id", "name", "email", "department"],
     });
+    const userMap = {};
+    users.forEach(u => { userMap[u.id] = u; });
     const userIds = users.map((u) => u.id);
     if (userIds.length === 0) {
       return res.json([]);
@@ -1146,20 +1148,42 @@ const getAssignmentsByDepartment = async (req, res) => {
           model: Checklist,
           attributes: ["id", "title", "description", "programType", "stage"],
         },
-        {
-          model: User,
-          as: "assignee",
-          attributes: ["id", "name", "email", "department"],
-        },
-        {
-          model: User,
-          as: "assigner",
-          attributes: ["id", "name", "email"],
-        },
       ],
       order: [["assignmentCreatedAt", "DESC"]],
     });
-    res.json(assignments);
+    // For each assignment, calculate completionPercentage and attach employee name
+    const result = await Promise.all(assignments.map(async (a) => {
+      const checklistId = a.checklistId;
+      const userId = a.userId;
+      const checklist = a.Checklist;
+      // Get all items for this checklist
+      const total = await ChecklistItem.count({ where: { checklistId } });
+      // Get completed items for this user
+      const checklistItems = await ChecklistItem.findAll({ where: { checklistId }, attributes: ["id"] });
+      const itemIds = checklistItems.map(i => i.id);
+      const completed = await ChecklistProgress.count({ where: { checklistItemId: itemIds, userId, isCompleted: true } });
+      const completionPercentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+      return {
+        id: a.id,
+        checklistId: a.checklistId,
+        checklist: checklist ? {
+          id: checklist.id,
+          title: checklist.title,
+          description: checklist.description,
+          programType: checklist.programType,
+          stage: checklist.stage,
+        } : null,
+        userId: a.userId,
+        employeeName: userMap[a.userId]?.name || a.userId,
+        dueDate: a.dueDate,
+        status: a.status,
+        stage: checklist?.stage || null,
+        completionPercentage,
+        assignmentCreatedAt: a.assignmentCreatedAt,
+        assignmentUpdatedAt: a.assignmentUpdatedAt,
+      };
+    }));
+    res.json(result);
   } catch (error) {
     console.error("Error fetching assignments by department:", error);
     res.status(500).json({ message: "Server error" });
@@ -1276,7 +1300,9 @@ const getAssignmentsByTeam = async (req, res) => {
       return res.status(400).json({ message: "Team ID is required" });
     }
     // Find users in the team
-    const users = await User.findAll({ where: { teamId }, attributes: ["id"] });
+    const users = await User.findAll({ where: { teamId }, attributes: ["id", "name", "email", "teamId"] });
+    const userMap = {};
+    users.forEach(u => { userMap[u.id] = u; });
     const userIds = users.map((u) => u.id);
     if (userIds.length === 0) {
       return res.json([]);
@@ -1289,20 +1315,42 @@ const getAssignmentsByTeam = async (req, res) => {
           model: Checklist,
           attributes: ["id", "title", "description", "programType", "stage"],
         },
-        {
-          model: User,
-          as: "assignee",
-          attributes: ["id", "name", "email", "teamId"],
-        },
-        {
-          model: User,
-          as: "assigner",
-          attributes: ["id", "name", "email"],
-        },
       ],
       order: [["assignmentCreatedAt", "DESC"]],
     });
-    res.json(assignments);
+    // For each assignment, calculate completionPercentage and attach employee name
+    const result = await Promise.all(assignments.map(async (a) => {
+      const checklistId = a.checklistId;
+      const userId = a.userId;
+      const checklist = a.Checklist;
+      // Get all items for this checklist
+      const total = await ChecklistItem.count({ where: { checklistId } });
+      // Get completed items for this user
+      const checklistItems = await ChecklistItem.findAll({ where: { checklistId }, attributes: ["id"] });
+      const itemIds = checklistItems.map(i => i.id);
+      const completed = await ChecklistProgress.count({ where: { checklistItemId: itemIds, userId, isCompleted: true } });
+      const completionPercentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+      return {
+        id: a.id,
+        checklistId: a.checklistId,
+        checklist: checklist ? {
+          id: checklist.id,
+          title: checklist.title,
+          description: checklist.description,
+          programType: checklist.programType,
+          stage: checklist.stage,
+        } : null,
+        userId: a.userId,
+        employeeName: userMap[a.userId]?.name || a.userId,
+        dueDate: a.dueDate,
+        status: a.status,
+        stage: checklist?.stage || null,
+        completionPercentage,
+        assignmentCreatedAt: a.assignmentCreatedAt,
+        assignmentUpdatedAt: a.assignmentUpdatedAt,
+      };
+    }));
+    res.json(result);
   } catch (error) {
     console.error("Error fetching assignments by team:", error);
     res.status(500).json({ message: "Server error" });
@@ -1348,6 +1396,286 @@ const getChecklistProgressByUserAndChecklist = async (req, res) => {
   }
 };
 
+// Get a specific assignment by ID
+const getAssignmentById = async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+    
+    if (!assignmentId) {
+      return res.status(400).json({ message: "Assignment ID is required" });
+    }
+
+    const assignment = await ChecklistCombined.findByPk(assignmentId, {
+      include: [
+        {
+          model: Checklist,
+          include: [
+            {
+              model: ChecklistItem,
+              include: [
+                {
+                  model: ChecklistProgress,
+                  where: { userId: ChecklistCombined.sequelize.col('ChecklistCombined.userId') },
+                  required: false,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          model: User,
+          as: "assignee",
+          attributes: ["id", "name", "email", "department", "teamId"],
+        },
+        {
+          model: User,
+          as: "assigner",
+          attributes: ["id", "name", "email"],
+        },
+      ],
+    });
+
+    if (!assignment) {
+      return res.status(404).json({ message: "Assignment not found" });
+    }
+
+    // Calculate completion percentage
+    const totalItems = assignment.Checklist?.ChecklistItems?.length || 0;
+    const completedItems = assignment.Checklist?.ChecklistItems?.filter(item => 
+      item.ChecklistProgresses?.some(progress => progress.isCompleted)
+    ).length || 0;
+    const completionPercentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+
+    res.json({
+      ...assignment.toJSON(),
+      completionPercentage,
+    });
+  } catch (error) {
+    console.error("Error fetching assignment by ID:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Send reminder for a checklist item
+const sendReminder = async (req, res) => {
+  try {
+    const { progressId } = req.params;
+    const { note } = req.body;
+
+    if (!note) {
+      return res.status(400).json({ message: "Reminder note is required" });
+    }
+
+    // Find the progress record
+    const progress = await ChecklistProgress.findByPk(progressId, {
+      include: [
+        {
+          model: ChecklistItem,
+          include: [{ model: Checklist }],
+        },
+        {
+          model: User,
+          attributes: ["id", "name", "email"],
+        },
+      ],
+    });
+
+    if (!progress) {
+      return res.status(404).json({ message: "Progress record not found" });
+    }
+
+    // Check permissions - HR, Manager, or Supervisor can send reminders
+    if (!["hr", "manager", "supervisor"].includes(req.user.role)) {
+      return res.status(403).json({ message: "Not authorized to send reminders" });
+    }
+
+    // For supervisors, check if they're sending to their team member
+    if (req.user.role === "supervisor") {
+      const teamMember = await User.findOne({
+        where: { id: progress.userId, supervisorId: req.user.id },
+      });
+      if (!teamMember) {
+        return res.status(403).json({ message: "Can only send reminders to team members" });
+      }
+    }
+
+    // For managers, check if they're sending to their department
+    if (req.user.role === "manager") {
+      const departmentMember = await User.findOne({
+        where: { id: progress.userId, department: req.user.department },
+      });
+      if (!departmentMember) {
+        return res.status(403).json({ message: "Can only send reminders to department members" });
+      }
+    }
+
+    // Send notification
+    await notificationService.sendNotification(
+      progress.userId,
+      `Reminder: ${progress.ChecklistItem.title}`,
+      "checklist_reminder",
+      { note }
+    );
+
+    res.json({ message: "Reminder sent successfully" });
+  } catch (error) {
+    console.error("Error sending reminder:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get department analytics for checklist assignments
+const getDepartmentAnalytics = async (req, res) => {
+  try {
+    const { department } = req.params;
+
+    if (!department) {
+      return res.status(400).json({ message: "Department is required" });
+    }
+
+    // Check permissions - only HR and managers can view department analytics
+    if (!["hr", "manager"].includes(req.user.role)) {
+      return res.status(403).json({ message: "Not authorized to view department analytics" });
+    }
+
+    // For managers, ensure they can only view their own department
+    if (req.user.role === "manager" && req.user.department !== department) {
+      return res.status(403).json({ message: "Can only view analytics for your own department" });
+    }
+
+    // Find users in the department
+    const users = await User.findAll({
+      where: { department },
+      attributes: ["id"],
+    });
+
+    const userIds = users.map(u => u.id);
+    if (userIds.length === 0) {
+      return res.json({
+        totalAssignments: 0,
+        completedAssignments: 0,
+        inProgressAssignments: 0,
+        overdueAssignments: 0,
+        completionRate: 0,
+        assignmentsByStage: {},
+      });
+    }
+
+    // Get assignments for department users
+    const assignments = await ChecklistCombined.findAll({
+      where: { userId: userIds },
+      include: [
+        {
+          model: Checklist,
+          attributes: ["id", "title", "stage"],
+        },
+      ],
+    });
+
+    // Calculate analytics
+    const totalAssignments = assignments.length;
+    const completedAssignments = assignments.filter(a => a.status === "completed").length;
+    const inProgressAssignments = assignments.filter(a => a.status === "in_progress").length;
+    const overdueAssignments = assignments.filter(a => a.status === "overdue").length;
+    const completionRate = totalAssignments > 0 ? Math.round((completedAssignments / totalAssignments) * 100) : 0;
+
+    // Group by stage
+    const assignmentsByStage = assignments.reduce((acc, assignment) => {
+      const stage = assignment.Checklist?.stage || "unknown";
+      acc[stage] = (acc[stage] || 0) + 1;
+      return acc;
+    }, {});
+
+    res.json({
+      totalAssignments,
+      completedAssignments,
+      inProgressAssignments,
+      overdueAssignments,
+      completionRate,
+      assignmentsByStage,
+    });
+  } catch (error) {
+    console.error("Error fetching department analytics:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get team analytics for checklist assignments
+const getTeamAnalytics = async (req, res) => {
+  try {
+    const { teamId } = req.params;
+
+    if (!teamId) {
+      return res.status(400).json({ message: "Team ID is required" });
+    }
+
+    // Check permissions - only HR and supervisors can view team analytics
+    if (!["hr", "supervisor"].includes(req.user.role)) {
+      return res.status(403).json({ message: "Not authorized to view team analytics" });
+    }
+
+    // For supervisors, ensure they can only view their own team
+    if (req.user.role === "supervisor" && req.user.teamId !== teamId) {
+      return res.status(403).json({ message: "Can only view analytics for your own team" });
+    }
+
+    // Find users in the team
+    const users = await User.findAll({
+      where: { teamId },
+      attributes: ["id"],
+    });
+
+    const userIds = users.map(u => u.id);
+    if (userIds.length === 0) {
+      return res.json({
+        totalAssignments: 0,
+        completedAssignments: 0,
+        inProgressAssignments: 0,
+        overdueAssignments: 0,
+        completionRate: 0,
+        assignmentsByStage: {},
+      });
+    }
+
+    // Get assignments for team users
+    const assignments = await ChecklistCombined.findAll({
+      where: { userId: userIds },
+      include: [
+        {
+          model: Checklist,
+          attributes: ["id", "title", "stage"],
+        },
+      ],
+    });
+
+    // Calculate analytics
+    const totalAssignments = assignments.length;
+    const completedAssignments = assignments.filter(a => a.status === "completed").length;
+    const inProgressAssignments = assignments.filter(a => a.status === "in_progress").length;
+    const overdueAssignments = assignments.filter(a => a.status === "overdue").length;
+    const completionRate = totalAssignments > 0 ? Math.round((completedAssignments / totalAssignments) * 100) : 0;
+
+    // Group by stage
+    const assignmentsByStage = assignments.reduce((acc, assignment) => {
+      const stage = assignment.Checklist?.stage || "unknown";
+      acc[stage] = (acc[stage] || 0) + 1;
+      return acc;
+    }, {});
+
+    res.json({
+      totalAssignments,
+      completedAssignments,
+      inProgressAssignments,
+      overdueAssignments,
+      completionRate,
+      assignmentsByStage,
+    });
+  } catch (error) {
+    console.error("Error fetching team analytics:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   getAllChecklists,
   getChecklistById,
@@ -1373,4 +1701,8 @@ module.exports = {
   getAssignmentProgress,
   getAssignmentsByTeam,
   getChecklistProgressByUserAndChecklist,
+  getAssignmentById,
+  sendReminder,
+  getDepartmentAnalytics,
+  getTeamAnalytics,
 };
