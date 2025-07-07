@@ -1,91 +1,134 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { User } from '../../types/user';
-import { Users, Calendar, ClipboardCheck, MessageSquare, BarChart2 } from 'lucide-react';
+import { Users, Calendar, ClipboardCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import teamService from '../../services/teamService';
+import * as evaluationService from '../../services/evaluationService';
+import eventService from '../../services/eventService';
+import analyticsService from '../../services/analyticsService';
 
 interface SupervisorDashboardProps {
   user: User;
 }
 
-// Mock data for team members
-const teamMembers = [
-  { 
-    id: '101', 
-    name: 'Alex Johnson', 
-    role: 'Marketing Analyst', 
-    program: 'earlyTalent',
-    stage: 'land',
-    progress: 60,
-    daysInProgram: 15,
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg'
-  },
-  { 
-    id: '102', 
-    name: 'Priya Sharma', 
-    role: 'Junior Developer', 
-    program: 'apprenticeship',
-    stage: 'integrate',
-    progress: 85,
-    daysInProgram: 48,
-    avatar: 'https://randomuser.me/api/portraits/women/44.jpg'
-  },
-  { 
-    id: '103', 
-    name: 'Marco Torres', 
-    role: 'Operations Trainee', 
-    program: 'inkompass',
-    stage: 'excel',
-    progress: 95,
-    daysInProgram: 89,
-    avatar: 'https://randomuser.me/api/portraits/men/67.jpg'
-  },
-  { 
-    id: '104', 
-    name: 'Sophia Chen', 
-    role: 'Finance Intern', 
-    program: 'academicPlacement',
-    stage: 'orient',
-    progress: 25,
-    daysInProgram: 3,
-    avatar: 'https://randomuser.me/api/portraits/women/33.jpg'
-  },
-];
+type TeamMember = {
+  id: string;
+  name: string;
+  role?: string;
+  program?: string;
+  stage?: string;
+  progress?: number;
+  daysInProgram?: number;
+  avatar?: string;
+};
 
-// Mock data for pending evaluations
-const pendingEvaluations = [
-  { id: '201', employeeName: 'Alex Johnson', employeeId: '101', type: '30-day', dueDate: '2023-10-15' },
-  { id: '202', employeeName: 'Priya Sharma', employeeId: '102', type: 'mid-program', dueDate: '2023-10-05' },
-];
+type Evaluation = {
+  id: string;
+  employeeName?: string;
+  employeeId?: string;
+  type?: string;
+  dueDate?: string;
+};
 
-// Mock data for upcoming events
-const upcomingEvents = [
-  { id: '301', title: 'Team Onboarding Check-in', date: '2023-10-12T10:00:00', attendees: 4 },
-  { id: '302', title: 'One-on-one with Marco', date: '2023-10-08T15:30:00', attendees: 1 },
-  { id: '303', title: 'New Hire Orientation', date: '2023-10-18T09:00:00', attendees: 2 },
-];
+type Event = {
+  id: string;
+  title: string;
+  startDate?: string;
+  date?: string;
+};
 
 const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
-  const formatDate = (dateString: string) => {
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [pendingEvaluations, setPendingEvaluations] = useState<Evaluation[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Fetch team members
+        const team = await teamService.getMyTeam();
+        console.log('Team data:', team);
+        // Fetch onboarding progress for each member
+        const teamWithProgress: TeamMember[] = await Promise.all(
+          team.map(async (member: TeamMember) => {
+            let progress = 0;
+            // TODO: Update analyticsService.getPersonalOnboarding to accept a userId for supervisor view
+            // For now, fallback to 0 or member.progress
+            // const progressData = await analyticsService.getPersonalOnboarding(member.id);
+            // progress = progressData?.progress ?? 0;
+            progress = member.progress ?? 0;
+            return {
+              ...member,
+              progress,
+            };
+          })
+        );
+        setTeamMembers(teamWithProgress);
+
+        // Fetch pending evaluations
+        const evalsRes = await evaluationService.getSupervisorEvaluations();
+        // Use unknown[] and a type guard
+        const evalsArr: unknown[] = Array.isArray(evalsRes) ? evalsRes : (evalsRes.data || []);
+        function isEvaluationWithStatus(e: unknown): e is Evaluation & { status?: string; employee?: { name?: string; id?: string }, evaluationType?: string } {
+          return typeof e === 'object' && e !== null && 'status' in e;
+        }
+        const pending: Evaluation[] = evalsArr
+          .filter(isEvaluationWithStatus)
+          .filter((e) => e.status === 'pending' || e.status === 'in_progress')
+          .map((e) => ({
+            id: e.id,
+            employeeName: e.employeeName || (e.employee && e.employee.name),
+            employeeId: e.employeeId || (e.employee && e.employee.id),
+            type: e.type || e.evaluationType,
+            dueDate: e.dueDate,
+          }));
+        setPendingEvaluations(pending);
+
+        // Fetch events (filter for team events, future dates, limit 3)
+        const events: Event[] = await eventService.getEvents();
+        const now = new Date();
+        const upcoming: Event[] = events
+          .filter((e) => new Date(e.startDate ?? e.date ?? '') > now)
+          .sort((a, b) => new Date(a.startDate ?? a.date ?? '').getTime() - new Date(b.startDate ?? b.date ?? '').getTime())
+          .slice(0, 3);
+        setUpcomingEvents(upcoming);
+      } catch (err) {
+        setError('Failed to load dashboard data.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [user.id]);
+
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return '';
     const options: Intl.DateTimeFormatOptions = { weekday: 'short', month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('en-US', options);
+    const date = new Date(dateString);
+    return isNaN(date.getTime()) ? '' : date.toLocaleDateString('en-US', options);
   };
   
-  const formatTime = (dateString: string) => {
+  const formatTime = (dateString: string | undefined) => {
+    if (!dateString) return '';
     const options: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
-    return new Date(dateString).toLocaleTimeString('en-US', options);
+    const date = new Date(dateString);
+    return isNaN(date.getTime()) ? '' : date.toLocaleTimeString('en-US', options);
   };
   
-  const getStageClass = (stage: string) => {
-    switch (stage) {
-      case 'prepare': return 'bg-gray-100 text-gray-800';
-      case 'orient': return 'bg-blue-100 text-blue-800';
-      case 'land': return 'bg-yellow-100 text-yellow-800';
-      case 'integrate': return 'bg-purple-100 text-purple-800';
-      case 'excel': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  // Helper to safely normalize stage
+  const normalizeStage = (stage: string | undefined) => {
+    if (typeof stage !== 'string') return '';
+    return stage.replace(/ /g, '').toLowerCase();
   };
   
+  if (loading) return <div>Loading dashboard...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
+
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-lg shadow-md">
@@ -108,11 +151,19 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
                 <span className="text-sm text-gray-500">Total</span>
               </div>
               <div className="text-center">
-                <span className="block text-2xl font-bold text-yellow-500">2</span>
+                <span className="block text-2xl font-bold text-yellow-500">{
+                  Array.isArray(teamMembers)
+                    ? teamMembers.filter(m => typeof m.stage === 'string' && (normalizeStage(m.stage) === 'orient' || normalizeStage(m.stage) === 'land')).length
+                    : 0
+                }</span>
                 <span className="text-sm text-gray-500">New</span>
               </div>
               <div className="text-center">
-                <span className="block text-2xl font-bold text-green-500">1</span>
+                <span className="block text-2xl font-bold text-green-500">{
+                  Array.isArray(teamMembers)
+                    ? teamMembers.filter(m => typeof m.stage === 'string' && normalizeStage(m.stage) === 'excel').length
+                    : 0
+                }</span>
                 <span className="text-sm text-gray-500">Completing</span>
               </div>
             </div>
@@ -178,7 +229,7 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
                     <p className="text-sm font-medium text-gray-900">{event.title}</p>
                     <div className="mt-1 flex items-center text-xs text-gray-500">
                       <Calendar className="h-4 w-4 mr-1 text-gray-400" />
-                      {formatDate(event.date)} at {formatTime(event.date)}
+                      {formatDate(event.startDate || event.date)} at {formatTime(event.startDate || event.date)}
                     </div>
                   </li>
                 ))}
@@ -197,17 +248,9 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
       </div>
       
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="p-4 bg-gray-800 text-white flex items-center justify-between">
-          <div className="flex items-center">
-            <Users className="h-5 w-5 mr-2" />
-            <h2 className="text-lg font-medium">Team Members</h2>
-          </div>
-          <Link
-            to="/team"
-            className="text-sm text-blue-300 hover:text-blue-100"
-          >
-            View All
-          </Link>
+        <div className="p-4 bg-gray-800 text-white flex items-center">
+          <Users className="h-5 w-5 mr-2" />
+          <h2 className="text-lg font-medium">Team Members</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -217,22 +260,7 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
                   Employee
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Program
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Stage
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Progress
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Days
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
                 </th>
               </tr>
             </thead>
@@ -250,146 +278,18 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{member.role}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 capitalize">
-                      {member.program.replace(/([A-Z])/g, ' $1').trim()}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStageClass(member.stage)}`}>
-                      {member.stage}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
                     <div className="w-full bg-gray-200 rounded-full h-2.5 max-w-[100px]">
                       <div 
                         className="bg-blue-600 h-2.5 rounded-full" 
-                        style={{ width: `${member.progress}%` }}
+                        style={{ width: `${member.progress ?? 0}%` }}
                       ></div>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">{member.progress}%</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {member.daysInProgram}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <Link to={`/team/${member.id}`} className="text-blue-600 hover:text-blue-900">
-                        View
-                      </Link>
-                      <Link to={`/evaluations/new/${member.id}`} className="text-green-600 hover:text-green-900">
-                        Evaluate
-                      </Link>
-                    </div>
+                    <div className="text-xs text-gray-500 mt-1">{member.progress ?? 0}%</div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="p-4 bg-green-600 text-white flex items-center">
-            <BarChart2 className="h-5 w-5 mr-2" />
-            <h2 className="text-lg font-medium">Team Performance</h2>
-          </div>
-          <div className="p-6">
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between mb-1">
-                  <span className="text-sm font-medium text-gray-700">Average Onboarding Progress</span>
-                  <span className="text-sm font-medium text-gray-700">66%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div className="bg-green-500 h-2.5 rounded-full" style={{ width: '66%' }}></div>
-                </div>
-              </div>
-              
-              <div>
-                <div className="flex justify-between mb-1">
-                  <span className="text-sm font-medium text-gray-700">Evaluation Completion Rate</span>
-                  <span className="text-sm font-medium text-gray-700">75%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div className="bg-green-500 h-2.5 rounded-full" style={{ width: '75%' }}></div>
-                </div>
-              </div>
-              
-              <div>
-                <div className="flex justify-between mb-1">
-                  <span className="text-sm font-medium text-gray-700">Training Completion</span>
-                  <span className="text-sm font-medium text-gray-700">82%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div className="bg-green-500 h-2.5 rounded-full" style={{ width: '82%' }}></div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="mt-6">
-              <Link
-                to="/reports"
-                className="text-sm font-medium text-green-600 hover:text-green-500"
-              >
-                View detailed reports →
-              </Link>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="p-4 bg-indigo-600 text-white flex items-center">
-            <MessageSquare className="h-5 w-5 mr-2" />
-            <h2 className="text-lg font-medium">Feedback Summary</h2>
-          </div>
-          <div className="p-6">
-            <div className="mb-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Recent Feedback Themes</h3>
-              <div className="space-y-2">
-                <div className="flex items-center">
-                  <div className="w-full bg-gray-200 rounded-full h-2.5 mr-2">
-                    <div className="bg-indigo-500 h-2.5 rounded-full" style={{ width: '85%' }}></div>
-                  </div>
-                  <span className="text-sm text-gray-600 w-32">Clear Goals</span>
-                  <span className="text-sm font-medium text-gray-700">85%</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-full bg-gray-200 rounded-full h-2.5 mr-2">
-                    <div className="bg-indigo-500 h-2.5 rounded-full" style={{ width: '78%' }}></div>
-                  </div>
-                  <span className="text-sm text-gray-600 w-32">Supportive Team</span>
-                  <span className="text-sm font-medium text-gray-700">78%</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-full bg-gray-200 rounded-full h-2.5 mr-2">
-                    <div className="bg-indigo-500 h-2.5 rounded-full" style={{ width: '65%' }}></div>
-                  </div>
-                  <span className="text-sm text-gray-600 w-32">Training Quality</span>
-                  <span className="text-sm font-medium text-gray-700">65%</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-full bg-gray-200 rounded-full h-2.5 mr-2">
-                    <div className="bg-indigo-500 h-2.5 rounded-full" style={{ width: '52%' }}></div>
-                  </div>
-                  <span className="text-sm text-gray-600 w-32">Communication</span>
-                  <span className="text-sm font-medium text-gray-700">52%</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="mt-6">
-              <Link
-                to="/feedback"
-                className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-              >
-                View all feedback →
-              </Link>
-            </div>
-          </div>
         </div>
       </div>
     </div>

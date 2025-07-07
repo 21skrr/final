@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Tag } from 'antd';
+import { Table, Tag, Tabs } from 'antd';
 import resourceService from '../../services/resourceService';
 import { Resource } from '../../types/resource';
 import toast from 'react-hot-toast';
@@ -11,6 +11,8 @@ interface ResourceSummary extends Resource {
 const ManagerResourceView: React.FC = () => {
   const [summary, setSummary] = useState<ResourceSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [recommendations, setRecommendations] = useState<Resource[]>([]);
+  const [recLoading, setRecLoading] = useState(false);
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -30,7 +32,20 @@ const ManagerResourceView: React.FC = () => {
       }
     };
 
+    const fetchRecommendations = async () => {
+      setRecLoading(true);
+      try {
+        const data = await resourceService.getResourceRecommendations();
+        setRecommendations(data);
+      } catch (error) {
+        toast.error('Failed to load recommendations.');
+      } finally {
+        setRecLoading(false);
+      }
+    };
+
     fetchSummary();
+    fetchRecommendations();
   }, []);
 
   const columns = [
@@ -69,14 +84,29 @@ const ManagerResourceView: React.FC = () => {
   ];
 
   return (
-    <Table
-      dataSource={summary}
-      columns={columns}
-      rowKey="id"
-      loading={loading}
-      bordered
-      title={() => <h3 style={{ margin: 0 }}>Resource Usage Summary</h3>}
-    />
+    <Tabs defaultActiveKey="summary">
+      <Tabs.TabPane tab="Summary" key="summary">
+        <Table
+          dataSource={summary}
+          columns={columns}
+          rowKey="id"
+          loading={loading}
+          bordered
+          title={() => <h3 style={{ margin: 0 }}>Resource Usage Summary</h3>}
+        />
+      </Tabs.TabPane>
+      <Tabs.TabPane tab="Recommendations" key="recommendations">
+        {recLoading ? (
+          <div>Loading recommendations...</div>
+        ) : (
+          <ul>
+            {recommendations.map(res => (
+              <li key={res.id}>{res.title} ({res.type})</li>
+            ))}
+          </ul>
+        )}
+      </Tabs.TabPane>
+    </Tabs>
   );
 };
 

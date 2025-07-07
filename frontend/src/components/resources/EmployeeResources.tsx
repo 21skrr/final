@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Book, Video, Link as LinkIcon, Download, AlertCircle } from 'lucide-react';
 import resourceService from '../../services/resourceService';
 import { ResourceAssignment } from '../../types/resource';
+import { Modal } from 'antd';
 
 const ResourceIcon = ({ type }: { type: string }) => {
   switch (type) {
@@ -36,6 +37,15 @@ const EmployeeResources: React.FC = () => {
     fetchResources();
   }, []);
 
+  const handleDownload = async (assignment: ResourceAssignment) => {
+    try {
+      const result = await resourceService.trackResourceDownload(assignment.resource.id);
+      window.open(result.downloadUrl, '_blank');
+    } catch (err) {
+      Modal.error({ title: 'Download Failed', content: 'Could not download resource.' });
+    }
+  };
+
   if (loading) return <div>Loading resources...</div>;
   if (error) return <div className="text-red-500">{error}</div>;
 
@@ -67,10 +77,8 @@ const EmployeeResources: React.FC = () => {
               </div>
               <div className="px-5 py-3 bg-gray-50">
                 <a
-                  href={assignment.resource.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center w-full px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                  onClick={() => handleDownload(assignment)}
+                  className="inline-flex items-center justify-center w-full px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 cursor-pointer"
                 >
                   <Download className="h-4 w-4 mr-2" />
                   View Resource

@@ -37,6 +37,34 @@ const resourceService = {
     const response = await api.get('/resources/summary');
     return response.data;
   },
+
+  // Employee
+  getResourceById: async (id: string) => {
+    const response = await api.get(`/resources/${id}`);
+    return response.data;
+  },
+  trackResourceDownload: async (id: string) => {
+    const response = await api.post(`/resources/${id}/download`);
+    return response.data;
+  },
+
+  // Supervisor
+  getEmployeeResources: async (employeeId: string) => {
+    const response = await api.get(`/resources/usage?employeeId=${employeeId}`);
+    return response.data;
+  },
+
+  // Manager
+  getResourceRecommendations: async () => {
+    const response = await api.get('/resources/recommendations');
+    return response.data;
+  },
+
+  // HR
+  getResourceAnalytics: async () => {
+    const response = await api.get('/resources/analytics');
+    return response.data;
+  },
 };
 
 export default resourceService;

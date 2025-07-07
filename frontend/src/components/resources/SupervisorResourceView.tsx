@@ -18,6 +18,10 @@ const SupervisorResourceView: React.FC = () => {
   const [selectedResources, setSelectedResources] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState<string | undefined>(undefined);
   const [formLoading, setFormLoading] = useState(false);
+  const [usageModalVisible, setUsageModalVisible] = useState(false);
+  const [usageResources, setUsageResources] = useState<Resource[]>([]);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageUser, setUsageUser] = useState<User | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -70,6 +74,20 @@ const SupervisorResourceView: React.FC = () => {
     }
   };
 
+  const showUsageModal = async (user: User) => {
+    setUsageUser(user);
+    setUsageLoading(true);
+    setUsageModalVisible(true);
+    try {
+      const data = await resourceService.getEmployeeResources(user.id);
+      setUsageResources(data);
+    } catch (error) {
+      toast.error('Failed to load resource usage.');
+    } finally {
+      setUsageLoading(false);
+    }
+  };
+
   const columns = [
     { title: 'Name', dataIndex: 'name', key: 'name' },
     { title: 'Email', dataIndex: 'email', key: 'email' },
@@ -78,9 +96,14 @@ const SupervisorResourceView: React.FC = () => {
       title: 'Actions',
       key: 'actions',
       render: (_: any, record: User) => (
-        <Button icon={<UserAddOutlined />} onClick={() => showAssignModal(record)}>
-          Assign Resources
-        </Button>
+        <>
+          <Button icon={<UserAddOutlined />} onClick={() => showAssignModal(record)}>
+            Assign Resources
+          </Button>
+          <Button style={{marginLeft: 8}} onClick={() => showUsageModal(record)}>
+            View Usage
+          </Button>
+        </>
       ),
     },
   ];
@@ -121,6 +144,23 @@ const SupervisorResourceView: React.FC = () => {
             onChange={(date, dateString) => setDueDate(dateString as string)}
           />
         </Space>
+      </Modal>
+      <Modal
+        title={`Resource Usage for ${usageUser?.name}`}
+        open={usageModalVisible}
+        onCancel={() => setUsageModalVisible(false)}
+        footer={null}
+        destroyOnClose
+      >
+        {usageLoading ? (
+          <div>Loading...</div>
+        ) : (
+          <ul>
+            {usageResources.map(res => (
+              <li key={res.id}>{res.title} ({res.type})</li>
+            ))}
+          </ul>
+        )}
       </Modal>
     </div>
   );

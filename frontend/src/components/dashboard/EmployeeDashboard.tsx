@@ -1,29 +1,91 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { User } from '../../types/user';
 import { Calendar, CheckSquare, FileText, Award, Clock } from 'lucide-react';
 import OnboardingProgress from './OnboardingProgress';
 import { Link } from 'react-router-dom';
+import eventService from '../../services/eventService';
+import checklistAssignmentService from '../../services/checklistAssignmentService';
+import surveyService from '../../services/surveyService';
+import analyticsService from '../../services/analyticsService';
 
 interface EmployeeDashboardProps {
   user: User;
 }
 
-// Mock data for upcoming events
-const upcomingEvents = [
-  { id: 1, title: '3-Month Check-in', date: '2023-10-15T09:00:00', type: 'meeting' },
-  { id: 2, title: 'Product Training', date: '2023-10-12T14:00:00', type: 'training' },
-  { id: 3, title: 'Team Building Activity', date: '2023-10-20T13:00:00', type: 'event' },
-];
-
-// Mock data for tasks
-const tasks = [
-  { id: 1, title: 'Complete Compliance Training', dueDate: '2023-10-10', isCompleted: false, priority: 'high' },
-  { id: 2, title: 'Submit 3-Month Feedback Form', dueDate: '2023-10-15', isCompleted: false, priority: 'medium' },
-  { id: 3, title: 'Review Company Policies', dueDate: '2023-10-05', isCompleted: true, priority: 'medium' },
-  { id: 4, title: 'Schedule Meeting with Supervisor', dueDate: '2023-10-08', isCompleted: false, priority: 'low' },
-];
-
 const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
+  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [surveys, setSurveys] = useState<any[]>([]);
+  const [learning, setLearning] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Fetch events
+        const events = await eventService.getEvents();
+        // Filter for upcoming events (future dates, limit 3)
+        const now = new Date();
+        const upcoming = events
+          .filter((e: any) => new Date(e.startDate || e.date) > now)
+          .sort((a: any, b: any) => new Date(a.startDate || a.date).getTime() - new Date(b.startDate || b.date).getTime())
+          .slice(0, 3);
+        setUpcomingEvents(upcoming);
+
+        // Fetch tasks (checklist assignments)
+        const assignments = await checklistAssignmentService.getMyAssignments();
+        console.log('Assignments:', assignments);
+        // Flatten checklist items, but if no items, use the assignment itself as a task
+        let allTasks: any[] = [];
+        assignments.forEach((assignment: any) => {
+          if (assignment.items && assignment.items.length > 0) {
+            assignment.items.forEach((item: any) => {
+              allTasks.push({
+                id: item.id,
+                title: item.title,
+                dueDate: item.dueDate || assignment.dueDate,
+                isCompleted: item.isCompleted,
+                priority: item.priority || 'medium',
+              });
+            });
+          } else {
+            // If no items, treat the assignment as a single task
+            allTasks.push({
+              id: assignment.id,
+              title: assignment.title,
+              dueDate: assignment.dueDate,
+              isCompleted: assignment.isCompleted || false,
+              priority: assignment.priority || 'medium',
+            });
+          }
+        });
+        // Prefer incomplete tasks, but if none, show completed ones
+        let incompleteTasks = allTasks.filter(t => !t.isCompleted);
+        let displayTasks = incompleteTasks.length > 0 ? incompleteTasks : allTasks;
+        displayTasks = displayTasks.sort((a, b) => new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime()).slice(0, 4);
+        console.log('Dashboard Tasks:', displayTasks);
+        setTasks(displayTasks);
+
+        // Fetch available surveys
+        const surveyRes = await surveyService.getAvailableSurveys();
+        setSurveys(surveyRes.data || surveyRes);
+
+        // Fetch learning progress
+        const learningRes = await analyticsService.getPersonalTraining();
+        setLearning(learningRes);
+      } catch (err) {
+        setError('Failed to load dashboard data.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [user.id]);
+
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = { weekday: 'short', month: 'short', day: 'numeric' };
     return new Date(dateString).toLocaleDateString('en-US', options);
@@ -43,6 +105,9 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
     }
   };
   
+  if (loading) return <div>Loading dashboard...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
+
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-lg shadow-md">
@@ -85,7 +150,7 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
                       </div>
                       <div className="mt-1 flex items-center text-sm text-gray-500">
                         <Clock className="h-4 w-4 mr-1 text-gray-400" />
-                        {formatDate(event.date)} at {formatTime(event.date)}
+                        {formatDate(event.startDate || event.date)} at {formatTime(event.startDate || event.date)}
                       </div>
                     </li>
                   ))}
@@ -160,20 +225,24 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
             <h2 className="text-lg font-medium">Upcoming Surveys</h2>
           </div>
           <div className="p-4">
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-              <h3 className="font-medium text-purple-800">3-Month Experience Survey</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Please share your feedback on your onboarding experience so far.
-              </p>
-              <div className="mt-3">
-                <Link
-                  to="/forms"
-                  className="inline-flex items-center px-3 py-1.5 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-                >
-                  Complete Survey
-                </Link>
+            {surveys.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No upcoming surveys</p>
+            ) : (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h3 className="font-medium text-purple-800">{surveys[0].title}</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  {surveys[0].description || 'Please share your feedback on your onboarding experience so far.'}
+                </p>
+                <div className="mt-3">
+                  <Link
+                    to={`/forms/${surveys[0].id}`}
+                    className="inline-flex items-center px-3 py-1.5 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                  >
+                    Complete Survey
+                  </Link>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
         
@@ -183,41 +252,45 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
             <h2 className="text-lg font-medium">Learning & Development</h2>
           </div>
           <div className="p-4">
-            <div className="space-y-4">
-              <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
-                <h3 className="font-medium text-gray-900">PMI Product Knowledge</h3>
-                <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-green-500 h-2 rounded-full" style={{ width: '60%' }}></div>
+            {learning ? (
+              <div className="space-y-4">
+                <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
+                  <h3 className="font-medium text-gray-900">{learning.title || 'Learning Module'}</h3>
+                  <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                    <div className="bg-green-500 h-2 rounded-full" style={{ width: `${learning.progress || 0}%` }}></div>
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-xs text-gray-500">Progress: {learning.progress || 0}%</span>
+                    <span className="text-xs text-gray-500">{learning.completedModules || 0}/{learning.totalModules || 0} Modules</span>
+                  </div>
+                  <div className="mt-3">
+                    <Link
+                      to="/training"
+                      className="text-sm font-medium text-green-600 hover:text-green-500"
+                    >
+                      Continue Learning →
+                    </Link>
+                  </div>
                 </div>
-                <div className="flex justify-between mt-1">
-                  <span className="text-xs text-gray-500">Progress: 60%</span>
-                  <span className="text-xs text-gray-500">2/5 Modules</span>
-                </div>
-                <div className="mt-3">
-                  <Link
-                    to="/training"
-                    className="text-sm font-medium text-green-600 hover:text-green-500"
-                  >
-                    Continue Learning →
-                  </Link>
-                </div>
+                {/* Add more learning recommendations if available */}
+                {learning.recommendations && learning.recommendations.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
+                    <h3 className="font-medium text-gray-900">Recommended for You</h3>
+                    <p className="text-sm text-gray-600 mt-1">{learning.recommendations[0].description}</p>
+                    <div className="mt-3">
+                      <Link
+                        to={learning.recommendations[0].link || '/training'}
+                        className="text-sm font-medium text-green-600 hover:text-green-500"
+                      >
+                        Start Course →
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </div>
-              
-              <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
-                <h3 className="font-medium text-gray-900">Recommended for You</h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  Introduction to PMI's Business Strategy
-                </p>
-                <div className="mt-3">
-                  <Link
-                    to="/training"
-                    className="text-sm font-medium text-green-600 hover:text-green-500"
-                  >
-                    Start Course →
-                  </Link>
-                </div>
-              </div>
-            </div>
+            ) : (
+              <p className="text-gray-500 text-center py-4">No learning data available</p>
+            )}
           </div>
         </div>
       </div>
