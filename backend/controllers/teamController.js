@@ -4,7 +4,7 @@ const sequelize = require("../config/database");
 const models = require("../models");
 const { User, Team, Feedback } = require("../models"); // Add model imports
 
-// Get team feedback
+// Get team feedback (Supervisor endpoint)
 const getTeamFeedback = async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id);
@@ -18,15 +18,17 @@ const getTeamFeedback = async (req, res) => {
       attributes: ['id']
     });
 
+    if (!teamMembers.length) {
+      return res.json([]);
+    }
+
     const teamMemberIds = teamMembers.map(member => member.id);
 
-    // Get feedback for team members
+    // Get feedback that is shared with supervisor (toUserId is the supervisor)
     const feedback = await Feedback.findAll({
       where: {
-        [Op.or]: [
-          { fromUserId: { [Op.in]: teamMemberIds } },
-          { toUserId: { [Op.in]: teamMemberIds } }
-        ]
+        fromUserId: { [Op.in]: teamMemberIds },
+        toUserId: req.user.id // Only feedback sent to this supervisor
       },
       include: [
         {
@@ -43,7 +45,7 @@ const getTeamFeedback = async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
 
-    res.json(feedback);
+    res.json(Array.isArray(feedback) ? feedback : []);
   } catch (error) {
     console.error("Error fetching team feedback:", error);
     res.status(500).json({ message: "Server error" });

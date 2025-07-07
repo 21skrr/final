@@ -8,9 +8,11 @@ interface NotificationContextType {
   loading: boolean;
   unreadCount: number;
   fetchNotifications: () => Promise<void>;
+  fetchRoleBasedNotifications: (type: string) => Promise<Notification[]>;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   deleteNotification: (id: string) => Promise<void>;
+  getNotificationCount: (type: string) => number;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -30,10 +32,106 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setLoading(true);
     try {
       const data = await notificationService.getNotifications();
-      setNotifications(data);
+      setNotifications(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchRoleBasedNotifications = async (type: string): Promise<Notification[]> => {
+    try {
+      let data: Notification[] = [];
+
+      switch (type) {
+        case 'reminders':
+          data = await notificationService.getReminders();
+          break;
+        case 'documents':
+          data = await notificationService.getDocumentNotifications();
+          break;
+        case 'training':
+          data = await notificationService.getTrainingNotifications();
+          break;
+        case 'coaching':
+          data = await notificationService.getCoachingSessionNotifications();
+          break;
+        case 'overdue':
+          data = await notificationService.getOverdueTasks();
+          break;
+        case 'feedback':
+          data = await notificationService.getFeedbackAvailability();
+          break;
+        case 'team-progress':
+          if (user?.role === 'supervisor') {
+            data = await notificationService.getTeamProgress();
+          }
+          break;
+        case 'feedback-submissions':
+          if (user?.role === 'supervisor') {
+            data = await notificationService.getFeedbackSubmissions();
+          }
+          break;
+        case 'onboarding-milestones':
+          if (user?.role === 'manager') {
+            data = await notificationService.getOnboardingMilestones();
+          }
+          break;
+        case 'pending-approvals':
+          if (user?.role === 'manager') {
+            data = await notificationService.getPendingApprovals();
+          }
+          break;
+        case 'team-followups':
+          if (user?.role === 'manager') {
+            data = await notificationService.getTeamFollowups();
+          }
+          break;
+        case 'weekly-reports':
+          if (user?.role === 'manager' || user?.role === 'hr') {
+            data = await notificationService.getWeeklyReports();
+          }
+          break;
+        case 'system-alerts':
+          if (user?.role === 'hr') {
+            data = await notificationService.getSystemAlerts();
+          }
+          break;
+        case 'new-employees':
+          if (user?.role === 'hr') {
+            data = await notificationService.getNewEmployees();
+          }
+          break;
+        case 'compliance-alerts':
+          if (user?.role === 'hr') {
+            data = await notificationService.getComplianceAlerts();
+          }
+          break;
+        case 'leave-requests':
+          if (user?.role === 'hr') {
+            data = await notificationService.getLeaveRequests();
+          }
+          break;
+        case 'probation-deadlines':
+          if (user?.role === 'supervisor' || user?.role === 'manager' || user?.role === 'hr') {
+            data = await notificationService.getProbationDeadlines();
+          }
+          break;
+        default:
+          data = await notificationService.getNotifications();
+      }
+
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.error(`Error fetching ${type} notifications:`, error);
+      return [];
+    }
+  };
+
+  const getNotificationCount = (type: string): number => {
+    return notifications.filter(n => n.type === type && !n.isRead).length;
   };
 
   useEffect(() => {
@@ -84,9 +182,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         loading,
         unreadCount,
         fetchNotifications,
+        fetchRoleBasedNotifications,
         markAsRead,
         markAllAsRead,
         deleteNotification,
+        getNotificationCount,
       }}
     >
       {children}

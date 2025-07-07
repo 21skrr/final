@@ -361,30 +361,30 @@ const SurveyTemplates: React.FC = () => {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto py-10 px-4">
-        <div className="bg-white rounded-lg shadow p-8">
-          <h1 className="text-2xl font-bold mb-6">Survey Templates</h1>
-          {error && <div className="mb-4 text-red-600">{error}</div>}
-          {success && <div className="mb-4 text-green-600">{success}</div>}
-          <form onSubmit={editingId ? handleUpdate : handleAddTemplate} className="flex flex-col md:flex-row gap-4 mb-8">
-            <input
-              type="text"
-              placeholder="Template Name"
-              value={editingId ? editName : name}
-              onChange={e => editingId ? setEditName(e.target.value) : setName(e.target.value)}
+    <div className="max-w-4xl mx-auto py-10 px-4">
+      <div className="bg-white rounded-lg shadow p-8">
+        <h1 className="text-2xl font-bold mb-6">Survey Templates</h1>
+        {error && <div className="mb-4 text-red-600">{error}</div>}
+        {success && <div className="mb-4 text-green-600">{success}</div>}
+        <form onSubmit={editingId ? handleUpdate : handleAddTemplate} className="flex flex-col md:flex-row gap-4 mb-8">
+          <input
+            type="text"
+            placeholder="Template Name"
+            value={editingId ? editName : name}
+            onChange={e => editingId ? setEditName(e.target.value) : setName(e.target.value)}
+            required
+            className="border rounded px-3 py-2 flex-1"
+            disabled={loading}
+          />
+          <input
+            type="text"
+            placeholder="Description"
+            value={editingId ? editDescription : description}
+            onChange={e => editingId ? setEditDescription(e.target.value) : setDescription(e.target.value)}
               required
-              className="border rounded px-3 py-2 flex-1"
-              disabled={loading}
-            />
-            <input
-              type="text"
-              placeholder="Description"
-              value={editingId ? editDescription : description}
-              onChange={e => editingId ? setEditDescription(e.target.value) : setDescription(e.target.value)}
-              required
-              className="border rounded px-3 py-2 flex-1"
-              disabled={loading}
-            />
+            className="border rounded px-3 py-2 flex-1"
+            disabled={loading}
+          />
             <select
               value={type}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setType(e.target.value as typeof type)}
@@ -397,42 +397,42 @@ const SurveyTemplates: React.FC = () => {
               <option value="12-month">12-Month</option>
               <option value="training">Training</option>
             </select>
-            <button
-              type="submit"
+          <button
+            type="submit"
               className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+            disabled={loading}
+          >
+              {editingId ? 'Update' : 'Add Template'}
+          </button>
+          {editingId && (
+            <button
+              type="button"
+              onClick={() => setEditingId(null)}
+              className="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition"
               disabled={loading}
             >
-              {editingId ? 'Update' : 'Add Template'}
+              Cancel
             </button>
-            {editingId && (
-              <button
-                type="button"
-                onClick={() => setEditingId(null)}
-                className="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition"
-                disabled={loading}
-              >
-                Cancel
-              </button>
-            )}
-          </form>
-          <div className="overflow-x-auto">
+          )}
+        </form>
+        <div className="overflow-x-auto">
             <table className="min-w-full bg-white border rounded shadow">
-              <thead>
-                <tr>
+            <thead>
+              <tr>
                   <th className="py-3 px-4 border-b text-left font-semibold bg-gray-50">Name</th>
                   <th className="py-3 px-4 border-b text-left font-semibold bg-gray-50">Description</th>
                   <th className="py-3 px-4 border-b text-left font-semibold bg-gray-50">Status</th>
                   <th className="py-3 px-4 border-b text-center font-semibold bg-gray-50">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
                   <tr><td colSpan={4} className="py-8 text-center text-gray-400">Loading...</td></tr>
-                ) : templates.length === 0 ? (
-                  <tr>
+              ) : templates.length === 0 ? (
+                <tr>
                     <td colSpan={4} className="py-8 text-center text-gray-400">No survey templates found. Add a new template above.</td>
-                  </tr>
-                ) : (
+                </tr>
+              ) : (
                   templates.map((template) => (
                     <tr key={template.id} className="hover:bg-gray-50 transition">
                       <td className="py-2 px-4 font-medium text-gray-900">{template.title || template.name}</td>
@@ -448,136 +448,136 @@ const SurveyTemplates: React.FC = () => {
                           <option value="active">Active</option>
                         </select>
                       </td>
-                      <td className="py-2 px-4 text-center">
-                        <button
+                    <td className="py-2 px-4 text-center">
+                      <button
                           className="text-blue-600 hover:underline mr-4"
-                          onClick={() => handleEdit(template)}
-                        >
-                          Edit
-                        </button>
-                        <button
+                        onClick={() => handleEdit(template)}
+                      >
+                        Edit
+                      </button>
+                      <button
                           className="text-red-600 hover:underline mr-4"
-                          onClick={() => handleDelete(template.id)}
-                        >
-                          Delete
-                        </button>
-                        <button
+                        onClick={() => handleDelete(template.id)}
+                      >
+                        Delete
+                      </button>
+                      <button
                           className="text-green-600 hover:underline"
-                          onClick={() => openQuestionsModal(template)}
-                        >
-                          Manage Questions
-                        </button>
+                        onClick={() => openQuestionsModal(template)}
+                      >
+                        Manage Questions
+                      </button>
                         <button
                           className="text-purple-600 hover:underline mr-4"
                           onClick={() => openScheduleModal(template)}
                         >
                           Schedule
                         </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-        {/* Questions Modal */}
-        {showQuestionsModal && activeTemplate && (
-          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-2xl relative">
-              <button
-                className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-                onClick={closeQuestionsModal}
-              >
-                &times;
-              </button>
-              <h2 className="text-xl font-bold mb-4">Manage Questions for: {activeTemplate.name}</h2>
-              {questionsLoading ? (
-                <div className="text-center text-gray-400">Loading questions...</div>
-              ) : questionsError ? (
-                <div className="text-center text-red-600">{questionsError}</div>
-              ) : (
-                <form onSubmit={handleAddQuestion} className="flex flex-col md:flex-row gap-4 mb-6 w-full">
+      </div>
+      {/* Questions Modal */}
+      {showQuestionsModal && activeTemplate && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-2xl relative">
+            <button
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+              onClick={closeQuestionsModal}
+            >
+              &times;
+            </button>
+            <h2 className="text-xl font-bold mb-4">Manage Questions for: {activeTemplate.name}</h2>
+            {questionsLoading ? (
+              <div className="text-center text-gray-400">Loading questions...</div>
+            ) : questionsError ? (
+              <div className="text-center text-red-600">{questionsError}</div>
+            ) : (
+              <form onSubmit={handleAddQuestion} className="flex flex-col md:flex-row gap-4 mb-6 w-full">
+                <input
+                  type="text"
+                  placeholder="Question text"
+                  value={questionText}
+                  onChange={e => setQuestionText(e.target.value)}
+                  className="border rounded px-3 py-2 flex-1 min-w-0"
+                  required
+                />
+                <select
+                  value={questionType}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setQuestionType(e.target.value as typeof questionType)}
+                  className="border rounded px-3 py-2 min-w-[120px]"
+                >
+                  <option value="text">Text</option>
+                  <option value="multiple_choice">Multiple Choice</option>
+                  <option value="rating">Rating</option>
+                </select>
+                {questionType === 'multiple_choice' && (
                   <input
                     type="text"
-                    placeholder="Question text"
-                    value={questionText}
-                    onChange={e => setQuestionText(e.target.value)}
+                    placeholder="Options (comma separated)"
+                    value={questionOptions}
+                    onChange={e => setQuestionOptions(e.target.value)}
                     className="border rounded px-3 py-2 flex-1 min-w-0"
-                    required
                   />
-                  <select
-                    value={questionType}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setQuestionType(e.target.value as typeof questionType)}
-                    className="border rounded px-3 py-2 min-w-[120px]"
-                  >
-                    <option value="text">Text</option>
-                    <option value="multiple_choice">Multiple Choice</option>
-                    <option value="rating">Rating</option>
-                  </select>
-                  {questionType === 'multiple_choice' && (
-                    <input
-                      type="text"
-                      placeholder="Options (comma separated)"
-                      value={questionOptions}
-                      onChange={e => setQuestionOptions(e.target.value)}
-                      className="border rounded px-3 py-2 flex-1 min-w-0"
-                    />
-                  )}
-                  <label className="flex items-center gap-2 whitespace-nowrap">
-                    <input
-                      type="checkbox"
-                      checked={questionRequired}
-                      onChange={e => setQuestionRequired(e.target.checked)}
-                    />
-                    Required
-                  </label>
-                  <button
-                    type="submit"
-                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition whitespace-nowrap"
-                  >
-                    Add
-                  </button>
-                </form>
-              )}
-              <div className="overflow-x-auto">
-                <table className="min-w-full bg-white border rounded">
-                  <thead>
+                )}
+                <label className="flex items-center gap-2 whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={questionRequired}
+                    onChange={e => setQuestionRequired(e.target.checked)}
+                  />
+                  Required
+                </label>
+                <button
+                  type="submit"
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition whitespace-nowrap"
+                >
+                  Add
+                </button>
+              </form>
+            )}
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-white border rounded">
+                <thead>
+                  <tr>
+                    <th className="py-2 px-4 border-b text-left font-semibold">Question</th>
+                    <th className="py-2 px-4 border-b text-left font-semibold">Type</th>
+                    <th className="py-2 px-4 border-b text-center font-semibold">Required</th>
+                    <th className="py-2 px-4 border-b text-center font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {questions.length === 0 ? (
                     <tr>
-                      <th className="py-2 px-4 border-b text-left font-semibold">Question</th>
-                      <th className="py-2 px-4 border-b text-left font-semibold">Type</th>
-                      <th className="py-2 px-4 border-b text-center font-semibold">Required</th>
-                      <th className="py-2 px-4 border-b text-center font-semibold">Actions</th>
+                      <td colSpan={4} className="py-6 text-center text-gray-400">No questions yet.</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {questions.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="py-6 text-center text-gray-400">No questions yet.</td>
+                  ) : (
+                    questions.map(q => (
+                      <tr key={q.id}>
+                        <td className="py-2 px-4">{q.question}</td>
+                        <td className="py-2 px-4">{q.type}</td>
+                        <td className="py-2 px-4 text-center">{q.required ? 'Yes' : 'No'}</td>
+                        <td className="py-2 px-4 text-center">
+                          <button
+                            onClick={() => handleDeleteQuestion(q.id)}
+                            className="text-red-600 hover:underline"
+                          >
+                            Delete
+                          </button>
+                        </td>
                       </tr>
-                    ) : (
-                      questions.map(q => (
-                        <tr key={q.id}>
-                          <td className="py-2 px-4">{q.question}</td>
-                          <td className="py-2 px-4">{q.type}</td>
-                          <td className="py-2 px-4 text-center">{q.required ? 'Yes' : 'No'}</td>
-                          <td className="py-2 px-4 text-center">
-                            <button
-                              onClick={() => handleDeleteQuestion(q.id)}
-                              className="text-red-600 hover:underline"
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
-        )}
+        </div>
+      )}
         {/* Schedule Modal */}
         {showScheduleModal && scheduleTemplate && (
           <Modal
@@ -648,7 +648,7 @@ const SurveyTemplates: React.FC = () => {
             </form>
           </Modal>
         )}
-      </div>
+    </div>
     </Layout>
   );
 };

@@ -50,6 +50,7 @@ const Feedback = sequelize.define(
     categories: {
       type: DataTypes.TEXT,
       allowNull: true,
+      defaultValue: '[]',
       get() {
         const rawValue = this.getDataValue('categories');
         return rawValue ? JSON.parse(rawValue) : [];

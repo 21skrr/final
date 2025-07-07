@@ -27,6 +27,10 @@ const requiredMethods = [
   'getProbationDeadlines',
   'getSystemAlerts',
   'getNewEmployees',
+  'getOnboardingMilestones',
+  'getPendingApprovals',
+  'getSummaryReports',
+  'getFeedbackCheckpoints',
   'getNotificationPreferences',
   'updateNotificationPreferences',
   'getNotificationTemplates',
@@ -69,6 +73,15 @@ router.get("/probation-deadlines", auth, notificationController.getProbationDead
 router.get("/weekly-reports", auth, notificationController.getWeeklyReports);
 router.get("/system-alerts", auth, isRH, notificationController.getSystemAlerts);
 router.get("/new-employees", auth, isRH, notificationController.getNewEmployees);
+
+// Manager-specific endpoints
+router.get("/onboarding-milestones", auth, notificationController.getOnboardingMilestones);
+router.get("/pending-approvals", auth, notificationController.getPendingApprovals);
+
+// HR-specific endpoints
+router.get("/summary-reports", auth, isRH, notificationController.getSummaryReports);
+router.get("/feedback-checkpoints", auth, isRH, notificationController.getFeedbackCheckpoints);
+router.get("/leave-requests", auth, notificationController.getLeaveRequests);
 
 // Add both old and new routes for backward compatibility
 // Old routes

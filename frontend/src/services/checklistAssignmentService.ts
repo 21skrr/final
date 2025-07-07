@@ -65,6 +65,8 @@ const checklistAssignmentService = {
     isCompleted: boolean;
     notes?: string;
     completedAt?: string;
+    userId: string;
+    checklistItemId: string;
   }): Promise<ChecklistProgressItem> => {
     const response = await api.patch(`/checklist-assignments/checklist-progress/${progressId}`, update);
     return response.data;
@@ -76,6 +78,12 @@ const checklistAssignmentService = {
     verificationNotes?: string;
   }): Promise<ChecklistProgressItem> => {
     const response = await api.patch(`/checklist-assignments/checklist-progress/${progressId}/verify`, verification);
+    return response.data;
+  },
+
+  // Get progress for a specific user and checklist
+  getChecklistProgressByUserAndChecklist: async (userId: string, checklistId: string): Promise<ChecklistProgressItem[]> => {
+    const response = await api.get(`/checklist-assignments/progress/${userId}/${checklistId}`);
     return response.data;
   }
 };

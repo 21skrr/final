@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import checklistAssignmentService from '../services/checklistAssignmentService';
 import checklistService from '../services/checklistService';
 import { ChecklistAssignmentDetail, Checklist } from '../types/checklist';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 const Checklists: React.FC = () => {
   const { user } = useAuth();
@@ -21,6 +21,8 @@ const Checklists: React.FC = () => {
   const [dueDate, setDueDate] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
+
+  const location = useLocation();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -48,7 +50,8 @@ const Checklists: React.FC = () => {
     };
 
     fetchData();
-  }, [user?.role]);
+    // Refetch when coming back to this page
+  }, [user?.role, location.key]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'No due date';
@@ -124,6 +127,12 @@ const Checklists: React.FC = () => {
                 : 'Track and manage your onboarding tasks and requirements'}
             </p>
           </div>
+          <button
+            className="px-3 py-1 bg-gray-200 rounded text-sm ml-4"
+            onClick={() => window.location.reload()}
+          >
+            Refresh
+          </button>
           {user?.role === 'hr' && (
             <Link to="/checklists/create" className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
               <Plus className="-ml-1 mr-2 h-4 w-4" />
@@ -219,7 +228,7 @@ const Checklists: React.FC = () => {
                       <div className="flex justify-between items-start">
                         <div>
                           <h2 className="text-lg font-medium text-gray-900">
-                            {assignment.checklist?.title || 'Untitled Checklist'}
+                            {assignment.title || 'Untitled Checklist'}
                           </h2>
                           <div className="mt-1 flex items-center text-sm text-gray-500">
                             <Clock className="h-4 w-4 mr-1" />

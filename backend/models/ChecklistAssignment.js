@@ -1,8 +1,8 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
 
-const ChecklistAssignment = sequelize.define(
-  "ChecklistAssignment",
+const ChecklistCombined = sequelize.define(
+  "ChecklistCombined",
   {
     id: {
       type: DataTypes.CHAR(36),
@@ -12,26 +12,14 @@ const ChecklistAssignment = sequelize.define(
     checklistId: {
       type: DataTypes.CHAR(36),
       allowNull: false,
-      references: {
-        model: "Checklists",
-        key: "id",
-      },
     },
     userId: {
       type: DataTypes.CHAR(36),
       allowNull: false,
-      references: {
-        model: "Users",
-        key: "id",
-      },
     },
     assignedBy: {
       type: DataTypes.CHAR(36),
-      allowNull: false,
-      references: {
-        model: "Users",
-        key: "id",
-      },
+      allowNull: true,
     },
     dueDate: {
       type: DataTypes.DATE,
@@ -46,18 +34,66 @@ const ChecklistAssignment = sequelize.define(
       defaultValue: 0,
     },
     isAutoAssigned: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
+      type: DataTypes.TINYINT,
+      defaultValue: 0,
     },
     completedAt: {
       type: DataTypes.DATE,
       allowNull: true,
     },
+    assignmentCreatedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    assignmentUpdatedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    title: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    programType: {
+      type: DataTypes.ENUM("inkompass", "earlyTalent", "apprenticeship", "academicPlacement", "workExperience", "all"),
+      defaultValue: "all",
+    },
+    stage: {
+      type: DataTypes.ENUM("prepare", "orient", "land", "integrate", "excel", "all"),
+      defaultValue: "all",
+    },
+    checklistCreatedBy: {
+      type: DataTypes.CHAR(36),
+      allowNull: true,
+    },
+    checklistCreatedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    checklistUpdatedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    autoAssign: {
+      type: DataTypes.TINYINT,
+      defaultValue: 0,
+    },
+    requiresVerification: {
+      type: DataTypes.TINYINT,
+      defaultValue: 1,
+    },
+    dueInDays: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
   },
   {
-    timestamps: true,
-    tableName: "checklistassignments",
+    timestamps: false,
+    tableName: "checklist_combined",
   }
 );
 
-module.exports = ChecklistAssignment;
+module.exports = ChecklistCombined;

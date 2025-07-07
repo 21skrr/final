@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const teamController = require("../controllers/teamController");
-const { auth } = require("../middleware/auth");
+const { auth, checkRole } = require("../middleware/auth");
 
 // @route   GET /api/team
 // @desc    Get team members
@@ -9,9 +9,9 @@ const { auth } = require("../middleware/auth");
 router.get("/", auth, teamController.getTeamMembers);
 
 // @route   GET /api/team/feedback
-// @desc    Get team feedback
-// @access  Private
-router.get("/feedback", auth, teamController.getTeamFeedback);
+// @desc    Get team feedback (Supervisor only)
+// @access  Private (Supervisor)
+router.get("/feedback", auth, checkRole("supervisor"), teamController.getTeamFeedback);
 
 // @route   GET /api/team/feedback/analytics
 // @desc    Get team feedback analytics

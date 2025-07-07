@@ -3,6 +3,7 @@ const router = express.Router();
 const { check } = require("express-validator");
 const checklistController = require("../controllers/checklistController");
 const { auth, checkRole } = require("../middleware/auth");
+const { getChecklistProgressByUserAndChecklist } = require('../controllers/checklistController');
 
 // Validation middleware
 const assignmentValidation = [
@@ -100,5 +101,10 @@ router.patch(
   auth,
   checklistController.updateChecklistProgress
 );
+
+// @route   GET /api/checklist-assignments/progress/:userId/:checklistId
+// @desc    Get checklist progress for a specific user and checklist
+// @access  Private
+router.get('/progress/:userId/:checklistId', getChecklistProgressByUserAndChecklist);
 
 module.exports = router;

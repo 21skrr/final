@@ -73,17 +73,17 @@ const EmployeeChecklists: React.FC = () => {
               return (
                 <div key={a.id} className="bg-white shadow rounded-lg p-6">
                   <div className="flex justify-between items-center mb-2">
-                    <h2 className="text-lg font-semibold text-gray-900">{checklist?.title || 'Checklist (No Title)'}</h2>
+                    <h2 className="text-lg font-semibold text-gray-900">{a.title || 'Checklist (No Title)'}</h2>
                     <span className="text-sm text-gray-500 flex items-center">
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      Due: {a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'No due date'}
+                    Due: {a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'No due date'}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4">
-                    <div
-                      className="bg-blue-600 h-2.5 rounded-full"
+                      <div
+                        className="bg-blue-600 h-2.5 rounded-full"
                       style={{ width: `${percent}%` }}
-                    ></div>
+                      ></div>
                   </div>
                   <ul className="space-y-2">
                     {items.map(item => (

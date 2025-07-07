@@ -15,7 +15,7 @@ const Program = require("./Program");
 const Checklist = require("./Checklist");
 const ChecklistItem = require("./ChecklistItem");
 const ChecklistProgress = require("./ChecklistProgress");
-const ChecklistAssignment = require("./ChecklistAssignment");
+const ChecklistCombined = require("./ChecklistAssignment");
 const NotificationSettings = require("./NotificationSettings");
 const OnboardingTask = require("./OnboardingTask");
 const UserTaskProgress = require("./UserTaskProgress")(sequelize);
@@ -134,20 +134,20 @@ User.hasMany(ChecklistProgress, {
 ChecklistProgress.belongsTo(User, { as: "verifier", foreignKey: "verifiedBy" });
 
 // Checklist Assignment associations
-Checklist.hasMany(ChecklistAssignment, { foreignKey: "checklistId" });
-ChecklistAssignment.belongsTo(Checklist, { foreignKey: "checklistId" });
+Checklist.hasMany(ChecklistCombined, { foreignKey: "checklistId" });
+ChecklistCombined.belongsTo(Checklist, { foreignKey: "checklistId" });
 
-User.hasMany(ChecklistAssignment, {
+User.hasMany(ChecklistCombined, {
   as: "assignedChecklists",
   foreignKey: "userId",
 });
-ChecklistAssignment.belongsTo(User, { as: "assignee", foreignKey: "userId" });
+ChecklistCombined.belongsTo(User, { as: "assignee", foreignKey: "userId" });
 
-User.hasMany(ChecklistAssignment, {
+User.hasMany(ChecklistCombined, {
   as: "checklistAssignments",
   foreignKey: "assignedBy",
 });
-ChecklistAssignment.belongsTo(User, {
+ChecklistCombined.belongsTo(User, {
   as: "assigner",
   foreignKey: "assignedBy",
 });
@@ -340,7 +340,7 @@ module.exports = {
   Checklist,
   ChecklistItem,
   ChecklistProgress,
-  ChecklistAssignment,
+  ChecklistCombined,
   NotificationSettings,
   OnboardingTask,
   UserTaskProgress,

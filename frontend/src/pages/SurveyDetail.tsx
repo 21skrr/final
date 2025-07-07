@@ -191,19 +191,19 @@ const SurveyDetail: React.FC = () => {
           ) : (
             <form onSubmit={handleSubmit}>
               {questions.map(question => (
-                <div key={question.id} className="mb-6">
-                  <label className="block text-lg font-semibold text-gray-800">
+              <div key={question.id} className="mb-6">
+                <label className="block text-lg font-semibold text-gray-800">
                     {question.text || question.question}
                     {question.required && <span className="text-red-500 ml-1">*</span>}
-                  </label>
-                  <div className="mt-2">
+                </label>
+                <div className="mt-2">
                     {renderQuestion({
                       ...question,
                       text: question.text || question.question
                     })}
-                  </div>
                 </div>
-              ))}
+              </div>
+            ))}
               {!isReadOnly && (
                 <button
                   type="submit"
@@ -215,14 +215,14 @@ const SurveyDetail: React.FC = () => {
                 </button>
               )}
               {isReadOnly && (
-                <div className="mt-8 text-center">
-                  <div className="inline-flex items-center bg-green-100 text-green-800 text-lg font-semibold px-6 py-3 rounded-lg">
-                    <CheckCircle className="mr-3" />
-                    Survey Completed
-                  </div>
+              <div className="mt-8 text-center">
+                <div className="inline-flex items-center bg-green-100 text-green-800 text-lg font-semibold px-6 py-3 rounded-lg">
+                  <CheckCircle className="mr-3" />
+                  Survey Completed
                 </div>
-              )}
-            </form>
+              </div>
+            )}
+          </form>
           )}
         </div>
       </div>

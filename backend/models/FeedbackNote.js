@@ -32,7 +32,7 @@ const FeedbackNote = sequelize.define("feedback_notes", {
     allowNull: true
   },
   status: {
-    type: DataTypes.ENUM("pending", "in-progress", "completed"),
+    type: DataTypes.ENUM("pending", "in-progress", "addressed"),
     allowNull: true,
     defaultValue: "pending"
   }

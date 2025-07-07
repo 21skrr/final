@@ -75,13 +75,13 @@ const ChecklistAssignmentDetailPage: React.FC = () => {
             <div className="flex justify-between items-center mb-2">
               <h2 className="text-lg font-semibold text-gray-900">{assignment.checklist?.title || 'Checklist Details'}</h2>
               <span className="text-sm text-gray-500 flex items-center"><Clock className="w-4 h-4 mr-1" /> Due: {assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : 'No due date'}</span>
-            </div>
+          </div>
             <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4">
               <div
                 className="bg-blue-600 h-2.5 rounded-full"
                 style={{ width: `${assignment.completionPercentage || 0}%` }}
               ></div>
-            </div>
+          </div>
             <ul className="space-y-2">
               {assignment.items?.map((item) => {
                 const isCompleted = item.status === 'completed';
@@ -99,32 +99,32 @@ const ChecklistAssignmentDetailPage: React.FC = () => {
                     </span>
                     {isOverdue && (
                       <span className="ml-2 text-xs text-red-500 bg-red-100 px-2 py-0.5 rounded">Overdue</span>
-                    )}
+                  )}
                     {/* Employee can add notes and mark complete if not done */}
                     {user?.role === 'employee' && !isCompleted && (
                       <>
-                        <input
-                          type="text"
-                          placeholder="Add a note (optional)"
-                          value={notes[item.id] || ''}
-                          onChange={e => setNotes({ ...notes, [item.id]: e.target.value })}
+                      <input
+                        type="text"
+                        placeholder="Add a note (optional)"
+                        value={notes[item.id] || ''}
+                        onChange={e => setNotes({ ...notes, [item.id]: e.target.value })}
                           className="border border-gray-300 rounded-md px-2 py-1 text-sm ml-2"
                           style={{ minWidth: 120 }}
-                        />
-                        <button
-                          onClick={() => handleMarkComplete(item.id)}
+                      />
+                      <button
+                        onClick={() => handleMarkComplete(item.id)}
                           className="ml-2 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
                           disabled={updatingItemId === item.id}
-                        >
+                      >
                           {updatingItemId === item.id ? 'Saving...' : 'Mark Complete'}
-                        </button>
+                      </button>
                       </>
-                    )}
+                  )}
                   </li>
                 );
               })}
             </ul>
-          </div>
+            </div>
         </div>
       </div>
     </Layout>

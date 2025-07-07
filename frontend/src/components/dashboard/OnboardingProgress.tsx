@@ -120,17 +120,17 @@ const OnboardingProgress: React.FC = () => {
                     </div>
                     <p className="text-sm text-gray-500 mt-1">{onboardingService.getPhaseDescription(stageKey)}</p>
                     {/* Always show tasks for all phases */}
-                    <div className="mt-3 space-y-2">
-                      {tasks.map((task) => (
-                        <div 
-                          key={task.id} 
-                          className="flex items-center text-sm"
-                        >
+                      <div className="mt-3 space-y-2">
+                        {tasks.map((task) => (
+                          <div 
+                            key={task.id} 
+                            className="flex items-center text-sm"
+                          >
                           <CheckCircle className={`w-4 h-4 mr-2 ${task.isCompleted ? 'text-green-500' : 'text-gray-300'}`} />
                           <span className={`${task.isCompleted ? 'text-gray-800' : 'text-gray-400'} ${isEmployee ? 'italic' : ''}`}>{task.title}</span>
-                        </div>
-                      ))}
-                    </div>
+                          </div>
+                        ))}
+                      </div>
                   </div>
                 </div>
               </div>

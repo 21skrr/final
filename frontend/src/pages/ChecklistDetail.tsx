@@ -33,6 +33,9 @@ const ChecklistDetail: React.FC = () => {
   const [verifyingItemId, setVerifyingItemId] = useState<string | null>(null);
   const [notifyStatus, setNotifyStatus] = useState<{ [itemId: string]: string }>({});
 
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
+
   useEffect(() => {
     const fetchChecklistDetails = async () => {
       if (!id) return;
@@ -43,15 +46,11 @@ const ChecklistDetail: React.FC = () => {
         const currentAssignment = assignments.find(a => a.id === id);
         if (currentAssignment) {
           setAssignment(currentAssignment);
-          // Get checklist items with progress - using the CHECKLIST ID directly
-          const items = await checklistService.getChecklistItems(currentAssignment.checklistId);
-          setProgressItems(items.map(item => ({
-            ...item,
-            userId: currentAssignment.userId,
-            checklistItemId: item.id,
-            isCompleted: false,
-            checklistItem: item
-          })));
+          // Fetch progress records for this user and checklist
+          const progress = await checklistAssignmentService.getChecklistProgressByUserAndChecklist(currentAssignment.userId, currentAssignment.checklistId);
+          console.log('Fetched progress:', progress);
+          console.log('Assignment:', currentAssignment);
+          setProgressItems(progress);
           setError(null);
         } else {
           // Fallback: Try to fetch checklist directly by ID
@@ -134,12 +133,16 @@ const ChecklistDetail: React.FC = () => {
     if (!id) return;
     try {
       setUpdatingItemId(progressItem.id);
+      // Debug log
+      console.log('PATCH userId:', progressItem.userId, assignment?.userId);
       const updatedItem = await checklistAssignmentService.updateProgress(
         progressItem.id,
         {
           isCompleted: !progressItem.isCompleted,
           notes: notes[progressItem.id] || undefined,
-          completedAt: !progressItem.isCompleted ? new Date().toISOString() : undefined
+          completedAt: !progressItem.isCompleted ? new Date().toISOString() : undefined,
+          userId: assignment?.userId || progressItem.userId || "b0d033a6-d9a5-43dd-8986-9ce074aca89e",
+          checklistItemId: progressItem.checklistItemId || progressItem.checklistItem?.id
         }
       );
       setProgressItems(prevItems =>
@@ -199,180 +202,118 @@ const ChecklistDetail: React.FC = () => {
     }
   };
 
+  // Calculate progress using actual completed tasks
+  const totalTasks = progressItems.length;
+  const completedTasks = progressItems.filter(item => item.isCompleted).length;
+  const percentComplete = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  // Group by phase
+  const groupedByPhase = progressItems.reduce((acc, item) => {
+    const phase = item.checklistItem?.phase || 'Other';
+    if (!acc[phase]) acc[phase] = [];
+    acc[phase].push(item);
+    return acc;
+  }, {} as Record<string, typeof progressItems>);
+  // Find next task
+  const nextTask = progressItems.find(item => !item.isCompleted);
+
+  // Save all progress changes
+  const handleSaveProgress = async () => {
+    try {
+      setSaving(true);
+      await Promise.all(progressItems.map(async (item) => {
+        await checklistAssignmentService.updateProgress(
+          item.id,
+          {
+            isCompleted: item.isCompleted,
+            notes: item.notes || '',
+            completedAt: item.isCompleted ? (item.completedAt || new Date().toISOString()) : undefined,
+            userId: item.userId || assignment?.userId || "b0d033a6-d9a5-43dd-8986-9ce074aca89e",
+            checklistItemId: item.checklistItemId || item.checklistItem?.id
+          }
+        );
+      }));
+      setSaveMessage('Progress saved!');
+      setTimeout(() => {
+        setSaveMessage('');
+        navigate('/checklists');
+      }, 1000);
+    } catch {
+      setSaveMessage('Failed to save progress.');
+      setTimeout(() => setSaveMessage(''), 2000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Layout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <button 
-              onClick={() => navigate('/checklists')} 
-              className="mr-4 text-gray-500 hover:text-gray-700"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {assignment?.checklist?.title || progressItems[0]?.checklistItem?.title || 'Checklist Details'}
-              </h1>
-              <p className="mt-1 text-sm text-gray-500">
-                {assignment?.checklist?.description || 'Complete the tasks below'}
-              </p>
-            </div>
+      <div className="max-w-4xl mx-auto py-8">
+        <h1 className="text-2xl font-bold text-center mb-6">Employee's Onboarding Journey</h1>
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <div className="text-sm text-gray-500">Overall Progress</div>
+            <div className="font-bold text-lg">{percentComplete}%</div>
+            <progress value={percentComplete} max={100} className="w-40 h-2 align-middle" />
           </div>
-          
-          {/* Add Assign button for HR users */}
-          {user?.role === 'hr' && (
-            <button
-              onClick={openAssignModal}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
-            >
-              <UserPlus className="-ml-1 mr-2 h-4 w-4" />
-              Assign Checklist
-            </button>
-          )}
+          <div>
+            <div className="text-sm text-gray-500">Status</div>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              {assignment?.status || 'In progress'}
+            </span>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">Next Task</div>
+            <div className="font-semibold">{nextTask?.checklistItem?.title || 'All tasks completed'}</div>
+          </div>
         </div>
-
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          </div>
-        ) : error ? (
-          <div className="bg-red-50 border-l-4 border-red-400 p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <AlertCircle className="h-5 w-5 text-red-400" />
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-red-700">{error}</p>
-              </div>
+        <div className="flex justify-end mb-4">
+          <button
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            onClick={handleSaveProgress}
+            disabled={saving}
+          >
+            {saving ? 'Saving...' : 'Save Progress'}
+          </button>
+          {saveMessage && <span className="ml-4 text-green-600 font-medium">{saveMessage}</span>}
+        </div>
+        {Object.entries(groupedByPhase).map(([phase, items]) => (
+          <div key={phase} className="mb-8 border rounded-lg bg-blue-50/30">
+            <div className="flex justify-between items-center px-4 py-2 border-b">
+              <h2 className="font-semibold text-lg">{phase}</h2>
+              <span className="text-xs text-gray-500">{Math.round((items.filter(i => i.isCompleted).length / items.length) * 100)}%</span>
             </div>
-          </div>
-        ) : (
-          <>
-            <div className="bg-white shadow rounded-lg overflow-hidden">
-              <div className="p-6">
-                {/* Only show due date and progress bar if assignment exists */}
-                {assignment && (
-                  <>
-                    <div className="flex justify-between items-center mb-4">
-                      <div className="flex items-center">
-                        <Clock className="h-5 w-5 text-gray-400 mr-2" />
-                        <span className="text-sm text-gray-500">
-                          Due: {formatDate(assignment?.dueDate)}
-                        </span>
-                      </div>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {assignment?.completionPercentage || 0}% Complete
-                      </span>
+            <div className="p-4 space-y-4">
+              {items.map(item => (
+                <div key={item.id} className="flex items-center justify-between bg-white rounded shadow-sm px-4 py-3">
+                  {console.log('Render item:', {id: item.id, checklistItemId: item.checklistItemId, isCompleted: item.isCompleted})}
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(item.isCompleted)}
+                      disabled={updatingItemId === item.id || Boolean(item.isCompleted)}
+                      onChange={() => {
+                        setProgressItems(prev =>
+                          prev.map(pi =>
+                            pi.id === item.id ? { ...pi, isCompleted: !pi.isCompleted } : pi
+                          )
+                        );
+                      }}
+                    />
+                    <div>
+                      <div className={`font-medium text-gray-900 ${item.isCompleted ? 'line-through text-gray-400' : ''}`}>{item.checklistItem?.title}</div>
+                      {item.checklistItem?.description && (
+                        <div className={`text-sm ${item.isCompleted ? 'text-gray-400' : 'text-gray-500'}`}>{item.checklistItem?.description}</div>
+                      )}
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5 mb-6">
-                      <div
-                        className="bg-blue-600 h-2.5 rounded-full"
-                        style={{ width: `${assignment?.completionPercentage || 0}%` }}
-                      ></div>
-                    </div>
-                  </>
-                )}
-                <div className="space-y-6">
-                  {progressItems.length === 0 ? (
-                    <div className="text-center text-gray-500">No checklist items found.</div>
-                  ) : (
-                    progressItems.map((item) => (
-                      <div key={item.id} className="border-b border-gray-200 pb-4 last:border-b-0 last:pb-0">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-gray-900">{item.checklistItem?.title}</div>
-                            {item.checklistItem?.description && (
-                              <div className="text-sm text-gray-500">{item.checklistItem?.description}</div>
-                            )}
-                            <div className="text-xs text-gray-400 mt-1">
-                              {item.isCompleted ? `Completed at ${item.completedAt ? dayjs(item.completedAt).format('YYYY-MM-DD HH:mm') : ''}` : 'Not completed'}
-                            </div>
-                            {item.notes && (
-                              <div className="text-xs text-gray-600 mt-1">Notes: {item.notes}</div>
-                            )}
-                          </div>
-                          {/* Employee controls: show if user is the assigned employee */}
-                          {user?.id === item.userId && (
-                            <div className="flex flex-col items-end">
-                              <label className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  checked={item.isCompleted}
-                                  disabled={updatingItemId === item.id}
-                                  onChange={() => handleToggleComplete(item)}
-                                />
-                                <span className="text-sm">Mark as completed</span>
-                              </label>
-                              <button
-                                className="text-xs text-blue-600 mt-1 underline"
-                                onClick={() => setShowNotesInput(showNotesInput === item.id ? null : item.id)}
-                              >
-                                {showNotesInput === item.id ? 'Hide Notes' : 'Add/Edit Notes'}
-                              </button>
-                              {showNotesInput === item.id && (
-                                <div className="mt-2">
-                                  <textarea
-                                    className="border border-gray-300 rounded-md px-2 py-1 text-sm w-48"
-                                    rows={2}
-                                    value={notes[item.id] || ''}
-                                    onChange={e => setNotes(n => ({ ...n, [item.id]: e.target.value }))}
-                                  />
-                                  <button
-                                    className="ml-2 px-2 py-1 bg-blue-600 text-white rounded-md text-xs"
-                                    disabled={updatingItemId === item.id}
-                                    onClick={() => handleToggleComplete(item)}
-                                  >
-                                    Save
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {/* Supervisor controls: show if user is supervisor */}
-                          {user?.role === 'supervisor' && (
-                            <div className="flex flex-col items-end mt-2">
-                              <div className="flex items-center space-x-2 mb-1">
-                                <button
-                                  className="px-2 py-1 bg-green-600 text-white rounded-md text-xs"
-                                  disabled={verifyingItemId === item.id}
-                                  onClick={() => handleVerifyItem(item, 'approved')}
-                                >
-                                  Approve
-                                </button>
-                                <button
-                                  className="px-2 py-1 bg-red-500 text-white rounded-md text-xs"
-                                  disabled={verifyingItemId === item.id}
-                                  onClick={() => handleVerifyItem(item, 'rejected')}
-                                >
-                                  Reject
-                                </button>
-                              </div>
-                              <textarea
-                                className="border border-gray-300 rounded-md px-2 py-1 text-sm w-48 mb-1"
-                                rows={2}
-                                placeholder="Verification notes"
-                                value={verificationNotes[item.id] || ''}
-                                onChange={e => setVerificationNotes(n => ({ ...n, [item.id]: e.target.value }))}
-                              />
-                              <button
-                                className="text-xs text-blue-600 underline mt-1"
-                                onClick={() => handleNotifyEmployee(item)}
-                                disabled={notifyStatus[item.id] === 'sending'}
-                              >
-                                {notifyStatus[item.id] === 'sent' ? 'Notification Sent!' : notifyStatus[item.id] === 'error' ? 'Error Sending' : 'Notify Employee'}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
+                  </div>
+                  <span className="text-xs px-2 py-1 rounded-full border bg-gray-50">
+                    {item.isCompleted ? 'Completed' : 'Not Started'}
+                  </span>
                 </div>
-              </div>
+              ))}
             </div>
-          </>
-        )}
+          </div>
+        ))}
       </div>
       
       {/* Assignment Modal */}

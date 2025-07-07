@@ -3,7 +3,7 @@ const {
   User,
   ChecklistItem,
   ChecklistProgress,
-  ChecklistAssignment,
+  ChecklistCombined,
   sequelize,
 } = require("../models");
 const { DataTypes } = require("sequelize");
@@ -367,72 +367,42 @@ const getUserChecklistProgress = async (req, res) => {
 const updateChecklistProgress = async (req, res) => {
   try {
     const { progressId } = req.params;
-    const { isCompleted, notes, completedAt } = req.body;
+    const { isCompleted, notes, completedAt, userId, checklistItemId } = req.body;
+    console.log('PATCH checklist-progress', progressId, req.body);
 
-    // Find the progress record by primary key
+    // Try to find the progress record by primary key
     let progress = await ChecklistProgress.findByPk(progressId);
     if (!progress) {
-      return res.status(404).json({ message: "Checklist progress not found" });
-    }
-
-    // Find the checklist item for notification (optional)
-    const checklistItem = await ChecklistItem.findByPk(
-      progress.checklistItemId,
-      {
-        include: [{ model: Checklist }],
+      // If not found, try to create it if userId and checklistItemId are provided
+      if (userId && checklistItemId) {
+        progress = await ChecklistProgress.create({
+          id: progressId,
+          userId,
+          checklistItemId,
+          isCompleted: !!isCompleted,
+          completedAt: isCompleted ? (completedAt || new Date()) : null,
+          notes: notes || '',
+          verificationStatus: 'pending',
+        });
+        console.log(`Created missing progress record with id ${progressId}`);
+      } else {
+        return res.status(404).json({ message: "Checklist progress not found and cannot create without userId and checklistItemId" });
       }
-    );
-
-    // Update progress
-    const completionChanged = progress.isCompleted !== isCompleted;
-
-    await progress.update({
-      isCompleted,
-      completedAt: isCompleted ? completedAt || new Date() : null,
-      notes: notes || progress.notes,
-      // Keep verifiedBy/verifiedAt unchanged here
-    });
-
-    // Send notifications if status changed to completed
-    if (completionChanged && isCompleted && checklistItem) {
-      // Find HR users to notify
-      const hrUsers = await User.findAll({ where: { role: "hr" } });
-      for (const hrUser of hrUsers) {
-        await notificationService.sendNotification(
-          hrUser.id,
-          `L'étape "${checklistItem.title}" a été complétée pour l'utilisateur ${progress.userId}`,
-          "checklist_progress"
-        );
+    } else {
+      // Update the progress record
+      progress.isCompleted = !!isCompleted;
+      if (isCompleted) {
+        progress.completedAt = completedAt || new Date();
+      } else {
+        progress.completedAt = null;
       }
-      // Notify the employee
-      await notificationService.sendNotification(
-        progress.userId,
-        `Vous avez complété l'étape "${checklistItem.title}" de la checklist "${
-          checklistItem.Checklist ? checklistItem.Checklist.title : ""
-        }"`,
-        "checklist_progress"
-      );
+      if (notes !== undefined) progress.notes = notes;
+      await progress.save();
     }
-
-    // Return updated progress
-    const updatedProgress = await ChecklistProgress.findByPk(progress.id, {
-      include: [
-        {
-          model: ChecklistItem,
-          attributes: ["id", "title", "isRequired"],
-        },
-        {
-          model: User,
-          as: "verifier",
-          attributes: ["id", "name", "email"],
-        },
-      ],
-    });
-
-    res.json(updatedProgress);
+    res.json(progress);
   } catch (error) {
-    console.error("Error updating checklist progress:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error('Error updating checklist progress:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -466,7 +436,7 @@ const assignChecklistToUser = async (req, res) => {
     }
 
     // Check if assignment already exists
-    const existingAssignment = await ChecklistAssignment.findOne({
+    const existingAssignment = await ChecklistCombined.findOne({
       where: { checklistId, userId },
     });
 
@@ -477,12 +447,23 @@ const assignChecklistToUser = async (req, res) => {
     }
 
     // Create assignment
-    const assignment = await ChecklistAssignment.create({
+    const assignment = await ChecklistCombined.create({
       checklistId,
       userId,
       assignedBy: req.user.id,
       dueDate: dueDate || null,
     });
+
+    // Create progress records for each checklist item
+    const checklistItems = await ChecklistItem.findAll({ where: { checklistId } });
+    const progressRecords = checklistItems.map(item => ({
+      userId,
+      checklistItemId: item.id,
+      isCompleted: false,
+      notes: '',
+      verificationStatus: 'pending',
+    }));
+    await ChecklistProgress.bulkCreate(progressRecords);
 
     // Send notification to user
     await notificationService.sendNotification(
@@ -492,7 +473,7 @@ const assignChecklistToUser = async (req, res) => {
     );
 
     // Return created assignment with related data
-    const createdAssignment = await ChecklistAssignment.findByPk(
+    const createdAssignment = await ChecklistCombined.findByPk(
       assignment.id,
       {
         include: [
@@ -526,68 +507,48 @@ const assignChecklistToUser = async (req, res) => {
 const getUserAssignments = async (req, res) => {
   try {
     const userId = req.params.userId || req.user.id;
-
-    // If requesting other user's assignments, check permissions
     if (req.params.userId && req.params.userId !== req.user.id) {
-      // Only HR and managers can see other users' assignments
       if (!["hr", "manager"].includes(req.user.role)) {
         return res.status(403).json({
           message: "Access denied. You can only view your own assignments.",
         });
       }
     }
-
-    // Get assignments
-    const assignments = await ChecklistAssignment.findAll({
+    // Fetch only from ChecklistCombined, no joins
+    const assignments = await ChecklistCombined.findAll({
       where: { userId },
-      include: [
-        {
-          model: Checklist,
-          attributes: ["id", "title", "description", "programType", "stage"],
-          include: [
-            {
-              model: ChecklistItem,
-              attributes: ["id", "title", "isRequired", "orderIndex"],
-              include: [
-                {
-                  model: ChecklistProgress,
-                  where: { userId },
-                  required: false,
-                  attributes: [
-                    "id",
-                    "isCompleted",
-                    "completedAt",
-                    "notes",
-                    "verifiedBy",
-                    "verificationStatus",
-                    "verifiedAt",
-                  ],
-                  include: [
-                    {
-                      model: User,
-                      as: "verifier",
-                      attributes: ["id", "name", "email"],
-                      required: false,
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-        {
-          model: User,
-          as: "assigner",
-          attributes: ["id", "name", "email"],
-        },
-      ],
-      order: [
-        ["createdAt", "DESC"],
-        [Checklist, ChecklistItem, "orderIndex", "ASC"],
-      ],
+      order: [["assignmentCreatedAt", "DESC"]],
+      attributes: [
+        "id",
+        "checklistId",
+        "userId",
+        "assignedBy",
+        "dueDate",
+        "status",
+        "isAutoAssigned",
+        "completedAt",
+        "assignmentCreatedAt",
+        "assignmentUpdatedAt",
+        "title",
+        "description",
+        "programType",
+        "stage",
+        "checklistCreatedBy",
+        "checklistCreatedAt",
+        "checklistUpdatedAt",
+        "autoAssign",
+        "requiresVerification",
+        "dueInDays"
+      ]
     });
-
-    res.json(assignments);
+    // For each assignment, calculate completionPercentage
+    const assignmentsWithProgress = await Promise.all(assignments.map(async (a) => {
+      const total = await ChecklistItem.count({ where: { checklistId: a.checklistId } });
+      const completed = await ChecklistProgress.count({ where: { checklistItemId: (await ChecklistItem.findAll({ where: { checklistId: a.checklistId }, attributes: ["id"] })).map(i => i.id), userId: a.userId, isCompleted: true } });
+      const completionPercentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+      return { ...a.toJSON(), completionPercentage };
+    }));
+    res.json(assignmentsWithProgress);
   } catch (error) {
     console.error("Error fetching user assignments:", error);
     res.status(500).json({ message: "Server error" });
@@ -1141,7 +1102,7 @@ const bulkAssignChecklist = async (req, res) => {
     // Create assignments for each user
     const assignments = [];
     for (const userId of userIds) {
-      const assignment = await ChecklistAssignment.create({
+      const assignment = await ChecklistCombined.create({
         checklistId,
         userId,
         assignedBy: req.user.id,
@@ -1178,7 +1139,7 @@ const getAssignmentsByDepartment = async (req, res) => {
       return res.json([]);
     }
     // Find assignments for those users
-    const assignments = await ChecklistAssignment.findAll({
+    const assignments = await ChecklistCombined.findAll({
       where: { userId: userIds },
       include: [
         {
@@ -1196,7 +1157,7 @@ const getAssignmentsByDepartment = async (req, res) => {
           attributes: ["id", "name", "email"],
         },
       ],
-      order: [["createdAt", "DESC"]],
+      order: [["assignmentCreatedAt", "DESC"]],
     });
     res.json(assignments);
   } catch (error) {
@@ -1228,28 +1189,47 @@ const getAssignmentItems = async (req, res) => {
   try {
     const { assignmentId } = req.params;
     // Find the assignment
-    const assignment = await ChecklistAssignment.findByPk(assignmentId);
+    const assignment = await ChecklistCombined.findByPk(assignmentId);
     if (!assignment) {
-      return res
-        .status(404)
-        .json({ message: "Checklist assignment not found" });
+      return res.status(404).json({ message: "Checklist assignment not found" });
     }
-    // Find all items for the assigned checklist, including progress for the assigned user
+    // Find all items for the assigned checklist
     const items = await ChecklistItem.findAll({
       where: { checklistId: assignment.checklistId },
       order: [["orderIndex", "ASC"]],
-      include: [
-        {
-          model: ChecklistProgress,
-          where: { userId: assignment.userId },
-          required: false,
-        },
-      ],
     });
-    res.json(items);
+    // For each item, ensure a progress record exists for the user
+    const progressRecords = [];
+    for (const item of items) {
+      // Try to find existing progress record
+      let progress = await ChecklistProgress.findOne({
+        where: {
+          userId: assignment.userId,
+          checklistItemId: item.id,
+        },
+        order: [["updatedAt", "DESC"]]
+      });
+      // If no progress record exists, create one
+      if (!progress) {
+        progress = await ChecklistProgress.create({
+          userId: assignment.userId,
+          checklistItemId: item.id,
+          isCompleted: false,
+          notes: '',
+          verificationStatus: 'pending',
+        });
+        console.log(`Created missing progress record for user ${assignment.userId}, item ${item.id}`);
+      }
+      // Add the progress record with item info
+      progressRecords.push({
+        ...progress.toJSON(),
+        checklistItem: item.toJSON(),
+      });
+    }
+    res.json(progressRecords);
   } catch (error) {
-    console.error("Error fetching assignment items:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error('Error fetching assignment items:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -1258,7 +1238,7 @@ const getAssignmentProgress = async (req, res) => {
   try {
     const { assignmentId } = req.params;
     // Find the assignment
-    const assignment = await ChecklistAssignment.findByPk(assignmentId);
+    const assignment = await ChecklistCombined.findByPk(assignmentId);
     if (!assignment) {
       return res
         .status(404)
@@ -1302,7 +1282,7 @@ const getAssignmentsByTeam = async (req, res) => {
       return res.json([]);
     }
     // Find assignments for those users
-    const assignments = await ChecklistAssignment.findAll({
+    const assignments = await ChecklistCombined.findAll({
       where: { userId: userIds },
       include: [
         {
@@ -1320,12 +1300,51 @@ const getAssignmentsByTeam = async (req, res) => {
           attributes: ["id", "name", "email"],
         },
       ],
-      order: [["createdAt", "DESC"]],
+      order: [["assignmentCreatedAt", "DESC"]],
     });
     res.json(assignments);
   } catch (error) {
     console.error("Error fetching assignments by team:", error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get all progress records for a given user and checklist
+const getChecklistProgressByUserAndChecklist = async (req, res) => {
+  try {
+    const { userId, checklistId } = req.params;
+    // Find all items for the checklist
+    const items = await ChecklistItem.findAll({
+      where: { checklistId },
+      order: [["orderIndex", "ASC"]],
+    });
+    const progressRecords = [];
+    for (const item of items) {
+      let progress = await ChecklistProgress.findOne({
+        where: {
+          userId,
+          checklistItemId: item.id,
+        },
+        order: [["updatedAt", "DESC"]],
+      });
+      if (!progress) {
+        progress = await ChecklistProgress.create({
+          userId,
+          checklistItemId: item.id,
+          isCompleted: false,
+          notes: '',
+          verificationStatus: 'pending',
+        });
+      }
+      progressRecords.push({
+        ...progress.toJSON(),
+        checklistItem: item.toJSON(),
+      });
+    }
+    res.json(progressRecords);
+  } catch (error) {
+    console.error('Error fetching checklist progress by user and checklist:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -1353,4 +1372,5 @@ module.exports = {
   getAssignmentItems,
   getAssignmentProgress,
   getAssignmentsByTeam,
+  getChecklistProgressByUserAndChecklist,
 };

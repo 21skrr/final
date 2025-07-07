@@ -179,7 +179,8 @@ const feedback = await Feedback.create({
   toDepartment,
   type,
   message: finalMessage,
-  isAnonymous: isAnonymous ? 1 : 0
+  isAnonymous: isAnonymous ? 1 : 0,
+  categories: []
 });
 
     await logActivity({
@@ -1093,7 +1094,7 @@ const escalateFeedback = async (req, res) => {
 
     // Update feedback status
     await feedback.update({
-      status: "in_progress"
+      status: "in-progress"
     });
 
     // Get the note with supervisor details

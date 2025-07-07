@@ -674,7 +674,7 @@ const getProbationDeadlines = async (req, res) => {
         {
           model: User,
           as: "user",
-          attributes: ["id", "name", "email", "department", "hireDate"],
+          attributes: ["id", "name", "email", "department", "startDate"],
         }
       ],
       order: [["createdAt", "DESC"]],
@@ -748,7 +748,7 @@ const getNewEmployees = async (req, res) => {
         {
           model: User,
           as: "user",
-          attributes: ["id", "name", "email", "department", "hireDate", "position"],
+          attributes: ["id", "name", "email", "department", "startDate"],
         }
       ],
       order: [["createdAt", "DESC"]],
@@ -757,6 +757,152 @@ const getNewEmployees = async (req, res) => {
     res.json(newEmployees);
   } catch (error) {
     console.error("Error fetching new employees notifications:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get onboarding milestones (Manager only)
+const getOnboardingMilestones = async (req, res) => {
+  try {
+    const { department } = req.query;
+    const where = {
+      type: "onboarding_milestone",
+      isRead: false,
+    };
+
+    if (department) {
+      where.metadata = { department };
+    }
+
+    // If user is a manager, only show their department
+    if (req.user.role === 'manager') {
+      where.metadata = { ...where.metadata, department: req.user.department };
+    }
+
+    const milestones = await Notification.findAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: "user",
+          attributes: ["id", "name", "email", "department"],
+        }
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.json(milestones);
+  } catch (error) {
+    console.error("Error fetching onboarding milestones:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get pending approvals (Manager only)
+const getPendingApprovals = async (req, res) => {
+  try {
+    const { department } = req.query;
+    const where = {
+      type: "pending_approval",
+      isRead: false,
+    };
+
+    if (department) {
+      where.metadata = { department };
+    }
+
+    // If user is a manager, only show their department
+    if (req.user.role === 'manager') {
+      where.metadata = { ...where.metadata, department: req.user.department };
+    }
+
+    const approvals = await Notification.findAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: "user",
+          attributes: ["id", "name", "email", "department"],
+        }
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.json(approvals);
+  } catch (error) {
+    console.error("Error fetching pending approvals:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get summary reports (HR only)
+const getSummaryReports = async (req, res) => {
+  try {
+    const { period, department } = req.query;
+    const where = {
+      type: "summary_report",
+      isRead: false,
+    };
+
+    if (period) {
+      where.metadata = { ...where.metadata, period };
+    }
+
+    if (department) {
+      where.metadata = { ...where.metadata, department };
+    }
+
+    const reports = await Notification.findAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: "user",
+          attributes: ["id", "name", "email", "department"],
+        }
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.json(reports);
+  } catch (error) {
+    console.error("Error fetching summary reports:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get feedback checkpoints (HR only)
+const getFeedbackCheckpoints = async (req, res) => {
+  try {
+    const { checkpoint, department } = req.query;
+    const where = {
+      type: "feedback_checkpoint",
+      isRead: false,
+    };
+
+    if (checkpoint) {
+      where.metadata = { ...where.metadata, checkpoint };
+    }
+
+    if (department) {
+      where.metadata = { ...where.metadata, department };
+    }
+
+    const checkpoints = await Notification.findAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: "user",
+          attributes: ["id", "name", "email", "department"],
+        }
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.json(checkpoints);
+  } catch (error) {
+    console.error("Error fetching feedback checkpoints:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -783,6 +929,10 @@ module.exports = {
   getProbationDeadlines,
   getSystemAlerts,
   getNewEmployees,
+  getOnboardingMilestones,
+  getPendingApprovals,
+  getSummaryReports,
+  getFeedbackCheckpoints,
   getNotificationPreferences,
   updateNotificationPreferences,
   getNotificationTemplates,

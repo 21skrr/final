@@ -121,7 +121,7 @@ const createUser = async (req, res) => {
       programType,
     });
     try {
-      await scheduleFeedbackCyclesForUser(user);
+    await scheduleFeedbackCyclesForUser(user);
     } catch (err) {
       console.error('Error scheduling feedback cycles:', err);
       // Optionally: return res.status(500).json({ message: 'Error scheduling feedback cycles' });
@@ -207,7 +207,7 @@ const deleteUser = async (req, res) => {
       console.log('User not found for ID:', req.params.id);
       return res.status(404).json({ message: "User not found" });
     }
-    
+
     console.log('Found user:', user.name, 'Current deletedAt:', user.deletedAt);
     
     // Use Sequelize's destroy() method for soft delete (since paranoid: true)

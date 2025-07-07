@@ -100,7 +100,7 @@ router.get("/received", auth, feedbackController.getReceivedFeedback);
 router.get(
   "/department",
   auth,
-  checkRole("manager", "hr"),
+  checkRole("manager"),
   feedbackController.getDepartmentFeedback
 );
 
@@ -129,14 +129,14 @@ router.get(
 // GET /api/feedback/user/:userId
 router.get("/user/:userId", auth, feedbackController.getFeedbackByUserId);
 
-// GET /api/feedback/history
+// GET /api/feedback/history (Employee endpoint)
 router.get("/history", auth, feedbackController.getFeedbackHistory);
 
 // GET /api/feedback/analytics
 router.get(
   "/analytics",
   auth,
-  checkRole("manager", "hr"),
+  checkRole("manager"),
   feedbackController.getDepartmentFeedbackAnalytics
 );
 
@@ -145,14 +145,14 @@ router.put(
   "/:feedbackId/categorize",
   [
     auth,
-    checkRole("hr", "supervisor"),
+    checkRole("hr"),
     check("categories", "Categories must be an array").isArray(),
     check("categories.*", "Each category must be a valid type")
       .isIn(["training", "supervisor", "process"]),
     check("priority", "Priority must be one of: low, medium, high")
       .isIn(["low", "medium", "high"]),
-    check("status", "Status must be one of: pending, under_review, in_progress, resolved")
-      .isIn(["pending", "in-progress", "completed"])
+    check("status", "Status must be one of: pending, in-progress, addressed")
+      .isIn(["pending", "in-progress", "addressed"])
   ],
   feedbackController.categorizeFeedback
 );
@@ -201,7 +201,7 @@ router.post(
   feedbackController.addFeedbackFollowup
 );
 
-// POST /api/feedback
+// POST /api/feedback (Employee endpoint)
 router.post(
   "/",
   [
@@ -220,10 +220,10 @@ router.post(
   "/:feedbackId/response",
   [
     auth,
-    checkRole("supervisor", "hr", "manager"),
+    checkRole("supervisor"),
     check("response", "Response message is required").not().isEmpty(),
-    check("status", "Status must be one of: pending, in-progress, completed")
-      .isIn(["pending", "in-progress", "completed"])
+    check("status", "Status must be one of: addressed, pending, in-progress")
+      .isIn(["addressed", "pending", "in-progress"])
   ],
   feedbackController.respondToFeedback
 );
@@ -233,7 +233,7 @@ router.post(
   "/:feedbackId/escalate",
   [
     auth,
-    checkRole("supervisor", "hr"),
+    checkRole("hr"),
     check("escalateTo", "Escalate to must be either manager or hr")
       .isIn(["manager", "hr"]),
     check("reason", "Reason is required").not().isEmpty(),

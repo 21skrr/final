@@ -87,6 +87,7 @@ app.get("/api/test", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/teams', teamRoutes);
+app.use('/api/team', teamRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/onboarding", onboardingRoutes);
 app.use("/api/events", eventRoutes);
