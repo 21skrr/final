@@ -1,3 +1,49 @@
+employee doesn't see his tasks 
+To fetch: The system joins checklist_combined → checklistitems → checklistprogresses for the employee.
+To mark as done: It updates the isCompleted field in checklistprogresses for the relevant item and use
+
+Endpoints for Employee Checklist Items
+1. Get Employee's Checklist Assignments
+Endpoint: GET /api/checklist-assignments/my
+Purpose: Get all checklist assignments for the current (logged-in) employee.
+Controller: checklistController.getUserAssignments
+Tables Used: checklist_combined (ChecklistAssignment), checklistitems, checklistprogresses
+Returns: List of assigned checklists, each with items and progress.
+2. Get All Items for a Checklist Assignment
+Endpoint: GET /api/checklist-assignments/:assignmentId/items
+Purpose: Get all items (tasks) for a specific checklist assignment.
+Controller: checklistController.getAssignmentItems
+Tables Used: checklistitems
+Returns: List of items for the assignment.
+3. Get All Progress Records for a Checklist Assignment
+Endpoint: GET /api/checklist-assignments/:assignmentId/progress
+Purpose: Get all progress records for a given checklist assignment (i.e., which items are done).
+Controller: checklistController.getAssignmentProgress
+Tables Used: checklistprogresses
+Returns: Progress for each item in the assignment.
+4. Get Progress for a Specific User and Checklist
+Endpoint: GET /api/checklist-assignments/progress/:userId/:checklistId
+Purpose: Get checklist progress for a specific user and checklist.
+Controller: checklistController.getChecklistProgressByUserAndChecklist
+Tables Used: checklistprogresses
+Returns: Progress for all items in the checklist for that user.
+5. Mark a Checklist Item as Done (or Update Progress)
+Endpoint: PATCH /api/checklist-progress/:progressId
+Purpose: Update checklist progress (mark as done, add notes, etc).
+Controller: checklistController.updateChecklistProgress
+Tables Used: checklistprogresses
+Request Body Example:
+Apply
+Returns: The updated progress record.
+6. Verify a Checklist Item (HR/Supervisor)
+Endpoint: PATCH /api/checklist-progress/:progressId/verify
+Purpose: HR or supervisor verifies a completed checklist item.
+Controller: checklistController.verifyChecklistItem
+Tables Used: checklistprogresses
+Returns: The updated progress record with verification status.
+
+
+
 ADMIN PANEL – Endpoints Overview
 
 ## USER MANAGEMENT

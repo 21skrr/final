@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/layout/Layout';
-import { CheckSquare, Clock, AlertCircle, Plus, Edit, Trash2, UserPlus } from 'lucide-react';
+import { CheckSquare, Clock, AlertCircle, Plus, Edit, Trash2, UserPlus, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import checklistAssignmentService from '../services/checklistAssignmentService';
 import checklistService from '../services/checklistService';
@@ -27,6 +27,29 @@ const Checklists: React.FC = () => {
   const [departments, setDepartments] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedDepartment, setSelectedDepartment] = useState(null);
+
+  // New state for editing checklist templates
+  const [showEditTemplateModal, setShowEditTemplateModal] = useState(false);
+  const [templateEditChecklist, setTemplateEditChecklist] = useState<Checklist | null>(null);
+  const [templateEditLoading, setTemplateEditLoading] = useState(false);
+  const [templateEditError, setTemplateEditError] = useState<string | null>(null);
+  const [templateEditSuccess, setTemplateEditSuccess] = useState<string | null>(null);
+  const [templateEditFields, setTemplateEditFields] = useState({
+    title: '',
+    description: '',
+    programType: 'inkompass',
+    stage: 'prepare',
+  });
+
+  // Checklist Items Modal State
+  const [showEditItemsModal, setShowEditItemsModal] = useState(false);
+  const [itemsEditChecklist, setItemsEditChecklist] = useState<Checklist | null>(null);
+  const [itemsEditLoading, setItemsEditLoading] = useState(false);
+  const [itemsEditError, setItemsEditError] = useState<string | null>(null);
+  const [itemsEditSuccess, setItemsEditSuccess] = useState<string | null>(null);
+  const [items, setItems] = useState<any[]>([]);
+  const [itemsInitial, setItemsInitial] = useState<any[]>([]);
+  const [deletedItemIds, setDeletedItemIds] = useState<string[]>([]);
 
   const location = useLocation();
 
@@ -76,10 +99,14 @@ const Checklists: React.FC = () => {
     });
   };
 
-  const handleDeleteChecklist = async (id: string) => {
+  const handleDeleteChecklist = async (id: string, checklistId?: string) => {
     if (window.confirm('Are you sure you want to delete this checklist?')) {
       try {
-        await checklistService.deleteChecklist(id);
+        if (checklistId) {
+          await checklistService.deleteChecklistByChecklistId(checklistId);
+        } else {
+          await checklistService.deleteChecklist(id);
+        }
         // Refresh the list after deletion
         const updatedChecklists = await checklistService.getChecklists();
         setChecklists(updatedChecklists);
@@ -135,6 +162,146 @@ const Checklists: React.FC = () => {
     }
   };
 
+  // Open modal and prefill fields
+  const openEditTemplateModal = (checklist: Checklist) => {
+    setTemplateEditChecklist(checklist);
+    setTemplateEditFields({
+      title: checklist.title || '',
+      description: checklist.description || '',
+      programType: checklist.programType || 'inkompass',
+      stage: checklist.stage || 'prepare',
+    });
+    setTemplateEditError(null);
+    setTemplateEditSuccess(null);
+    setShowEditTemplateModal(true);
+  };
+
+  // Save template changes
+  const handleTemplateEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!templateEditChecklist) return;
+    setTemplateEditLoading(true);
+    setTemplateEditError(null);
+    setTemplateEditSuccess(null);
+    try {
+      await checklistService.updateChecklistTemplate(
+        templateEditChecklist.checklistId || templateEditChecklist.id,
+        templateEditFields
+      );
+      setTemplateEditSuccess('Template updated successfully!');
+      // Update the checklist in the list
+      setChecklists((prev) =>
+        prev.map((c) =>
+          (c.checklistId === templateEditChecklist.checklistId || c.id === templateEditChecklist.id)
+            ? { ...c, ...templateEditFields }
+            : c
+        )
+      );
+      setTimeout(() => {
+        setShowEditTemplateModal(false);
+        setTemplateEditSuccess(null);
+      }, 1000);
+    } catch (err) {
+      setTemplateEditError('Failed to update template.');
+    } finally {
+      setTemplateEditLoading(false);
+    }
+  };
+
+  // Open modal and load items
+  const openEditItemsModal = async (checklist: Checklist) => {
+    setItemsEditChecklist(checklist);
+    setItemsEditLoading(true);
+    setItemsEditError(null);
+    setItemsEditSuccess(null);
+    setShowEditItemsModal(true);
+    setDeletedItemIds([]);
+    try {
+      const fetched = await checklistService.getChecklistItems(checklist.checklistId || checklist.id);
+      setItems(Array.isArray(fetched) ? fetched : []);
+      setItemsInitial(Array.isArray(fetched) ? fetched : []);
+    } catch {
+      setItems([]);
+      setItemsInitial([]);
+    } finally {
+      setItemsEditLoading(false);
+    }
+  };
+
+  // Add new item
+  const handleAddItem = () => {
+    setItems([
+      ...items,
+      {
+        id: '',
+        title: '',
+        description: '',
+        isRequired: true,
+        orderIndex: items.length,
+        controlledBy: 'hr',
+        phase: itemsEditChecklist?.stage || 'prepare',
+        checklistId: itemsEditChecklist?.checklistId || itemsEditChecklist?.id,
+        createdAt: '',
+        updatedAt: '',
+      },
+    ]);
+  };
+
+  // Edit item inline
+  const handleItemChange = (index: number, field: string, value: any) => {
+    const newItems = [...items];
+    newItems[index][field] = value;
+    setItems(newItems);
+  };
+
+  // Delete item (with confirmation)
+  const handleDeleteItem = (index: number) => {
+    const item = items[index];
+    if (window.confirm('Are you sure you want to delete this item?')) {
+      if (item.id) setDeletedItemIds(prev => [...prev, item.id]);
+      setItems(items.filter((_, i) => i !== index));
+    }
+  };
+
+  // Save all changes
+  const handleItemsEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!itemsEditChecklist) return;
+    setItemsEditLoading(true);
+    setItemsEditError(null);
+    setItemsEditSuccess(null);
+    try {
+      // Delete removed items
+      for (const itemId of deletedItemIds) {
+        await checklistService.deleteChecklistItem(itemId);
+      }
+      // Add/update items
+      for (const [index, item] of items.entries()) {
+        if (item.id) {
+          await checklistService.updateChecklistItem(item.id, itemsEditChecklist.checklistId || itemsEditChecklist.id, {
+            ...item,
+            orderIndex: index,
+          });
+        } else {
+          await checklistService.addChecklistItem(itemsEditChecklist.checklistId || itemsEditChecklist.id, {
+            ...item,
+            orderIndex: index,
+          });
+        }
+      }
+      setItemsEditSuccess('Checklist items updated!');
+      setTimeout(() => {
+        setShowEditItemsModal(false);
+        setItemsEditSuccess(null);
+      }, 1000);
+    } catch {
+      setItemsEditError('Failed to update items.');
+    } finally {
+      setItemsEditLoading(false);
+      setDeletedItemIds([]);
+    }
+  };
+
   // For react-select, define the option type
   const userOptions = users.map(u => ({ value: u.id, label: `${u.name} (${u.email})` }));
   console.log('departments:', departments);
@@ -187,9 +354,16 @@ const Checklists: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 gap-6">
             {user?.role === 'hr' ? (
-              // Display checklist templates for HR users
+              // Display unique checklist templates for HR users
               checklists.length > 0 ? (
-                checklists.map((checklist) => (
+                // Show all unique checklistIds, prefer template row (userId: null), otherwise any row
+                Array.from(
+                  new Map(
+                    checklists
+                      .sort((a, b) => (a.userId === null ? -1 : 1)) // Prefer template row
+                      .map(c => [c.checklistId, c])
+                  ).values()
+                ).map((checklist) => (
                   <div key={checklist.id} className="bg-white shadow rounded-lg overflow-hidden">
                     <div className="p-6">
                       <div className="flex justify-between items-start">
@@ -220,11 +394,20 @@ const Checklists: React.FC = () => {
                           >
                             <UserPlus className="h-4 w-4" />
                           </button>
-                          <Link to={`/checklists/${checklist.id}`} className="inline-flex items-center p-2 border border-transparent rounded-md text-sm text-blue-600 hover:bg-blue-50">
+                          {/* Edit Template Button */}
+                          <button
+                            onClick={() => openEditTemplateModal(checklist)}
+                            className="inline-flex items-center p-2 border border-transparent rounded-md text-sm text-yellow-600 hover:bg-yellow-50"
+                            title="Edit Template"
+                          >
                             <Edit className="h-4 w-4" />
-                          </Link>
+                          </button>
+                          {/* Edit Items Button */}
+                          <button onClick={() => openEditItemsModal(checklist)} className="inline-flex items-center p-2 border border-transparent rounded-md text-sm text-blue-600 hover:bg-blue-50" title="Edit Items">
+                            <Plus className="h-4 w-4" />
+                          </button>
                           <button 
-                            onClick={() => handleDeleteChecklist(checklist.id)}
+                            onClick={() => handleDeleteChecklist(checklist.id, checklist.checklistId)}
                             className="inline-flex items-center p-2 border border-transparent rounded-md text-sm text-red-600 hover:bg-red-50"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -368,6 +551,157 @@ const Checklists: React.FC = () => {
                     className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {assignLoading ? 'Assigning...' : 'Assign Checklist'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Template Modal */}
+        {showEditTemplateModal && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 relative">
+              <button
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+                onClick={() => setShowEditTemplateModal(false)}
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <h2 className="text-xl font-bold mb-4">Edit Checklist Template</h2>
+              <form onSubmit={handleTemplateEditSave} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Checklist Title *</label>
+                  <input
+                    type="text"
+                    value={templateEditFields.title}
+                    onChange={e => setTemplateEditFields(f => ({ ...f, title: e.target.value }))}
+                    required
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Description</label>
+                  <textarea
+                    value={templateEditFields.description}
+                    onChange={e => setTemplateEditFields(f => ({ ...f, description: e.target.value }))}
+                    rows={3}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Program Type</label>
+                    <select
+                      value={templateEditFields.programType}
+                      onChange={e => setTemplateEditFields(f => ({ ...f, programType: e.target.value }))}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                    >
+                      <option value="inkompass">INKOMPASS</option>
+                      <option value="earlyTalent">Early Talent</option>
+                      <option value="apprenticeship">Apprenticeship</option>
+                      <option value="academicPlacement">Academic Placement</option>
+                      <option value="workExperience">Work Experience</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Stage</label>
+                    <select
+                      value={templateEditFields.stage}
+                      onChange={e => setTemplateEditFields(f => ({ ...f, stage: e.target.value }))}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                    >
+                      <option value="prepare">Prepare</option>
+                      <option value="orient">Orient</option>
+                      <option value="land">Land</option>
+                      <option value="integrate">Integrate</option>
+                      <option value="excel">Excel</option>
+                    </select>
+                  </div>
+                </div>
+                {templateEditError && <div className="text-red-600 text-sm">{templateEditError}</div>}
+                {templateEditSuccess && <div className="text-green-600 text-sm">{templateEditSuccess}</div>}
+                <div className="flex justify-end space-x-3 mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditTemplateModal(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={templateEditLoading}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {templateEditLoading ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Items Modal */}
+        {showEditItemsModal && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 relative">
+              <button
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+                onClick={() => setShowEditItemsModal(false)}
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <h2 className="text-xl font-bold mb-4">Checklist Items</h2>
+              <form onSubmit={handleItemsEditSave} className="space-y-4">
+                <button type="button" onClick={handleAddItem} className="mb-2 flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"><Plus className="h-4 w-4 mr-1" /> Add Item</button>
+                {itemsEditLoading ? (
+                  <div>Loading...</div>
+                ) : items.length === 0 ? (
+                  <div className="text-gray-500 mb-2">No items found for this checklist. Click "Add Item" to create the first one.</div>
+                ) : (
+                  <div className="space-y-4">
+                    {items.map((item, idx) => (
+                      <div key={idx} className="flex items-center space-x-2 mb-2 border-b pb-2">
+                        <input type="text" placeholder="Title" value={item.title} onChange={e => handleItemChange(idx, 'title', e.target.value)} className="border border-gray-300 rounded px-2 py-1 w-1/4" required />
+                        <input type="text" placeholder="Description" value={item.description} onChange={e => handleItemChange(idx, 'description', e.target.value)} className="border border-gray-300 rounded px-2 py-1 w-1/3" />
+                        <select value={item.phase || itemsEditChecklist?.stage || 'prepare'} onChange={e => handleItemChange(idx, 'phase', e.target.value)} className="border border-gray-300 rounded px-2 py-1">
+                          <option value="prepare">Prepare</option>
+                          <option value="orient">Orient</option>
+                          <option value="land">Land</option>
+                          <option value="integrate">Integrate</option>
+                          <option value="excel">Excel</option>
+                        </select>
+                        <select value={item.controlledBy || 'hr'} onChange={e => handleItemChange(idx, 'controlledBy', e.target.value)} className="border border-gray-300 rounded px-2 py-1">
+                          <option value="hr">HR</option>
+                          <option value="employee">Employee</option>
+                          <option value="both">Both</option>
+                        </select>
+                        <label className="flex items-center space-x-1">
+                          <input type="checkbox" checked={item.isRequired} onChange={e => handleItemChange(idx, 'isRequired', e.target.checked)} />
+                          <span className="text-xs">Required</span>
+                        </label>
+                        <button type="button" onClick={() => handleDeleteItem(idx)} className="text-red-500 hover:text-red-700 ml-2"><Trash2 className="h-4 w-4" /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {itemsEditError && <div className="text-red-600 text-sm">{itemsEditError}</div>}
+                {itemsEditSuccess && <div className="text-green-600 text-sm">{itemsEditSuccess}</div>}
+                <div className="flex justify-end space-x-3 mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditItemsModal(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={itemsEditLoading}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {itemsEditLoading ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </form>

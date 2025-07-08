@@ -15,14 +15,7 @@ const ChecklistCreate: React.FC = () => {
   const [stage, setStage] = useState('prepare');
   const [autoAssign, setAutoAssign] = useState(false);
   const [requiresVerification, setRequiresVerification] = useState(true);
-  const [items, setItems] = useState<Array<{
-    title: string;
-    description: string;
-    isRequired: boolean;
-    orderIndex: number;
-    controlledBy: 'hr' | 'employee' | 'both';
-    phase: string;
-  }>>([]);
+  // Remove items state and related logic
 
   // For auto-assignment rules
   const [showAutoAssignRules, setShowAutoAssignRules] = useState(false);
@@ -33,6 +26,7 @@ const ChecklistCreate: React.FC = () => {
   const [autoAssignNotify, setAutoAssignNotify] = useState(false);
   const [autoAssignChecklistId, setAutoAssignChecklistId] = useState<string | null>(null);
   const [autoAssignMessage, setAutoAssignMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Redirect if not HR
   if (user?.role !== 'hr') {
@@ -40,43 +34,18 @@ const ChecklistCreate: React.FC = () => {
     return null;
   }
 
-  const handleAddItem = () => {
-    setItems([
-      ...items,
-      {
-        title: '',
-        description: '',
-        isRequired: true,
-        orderIndex: items.length,
-        controlledBy: 'both',
-        phase: stage,
-      }
-    ]);
-  };
-
-  const handleRemoveItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index));
-  };
-
-  const handleItemChange = (index: number, field: string, value: any) => {
-    const newItems = [...items];
-    (newItems[index] as any)[field] = value;
-    setItems(newItems);
-  };
+  // Remove handleAddItem, handleRemoveItem, handleItemChange
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!title) {
       alert('Please enter a title for the checklist');
       return;
     }
-    
     try {
       setLoading(true);
-      
-      // Create the checklist
-      const checklist = await checklistService.createChecklist({
+      // Create the checklist template only
+      const response = await checklistService.createChecklist({
         title,
         description,
         programType,
@@ -84,24 +53,18 @@ const ChecklistCreate: React.FC = () => {
         autoAssign,
         requiresVerification
       });
-      
-      // Add items if any
-      if (items.length > 0) {
-        for (const item of items) {
-          await checklistService.addChecklistItem(checklist.id, item);
-        }
-      }
-      
+      const checklist = response.checklist || response; // fallback for old response shape
+
       // If auto-assign is checked, show the auto-assign rules form
       if (autoAssign) {
-        setAutoAssignChecklistId(checklist.id);
+        setAutoAssignChecklistId(checklist.checklistId || checklist.id);
         setShowAutoAssignRules(true);
         setLoading(false);
         return; // Don't navigate yet
       }
-      
-      // Navigate back to checklists page
-      navigate('/checklists');
+      // Show success message and redirect to edit page
+      setSuccessMessage('Checklist template created! Redirecting to add items...');
+      setTimeout(() => navigate(`/checklists/${checklist.checklistId || checklist.id}/edit`), 1200);
     } catch (err) {
       console.error('Error creating checklist:', err);
       alert('Failed to create checklist. Please try again.');
@@ -149,7 +112,11 @@ const ChecklistCreate: React.FC = () => {
             </p>
           </div>
         </div>
-
+        {successMessage && (
+          <div className="bg-green-100 text-green-800 px-4 py-2 rounded">
+            {successMessage}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="bg-white shadow rounded-lg overflow-hidden">
             <div className="p-6 space-y-6">
@@ -166,7 +133,6 @@ const ChecklistCreate: React.FC = () => {
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
               </div>
-              
               <div>
                 <label htmlFor="description" className="block text-sm font-medium text-gray-700">
                   Description
@@ -179,7 +145,6 @@ const ChecklistCreate: React.FC = () => {
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
               </div>
-              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="programType" className="block text-sm font-medium text-gray-700">
@@ -198,7 +163,6 @@ const ChecklistCreate: React.FC = () => {
                     <option value="workExperience">Work Experience</option>
                   </select>
                 </div>
-                
                 <div>
                   <label htmlFor="stage" className="block text-sm font-medium text-gray-700">
                     Onboarding Stage
@@ -217,7 +181,6 @@ const ChecklistCreate: React.FC = () => {
                   </select>
                 </div>
               </div>
-              
               <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-6">
                 <div className="flex items-center">
                   <input
@@ -231,7 +194,6 @@ const ChecklistCreate: React.FC = () => {
                     Auto-assign to new employees
                   </label>
                 </div>
-                
                 <div className="flex items-center">
                   <input
                     id="requiresVerification"
@@ -247,124 +209,6 @@ const ChecklistCreate: React.FC = () => {
               </div>
             </div>
           </div>
-          
-          <div className="bg-white shadow rounded-lg overflow-hidden">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-medium text-gray-900">Checklist Items</h2>
-                <button
-                  type="button"
-                  onClick={handleAddItem}
-                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200"
-                >
-                  <Plus className="-ml-1 mr-1 h-4 w-4" />
-                  Add Item
-                </button>
-              </div>
-              
-              {items.length === 0 ? (
-                <div className="text-center py-6 text-gray-500">
-                  No items added yet. Click "Add Item" to create checklist items.
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {items.map((item, index) => (
-                    <div key={index} className="border border-gray-200 rounded-md p-4">
-                      <div className="flex justify-between items-start mb-4">
-                        <h3 className="text-sm font-medium text-gray-900">Item #{index + 1}</h3>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItem(index)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                      
-                      <div className="space-y-4">
-                        <div>
-                          <label htmlFor={`item-title-${index}`} className="block text-sm font-medium text-gray-700">
-                            Title *
-                          </label>
-                          <input
-                            type="text"
-                            id={`item-title-${index}`}
-                            value={item.title}
-                            onChange={(e) => handleItemChange(index, 'title', e.target.value)}
-                            required
-                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          />
-                        </div>
-                        
-                        <div>
-                          <label htmlFor={`item-description-${index}`} className="block text-sm font-medium text-gray-700">
-                            Description
-                          </label>
-                          <textarea
-                            id={`item-description-${index}`}
-                            value={item.description}
-                            onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                            rows={2}
-                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          />
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label htmlFor={`item-phase-${index}`} className="block text-sm font-medium text-gray-700">
-                              Phase
-                            </label>
-                            <select
-                              id={`item-phase-${index}`}
-                              value={item.phase}
-                              onChange={(e) => handleItemChange(index, 'phase', e.target.value)}
-                              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                            >
-                              <option value="prepare">Prepare</option>
-                              <option value="orient">Orient</option>
-                              <option value="land">Land</option>
-                              <option value="integrate">Integrate</option>
-                              <option value="excel">Excel</option>
-                            </select>
-                          </div>
-                          
-                          <div>
-                            <label htmlFor={`item-controlledBy-${index}`} className="block text-sm font-medium text-gray-700">
-                              Controlled By
-                            </label>
-                            <select
-                              id={`item-controlledBy-${index}`}
-                              value={item.controlledBy}
-                              onChange={(e) => handleItemChange(index, 'controlledBy', e.target.value)}
-                              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                            >
-                              <option value="hr">HR Only</option>
-                              <option value="employee">Employee Only</option>
-                              <option value="both">Both</option>
-                            </select>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center">
-                          <input
-                            id={`item-required-${index}`}
-                            type="checkbox"
-                            checked={item.isRequired}
-                            onChange={(e) => handleItemChange(index, 'isRequired', e.target.checked)}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <label htmlFor={`item-required-${index}`} className="ml-2 block text-sm text-gray-700">
-                            Required
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          
           <div className="flex justify-end space-x-3">
             <button
               type="button"
@@ -382,7 +226,6 @@ const ChecklistCreate: React.FC = () => {
             </button>
           </div>
         </form>
-
         {/* Auto-Assignment Rules Section (after checklist creation) */}
         {showAutoAssignRules && (
           <form onSubmit={handleAutoAssignRulesSubmit} className="space-y-6 bg-white shadow rounded-lg p-6 mt-6">

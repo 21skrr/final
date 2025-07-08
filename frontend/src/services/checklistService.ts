@@ -83,6 +83,23 @@ const checklistService = {
   getChecklistItems: async (checklistId: string): Promise<ChecklistItem[]> => {
     const response = await api.get(`/checklists/${checklistId}/items`);
     return response.data;
+  },
+
+  // Update checklist_combined assignment/template (HR/Manager/Supervisor)
+  updateChecklistAssignment: async (id: string, data: Partial<Checklist>) => {
+    const response = await api.put(`/checklist-assignments/${id}`, data);
+    return response.data;
+  },
+
+  // Update checklist_combined template (HR/Manager/Supervisor)
+  updateChecklistTemplate: async (checklistId: string, data: Partial<Checklist>) => {
+    const response = await api.put(`/checklist-assignments/template/${checklistId}`, data);
+    return response.data;
+  },
+
+  // Delete all checklist_combined rows for a checklistId (template and assignments)
+  deleteChecklistByChecklistId: async (checklistId: string): Promise<void> => {
+    await api.delete(`/checklist-assignments/template/${checklistId}`);
   }
 };
 

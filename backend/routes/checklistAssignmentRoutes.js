@@ -98,6 +98,21 @@ router.get('/progress/:userId/:checklistId', getChecklistProgressByUserAndCheckl
 // @access  Private (HR/Manager/Supervisor)
 router.get("/:assignmentId", auth, checklistController.getAssignmentById);
 
+// @route   PUT /api/checklist-assignments/:assignmentId
+// @desc    Update a specific checklist assignment (checklist_combined)
+// @access  Private (HR/Manager/Supervisor)
+router.put('/:assignmentId', auth, checklistController.updateChecklistAssignment);
+
+// @route   PUT /api/checklist-assignments/template/:checklistId
+// @desc    Update a checklist template (checklist_combined where userId is null)
+// @access  Private (HR/Manager/Supervisor)
+router.put('/template/:checklistId', auth, checklistController.updateChecklistTemplate);
+
+// @route   DELETE /api/checklist-assignments/template/:checklistId
+// @desc    Delete all checklist_combined rows for a checklistId (template and assignments)
+// @access  Private (HR/Manager/Supervisor)
+router.delete('/template/:checklistId', auth, checklistController.deleteChecklistByChecklistId);
+
 // @route   GET /api/checklist-assignments/:assignmentId/items
 // @desc    Get all items for a given checklist assignment
 // @access  Private

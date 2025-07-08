@@ -12,10 +12,10 @@ const ChecklistItem = sequelize.define(
     checklistId: {
       type: DataTypes.CHAR(36),
       allowNull: false,
-      references: {
-        model: "Checklists",
-        key: "id",
-      },
+      // references: {
+      //   model: "Checklists",
+      //   key: "id",
+      // },
     },
     title: {
       type: DataTypes.STRING,

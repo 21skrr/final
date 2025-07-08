@@ -15,7 +15,7 @@ const ChecklistCombined = sequelize.define(
     },
     userId: {
       type: DataTypes.CHAR(36),
-      allowNull: false,
+      allowNull: true,
     },
     assignedBy: {
       type: DataTypes.CHAR(36),

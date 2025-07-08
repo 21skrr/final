@@ -30,29 +30,11 @@ const getAllChecklists = async (req, res) => {
     if (programType) whereConditions.programType = programType;
     if (stage) whereConditions.stage = stage;
 
-    const checklists = await Checklist.findAll({
+    // Use ChecklistCombined instead of Checklist
+    const checklists = await ChecklistCombined.findAll({
       where: whereConditions,
-      include: [
-        {
-          model: User,
-          as: "creator",
-          attributes: ["id", "name", "email"],
-        },
-        {
-          model: ChecklistItem,
-          attributes: [
-            "id",
-            "title",
-            "description",
-            "isRequired",
-            "orderIndex",
-          ],
-        },
-      ],
-      order: [
-        ["createdAt", "DESC"],
-        [ChecklistItem, "orderIndex", "ASC"],
-      ],
+      // No associations for creator or items in ChecklistCombined, so just return the raw data
+      order: [["assignmentCreatedAt", "DESC"]],
     });
 
     res.json(checklists);
@@ -65,25 +47,9 @@ const getAllChecklists = async (req, res) => {
 // Get checklist by ID
 const getChecklistById = async (req, res) => {
   try {
-    const checklist = await Checklist.findByPk(req.params.id, {
-      include: [
-        {
-          model: User,
-          as: "creator",
-          attributes: ["id", "name", "email"],
-        },
-        {
-          model: ChecklistItem,
-          attributes: [
-            "id",
-            "title",
-            "description",
-            "isRequired",
-            "orderIndex",
-          ],
-        },
-      ],
-      order: [[ChecklistItem, "orderIndex", "ASC"]],
+    // Find the template row in ChecklistCombined by checklistId
+    const checklist = await ChecklistCombined.findOne({
+      where: { checklistId: req.params.id, userId: null },
     });
 
     if (!checklist) {
@@ -113,27 +79,34 @@ const createChecklist = async (req, res) => {
     }
 
     const { title, description, programType, stage, items } = req.body;
-
-    // Create checklist
-    const checklist = await Checklist.create({
+    const checklistId = uuidv4();
+    // Create checklist_combined template row (userId: null)
+    const checklistCombined = await ChecklistCombined.create({
+      id: uuidv4(),
+      checklistId,
+      userId: null,
       title,
       description,
       programType: programType || "all",
       stage: stage || "all",
-      createdBy: req.user.id,
+      status: "assigned",
+      assignmentCreatedAt: new Date(),
+      assignmentUpdatedAt: new Date(),
     });
 
     // Create checklist items if provided
+    let createdItems = [];
     if (items && Array.isArray(items) && items.length > 0) {
       const checklistItems = items.map((item, index) => ({
-        checklistId: checklist.id,
+        checklistId,
         title: item.title,
         description: item.description || null,
         isRequired: item.isRequired !== false,
         orderIndex: index,
+        controlledBy: item.controlledBy || 'hr',
+        phase: item.phase || 'prepare',
       }));
-
-      await ChecklistItem.bulkCreate(checklistItems);
+      createdItems = await ChecklistItem.bulkCreate(checklistItems);
     } else {
       // Create default items as specified in requirements
       const defaultItems = [
@@ -159,41 +132,19 @@ const createChecklist = async (req, res) => {
           isRequired: true,
         },
       ];
-
       const checklistItems = defaultItems.map((item, index) => ({
-        checklistId: checklist.id,
+        checklistId,
         title: item.title,
         description: item.description,
         isRequired: item.isRequired,
         orderIndex: index,
+        controlledBy: 'hr',
+        phase: 'prepare',
       }));
-
-      await ChecklistItem.bulkCreate(checklistItems);
+      createdItems = await ChecklistItem.bulkCreate(checklistItems);
     }
 
-    // Get created checklist with items
-    const createdChecklist = await Checklist.findByPk(checklist.id, {
-      include: [
-        {
-          model: User,
-          as: "creator",
-          attributes: ["id", "name", "email"],
-        },
-        {
-          model: ChecklistItem,
-          attributes: [
-            "id",
-            "title",
-            "description",
-            "isRequired",
-            "orderIndex",
-          ],
-        },
-      ],
-      order: [[ChecklistItem, "orderIndex", "ASC"]],
-    });
-
-    res.status(201).json(createdChecklist);
+    res.status(201).json({ checklist: checklistCombined, items: createdItems });
   } catch (error) {
     console.error("Error creating checklist:", error);
     res.status(500).json({ message: "Server error" });
@@ -215,14 +166,15 @@ const updateChecklist = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const checklist = await Checklist.findByPk(req.params.id);
+    // Use ChecklistCombined instead of Checklist
+    const checklist = await ChecklistCombined.findByPk(req.params.id);
     if (!checklist) {
       return res.status(404).json({ message: "Checklist not found" });
     }
 
-    const { title, description, programType, stage, items } = req.body;
+    const { title, description, programType, stage } = req.body;
 
-    // Update checklist
+    // Update checklist fields
     await checklist.update({
       title: title || checklist.title,
       description: description || checklist.description,
@@ -230,48 +182,8 @@ const updateChecklist = async (req, res) => {
       stage: stage || checklist.stage,
     });
 
-    // Update items if provided
-    if (items && Array.isArray(items)) {
-      // Delete existing items
-      await ChecklistItem.destroy({
-        where: { checklistId: checklist.id },
-      });
-
-      // Create new items
-      const checklistItems = items.map((item, index) => ({
-        checklistId: checklist.id,
-        title: item.title,
-        description: item.description || null,
-        isRequired: item.isRequired !== false,
-        orderIndex: index,
-      }));
-
-      await ChecklistItem.bulkCreate(checklistItems);
-    }
-
-    // Get updated checklist with items
-    const updatedChecklist = await Checklist.findByPk(checklist.id, {
-      include: [
-        {
-          model: User,
-          as: "creator",
-          attributes: ["id", "name", "email"],
-        },
-        {
-          model: ChecklistItem,
-          attributes: [
-            "id",
-            "title",
-            "description",
-            "isRequired",
-            "orderIndex",
-          ],
-        },
-      ],
-      order: [[ChecklistItem, "orderIndex", "ASC"]],
-    });
-
-    res.json(updatedChecklist);
+    // Return updated checklist
+    res.json(checklist);
   } catch (error) {
     console.error("Error updating checklist:", error);
     res.status(500).json({ message: "Server error" });
@@ -423,8 +335,8 @@ const assignChecklistToUser = async (req, res) => {
 
     const { checklistId, userId, dueDate } = req.body;
 
-    // Check if checklist exists
-    const checklist = await Checklist.findByPk(checklistId);
+    // Check if checklist exists in ChecklistCombined
+    const checklist = await ChecklistCombined.findByPk(checklistId);
     if (!checklist) {
       return res.status(404).json({ message: "Checklist not found" });
     }
@@ -436,22 +348,18 @@ const assignChecklistToUser = async (req, res) => {
     }
 
     // Check if assignment already exists
-    const existingAssignment = await ChecklistCombined.findOne({
-      where: { checklistId, userId },
-    });
+    // (Allow multiple assignments: do not block if one already exists)
 
-    if (existingAssignment) {
-      return res.status(400).json({
-        message: "This checklist is already assigned to the user",
-      });
-    }
-
-    // Create assignment
+    // Create assignment (new ChecklistCombined row for this user)
     const assignment = await ChecklistCombined.create({
       checklistId,
       userId,
       assignedBy: req.user.id,
       dueDate: dueDate || null,
+      title: checklist.title,
+      description: checklist.description,
+      programType: checklist.programType,
+      stage: checklist.stage,
     });
 
     // Create progress records for each checklist item
@@ -472,31 +380,8 @@ const assignChecklistToUser = async (req, res) => {
       "checklist_assigned"
     );
 
-    // Return created assignment with related data
-    const createdAssignment = await ChecklistCombined.findByPk(
-      assignment.id,
-      {
-        include: [
-          {
-            model: Checklist,
-            attributes: ["id", "title", "description"],
-            include: [
-              {
-                model: ChecklistItem,
-                attributes: ["id", "title", "isRequired"],
-              },
-            ],
-          },
-          {
-            model: User,
-            as: "assigner",
-            attributes: ["id", "name", "email"],
-          },
-        ],
-      }
-    );
-
-    res.status(201).json(createdAssignment);
+    // Return created assignment
+    res.status(201).json(assignment);
   } catch (error) {
     console.error("Error assigning checklist:", error);
     res.status(500).json({ message: "Server error" });
@@ -648,39 +533,28 @@ const verifyChecklistItem = async (req, res) => {
 // Add an item to a checklist
 const addChecklistItem = async (req, res) => {
   try {
-    const { checklistId } = req.params;
-    const { title, description, isRequired, orderIndex, controlledBy, phase } =
-      req.body;
-
-    // Check if checklist exists
-    const checklist = await Checklist.findByPk(checklistId);
+    // Find any row in ChecklistCombined by checklistId
+    const checklist = await ChecklistCombined.findOne({
+      where: { checklistId: req.params.checklistId },
+    });
     if (!checklist) {
       return res.status(404).json({ message: "Checklist not found" });
     }
-
-    // Check permissions - only HR and admin roles can add items
-    if (!["hr", "admin", "rh"].includes(req.user.role)) {
-      return res
-        .status(403)
-        .json({ message: "Not authorized to add checklist items" });
-    }
-
-    // Create a new checklist item
-    const newItem = await ChecklistItem.create({
-      id: uuidv4(), // Make sure to require uuid at the top of the file
-      checklistId,
+    // Create the item in checklistitems
+    const { title, description, isRequired, orderIndex, controlledBy, phase } = req.body;
+    const item = await ChecklistItem.create({
+      checklistId: req.params.checklistId,
       title,
-      description: description || "",
-      isRequired: isRequired !== undefined ? isRequired : true,
-      orderIndex: orderIndex || 0,
-      controlledBy: controlledBy || "hr",
-      phase: phase || "prepare",
+      description,
+      isRequired: isRequired !== false,
+      orderIndex,
+      controlledBy: controlledBy || 'hr',
+      phase: phase || 'prepare',
     });
-
-    res.status(201).json(newItem);
+    res.status(201).json(item);
   } catch (error) {
     console.error("Error adding checklist item:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -688,50 +562,28 @@ const addChecklistItem = async (req, res) => {
 const updateChecklistItem = async (req, res) => {
   try {
     const { id } = req.params;
-
     console.log("Looking for checklist item with ID:", id);
-
-    // Find the checklist item
     let checklistItem = await ChecklistItem.findByPk(id);
-
-    // If not found, create a new one with this ID
     if (!checklistItem) {
-      console.log(
-        "Checklist item not found, creating a new one with provided ID"
-      );
-
-      const {
-        title,
-        description,
-        isRequired,
-        orderIndex,
-        controlledBy,
-        phase,
-      } = req.body;
-
+      console.log("Checklist item not found, creating a new one with provided ID");
+      const { title, description, isRequired, orderIndex, controlledBy, phase } = req.body;
       if (!title) {
-        return res
-          .status(400)
-          .json({ message: "Title is required when creating a new item" });
+        return res.status(400).json({ message: "Title is required when creating a new item" });
       }
-
       // Check if we have checklistId from the query
       const checklistId = req.query.checklistId;
       if (!checklistId) {
-        return res.status(400).json({
-          message:
-            "checklistId is required in query parameters when creating a new item",
-        });
+        return res.status(400).json({ message: "checklistId is required in query parameters when creating a new item" });
       }
-
       // Check permissions - only HR and admin roles can update items
       if (!["hr", "admin", "rh"].includes(req.user.role)) {
-        return res
-          .status(403)
-          .json({ message: "Not authorized to update checklist items" });
+        return res.status(403).json({ message: "Not authorized to update checklist items" });
       }
-
-      // Create the item with the specified ID
+      // Check if checklist exists in ChecklistCombined
+      const checklist = await ChecklistCombined.findByPk(checklistId);
+      if (!checklist) {
+        return res.status(404).json({ message: "Checklist not found" });
+      }
       checklistItem = await ChecklistItem.create({
         id,
         checklistId,
@@ -742,44 +594,25 @@ const updateChecklistItem = async (req, res) => {
         controlledBy: controlledBy || "hr",
         phase: phase || "prepare",
       });
-
       return res.status(201).json(checklistItem);
     }
-
     console.log("Found checklist item:", checklistItem.id);
-
-    const { title, description, isRequired, orderIndex, controlledBy, phase } =
-      req.body;
-
-    // Check permissions - only HR and admin roles can update items
+    const { title, description, isRequired, orderIndex, controlledBy, phase } = req.body;
     if (!["hr", "admin", "rh"].includes(req.user.role)) {
-      return res
-        .status(403)
-        .json({ message: "Not authorized to update checklist items" });
+      return res.status(403).json({ message: "Not authorized to update checklist items" });
     }
-
-    // Update the checklist item
     await checklistItem.update({
       title: title !== undefined ? title : checklistItem.title,
-      description:
-        description !== undefined ? description : checklistItem.description,
-      isRequired:
-        isRequired !== undefined ? isRequired : checklistItem.isRequired,
-      orderIndex:
-        orderIndex !== undefined ? orderIndex : checklistItem.orderIndex,
-      controlledBy:
-        controlledBy !== undefined ? controlledBy : checklistItem.controlledBy,
+      description: description !== undefined ? description : checklistItem.description,
+      isRequired: isRequired !== undefined ? isRequired : checklistItem.isRequired,
+      orderIndex: orderIndex !== undefined ? orderIndex : checklistItem.orderIndex,
+      controlledBy: controlledBy !== undefined ? controlledBy : checklistItem.controlledBy,
       phase: phase !== undefined ? phase : checklistItem.phase,
     });
-
     res.status(200).json(checklistItem);
   } catch (error) {
     console.error("Error updating checklist item:", error);
-    res.status(500).json({
-      message: "Server error",
-      error: error.message,
-      stack: error.stack,
-    });
+    res.status(500).json({ message: "Server error", error: error.message, stack: error.stack });
   }
 };
 
@@ -1042,19 +875,18 @@ const getChecklistItemById = async (req, res) => {
 const getChecklistItems = async (req, res) => {
   try {
     const { checklistId } = req.params;
-
-    // Verify the checklist exists
-    const checklist = await Checklist.findByPk(checklistId);
+    // Verify the checklist exists in ChecklistCombined (any row)
+    const checklist = await ChecklistCombined.findOne({
+      where: { checklistId },
+    });
     if (!checklist) {
       return res.status(404).json({ message: "Checklist not found" });
     }
-
     // Find all items for this checklist
     const checklistItems = await ChecklistItem.findAll({
       where: { checklistId },
       order: [["orderIndex", "ASC"]],
     });
-
     res.json(checklistItems);
   } catch (error) {
     console.error("Error fetching checklist items:", error);
@@ -1357,15 +1189,12 @@ const getAssignmentsByTeam = async (req, res) => {
   }
 };
 
-// Get all progress records for a given user and checklist
+// Get checklist progress for a specific user and checklist
 const getChecklistProgressByUserAndChecklist = async (req, res) => {
   try {
     const { userId, checklistId } = req.params;
-    // Find all items for the checklist
-    const items = await ChecklistItem.findAll({
-      where: { checklistId },
-      order: [["orderIndex", "ASC"]],
-    });
+    // Fetch all items for the checklistId
+    const items = await ChecklistItem.findAll({ where: { checklistId } });
     const progressRecords = [];
     for (const item of items) {
       let progress = await ChecklistProgress.findOne({
@@ -1676,6 +1505,74 @@ const getTeamAnalytics = async (req, res) => {
   }
 };
 
+// Update checklist_combined assignment/template by id
+const updateChecklistAssignment = async (req, res) => {
+  try {
+    if (!['hr', 'manager', 'supervisor'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied.' });
+    }
+    const { assignmentId } = req.params;
+    const { title, description, programType, stage } = req.body;
+    const assignment = await ChecklistCombined.findByPk(assignmentId);
+    if (!assignment) {
+      return res.status(404).json({ message: 'Checklist assignment not found' });
+    }
+    await assignment.update({
+      title: title !== undefined ? title : assignment.title,
+      description: description !== undefined ? description : assignment.description,
+      programType: programType !== undefined ? programType : assignment.programType,
+      stage: stage !== undefined ? stage : assignment.stage,
+    });
+    res.json(assignment);
+  } catch (error) {
+    console.error('Error updating checklist assignment:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Update checklist_combined template by checklistId (userId is null)
+const updateChecklistTemplate = async (req, res) => {
+  try {
+    if (!['hr', 'manager', 'supervisor'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied.' });
+    }
+    const { checklistId } = req.params;
+    const { title, description, programType, stage } = req.body;
+    // Update all rows with this checklistId (template and assignments)
+    const [affectedRows] = await ChecklistCombined.update(
+      {
+        title,
+        description,
+        programType,
+        stage,
+      },
+      {
+        where: { checklistId }
+      }
+    );
+    if (affectedRows === 0) {
+      return res.status(404).json({ message: 'No checklists found for this checklistId' });
+    }
+    res.json({ message: 'All checklists updated', checklistId });
+  } catch (error) {
+    console.error('Error updating checklist template:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const deleteChecklistByChecklistId = async (req, res) => {
+  try {
+    const { checklistId } = req.params;
+    const deleted = await ChecklistCombined.destroy({ where: { checklistId } });
+    if (deleted === 0) {
+      return res.status(404).json({ message: 'No checklists found for this checklistId' });
+    }
+    res.json({ message: 'Checklist and all assignments deleted', checklistId });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   getAllChecklists,
   getChecklistById,
@@ -1705,4 +1602,7 @@ module.exports = {
   sendReminder,
   getDepartmentAnalytics,
   getTeamAnalytics,
+  updateChecklistAssignment,
+  updateChecklistTemplate,
+  deleteChecklistByChecklistId,
 };

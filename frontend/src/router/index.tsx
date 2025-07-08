@@ -86,6 +86,7 @@ import HROnboardingManagement from '../pages/admin/HROnboardingManagement';
 import HRTaskValidation from '../pages/admin/HRTaskValidation';
 import SurveyAnalytics from '../pages/admin/SurveyAnalytics';
 import HRNotificationCenter from '../pages/admin/HRNotificationCenter';
+import ChecklistEdit from '../pages/ChecklistEdit';
 
 // Route protection component
 const ProtectedRoute: React.FC<{
@@ -535,6 +536,14 @@ const Router: React.FC = () => {
       element: (
         <ProtectedRoute requiredRoles={['hr']}>
           <ChecklistCreate />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/checklists/:id/edit',
+      element: (
+        <ProtectedRoute requiredRoles={['hr']}>
+          <ChecklistEdit />
         </ProtectedRoute>
       ),
     },
