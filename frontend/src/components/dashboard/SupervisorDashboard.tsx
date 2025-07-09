@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { User } from '../../types/user';
-import { Users, Calendar, ClipboardCheck } from 'lucide-react';
+import { Users, Calendar, ClipboardCheck, AlertTriangle, Sun, Moon, PlusCircle, Send, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import teamService from '../../services/teamService';
 import * as evaluationService from '../../services/evaluationService';
@@ -44,6 +44,10 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Move darkMode state and toggle function here
+  const [darkMode, setDarkMode] = useState(false);
+  const toggleDarkMode = () => setDarkMode(d => !d);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -131,171 +135,179 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
   if (loading) return <div>Loading dashboard...</div>;
   if (error) return <div className="text-red-500">{error}</div>;
 
+  const getInitials = (name: string) => {
+    if (!name) return '';
+    const parts = name.split(' ');
+    return parts.length === 1
+      ? parts[0][0].toUpperCase()
+      : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  const getStageColor = (stage: string | undefined) => {
+    switch (normalizeStage(stage)) {
+      case 'prepare': return 'bg-blue-100 text-blue-800';
+      case 'orient': return 'bg-yellow-100 text-yellow-800';
+      case 'land': return 'bg-purple-100 text-purple-800';
+      case 'integrate': return 'bg-green-100 text-green-800';
+      case 'excel': return 'bg-pink-100 text-pink-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Calculate quick stats
+  const avgProgress = teamMembers.length > 0 ? Math.round(teamMembers.reduce((sum, m) => sum + (m.progress || 0), 0) / teamMembers.length) : 0;
+  const needsAttention = teamMembers.filter(m => (m.progress ?? 100) < 60);
+
   return (
-    <div className="space-y-6">
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome, {user.name}!</h1>
-        <p className="text-gray-600">
-          You're supervising {teamMembers.length} employees across different early career programs.
-        </p>
+    <div className={darkMode ? 'dark bg-gray-900 min-h-screen text-gray-100' : 'bg-gray-50 min-h-screen text-gray-900'}>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">Supervisor Dashboard</h1>
+          <p className="text-lg text-gray-500 dark:text-gray-300 mt-1">You’re making a difference! Here’s what’s happening with your team.</p>
+        </div>
+        <button onClick={toggleDarkMode} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">
+          {darkMode ? <Sun className="h-5 w-5 text-yellow-400" /> : <Moon className="h-5 w-5 text-gray-700" />}
+        </button>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="bg-blue-600 text-white p-4 flex items-center">
-            <Users className="h-5 w-5 mr-2" />
-            <h2 className="text-lg font-medium">Team Overview</h2>
-          </div>
-          <div className="p-4">
-            <div className="flex justify-between mb-4">
-              <div className="text-center">
-                <span className="block text-2xl font-bold text-gray-900">{teamMembers.length}</span>
-                <span className="text-sm text-gray-500">Total</span>
-              </div>
-              <div className="text-center">
-                <span className="block text-2xl font-bold text-yellow-500">{
-                  Array.isArray(teamMembers)
-                    ? teamMembers.filter(m => typeof m.stage === 'string' && (normalizeStage(m.stage) === 'orient' || normalizeStage(m.stage) === 'land')).length
-                    : 0
-                }</span>
-                <span className="text-sm text-gray-500">New</span>
-              </div>
-              <div className="text-center">
-                <span className="block text-2xl font-bold text-green-500">{
-                  Array.isArray(teamMembers)
-                    ? teamMembers.filter(m => typeof m.stage === 'string' && normalizeStage(m.stage) === 'excel').length
-                    : 0
-                }</span>
-                <span className="text-sm text-gray-500">Completing</span>
-              </div>
-            </div>
-            <div className="mt-4">
-              <Link
-                to="/team"
-                className="block w-full text-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                View Team
-              </Link>
-            </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex items-center space-x-4">
+          <Users className="h-8 w-8 text-blue-500" />
+          <div>
+            <div className="text-2xl font-bold">{teamMembers.length}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-300">Total Team</div>
           </div>
         </div>
-        
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="bg-orange-500 text-white p-4 flex items-center">
-            <ClipboardCheck className="h-5 w-5 mr-2" />
-            <h2 className="text-lg font-medium">Pending Evaluations</h2>
-          </div>
-          <div className="p-4">
-            {pendingEvaluations.length === 0 ? (
-              <p className="text-gray-500 text-center py-2">No pending evaluations</p>
-            ) : (
-              <ul className="divide-y divide-gray-200">
-                {pendingEvaluations.map((evaluation) => (
-                  <li key={evaluation.id} className="py-3">
-                    <div className="flex justify-between">
-                      <p className="text-sm font-medium text-gray-900">{evaluation.employeeName}</p>
-                      <span className="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-800">
-                        {evaluation.type}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Due: {formatDate(evaluation.dueDate)}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="mt-4">
-              <Link
-                to="/evaluations"
-                className="block w-full text-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
-              >
-                Complete Evaluations
-              </Link>
-            </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex items-center space-x-4">
+          <CheckCircle className="h-8 w-8 text-green-500" />
+          <div>
+            <div className="text-2xl font-bold">{avgProgress}%</div>
+            <div className="text-sm text-gray-500 dark:text-gray-300">Avg. Progress</div>
           </div>
         </div>
-        
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="bg-purple-600 text-white p-4 flex items-center">
-            <Calendar className="h-5 w-5 mr-2" />
-            <h2 className="text-lg font-medium">Upcoming Events</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex items-center space-x-4">
+          <ClipboardCheck className="h-8 w-8 text-orange-500" />
+          <div>
+            <div className="text-2xl font-bold">{pendingEvaluations.length}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-300">Pending Evaluations</div>
           </div>
-          <div className="p-4">
-            {upcomingEvents.length === 0 ? (
-              <p className="text-gray-500 text-center py-2">No upcoming events</p>
-            ) : (
-              <ul className="divide-y divide-gray-200">
-                {upcomingEvents.map((event) => (
-                  <li key={event.id} className="py-3">
-                    <p className="text-sm font-medium text-gray-900">{event.title}</p>
-                    <div className="mt-1 flex items-center text-xs text-gray-500">
-                      <Calendar className="h-4 w-4 mr-1 text-gray-400" />
-                      {formatDate(event.startDate || event.date)} at {formatTime(event.startDate || event.date)}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="mt-4">
-              <Link
-                to="/calendar"
-                className="block w-full text-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-              >
-                View Calendar
-              </Link>
-            </div>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex items-center space-x-4">
+          <Calendar className="h-8 w-8 text-purple-500" />
+          <div>
+            <div className="text-2xl font-bold">{upcomingEvents.length}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-300">Upcoming Events</div>
           </div>
         </div>
       </div>
-      
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="p-4 bg-gray-800 text-white flex items-center">
-          <Users className="h-5 w-5 mr-2" />
-          <h2 className="text-lg font-medium">Team Members</h2>
+
+      {/* Needs Attention Section */}
+      {needsAttention.length > 0 && (
+        <div className="bg-yellow-50 dark:bg-yellow-900 rounded-lg shadow p-4 mb-8">
+          <div className="flex items-center mb-2">
+            <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2" />
+            <span className="font-semibold text-yellow-800 dark:text-yellow-200">Needs Attention</span>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            {needsAttention.map(member => (
+              <div key={member.id} className="flex items-center space-x-3 bg-white dark:bg-gray-800 rounded p-3 shadow">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold bg-yellow-200 text-yellow-800">
+                  {getInitials(member.name)}
+                </div>
+                <div>
+                  <div className="font-medium">{member.name}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-300">Progress: <span className="font-semibold text-yellow-700 dark:text-yellow-200">{member.progress ?? 0}%</span></div>
+                </div>
+                <Link to={`/team`} className="ml-4 px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200">View</Link>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Employee
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Progress
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {teamMembers.map((member) => (
-                <tr key={member.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <img className="h-10 w-10 rounded-full" src={member.avatar} alt="" />
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{member.name}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="w-full bg-gray-200 rounded-full h-2.5 max-w-[100px]">
-                      <div 
-                        className={`h-2.5 rounded-full ${member.progress === null || member.progress === undefined ? 'bg-gray-300' : 'bg-blue-600'}`}
-                        style={{ width: member.progress === null || member.progress === undefined ? '0%' : `${member.progress}%` }}
-                      ></div>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {member.progress === null || member.progress === undefined ? 'N/A' : `${member.progress}%`}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      )}
+
+      {/* Team Members List */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div className="flex items-center mb-4">
+          <Users className="h-6 w-6 text-blue-500 mr-2" />
+          <h2 className="text-xl font-bold">Team Members</h2>
+          <Link to="/team" className="ml-auto px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200">View All</Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {teamMembers.map(member => (
+            <div key={member.id} className="flex items-center space-x-4 bg-gray-50 dark:bg-gray-700 rounded p-4 shadow">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold bg-blue-200 text-blue-800">
+                {getInitials(member.name)}
+              </div>
+              <div className="flex-1">
+                <div className="font-semibold">{member.name}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-300 mb-1">{member.role || 'Employee'} • {member.program || 'Program'}</div>
+                <div className="flex items-center space-x-2">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStageColor(member.stage)}`}>{member.stage || 'N/A'}</span>
+                  <span className="text-xs text-gray-400">{member.daysInProgram ? `${member.daysInProgram} days` : ''}</span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-2">
+                  <div
+                    className="bg-blue-500 h-2 rounded-full"
+                    style={{ width: `${member.progress ?? 0}%` }}
+                  ></div>
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-300 mt-1">Progress: {member.progress ?? 0}%</div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
+
+      {/* Pending Evaluations */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div className="flex items-center mb-4">
+          <ClipboardCheck className="h-6 w-6 text-orange-500 mr-2" />
+          <h2 className="text-xl font-bold">Pending Evaluations</h2>
+          <Link to="/supervisor/evaluations" className="ml-auto px-3 py-1 text-sm bg-orange-100 text-orange-800 rounded hover:bg-orange-200">View All</Link>
+        </div>
+        {pendingEvaluations.length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-300 text-center py-2">No pending evaluations</p>
+        ) : (
+          <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+            {pendingEvaluations.map((evaluation) => (
+              <li key={evaluation.id} className="py-3 flex justify-between items-center">
+                <div>
+                  <div className="font-medium">{evaluation.employeeName}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-300">{evaluation.type}</div>
+                </div>
+                <div className="text-xs text-gray-400">Due: {formatDate(evaluation.dueDate)}</div>
+                <Link to={`/supervisor/evaluations/${evaluation.id}/form`} className="ml-4 px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded hover:bg-orange-200">Review</Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Upcoming Events Timeline */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div className="flex items-center mb-4">
+          <Calendar className="h-6 w-6 text-purple-500 mr-2" />
+          <h2 className="text-xl font-bold">Upcoming Events</h2>
+          <Link to="/calendar" className="ml-auto px-3 py-1 text-sm bg-purple-100 text-purple-800 rounded hover:bg-purple-200">View All</Link>
+        </div>
+        {upcomingEvents.length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-300 text-center py-2">No upcoming events</p>
+        ) : (
+          <ol className="relative border-l border-purple-200 dark:border-purple-700">
+            {upcomingEvents.map((event, idx) => (
+              <li key={event.id} className="mb-6 ml-4">
+                <div className="absolute w-3 h-3 bg-purple-400 rounded-full mt-1.5 -left-1.5 border border-white dark:border-gray-900"></div>
+                <time className="mb-1 text-xs font-normal leading-none text-purple-500 dark:text-purple-300">{formatDate(event.startDate || event.date)} {formatTime(event.startDate || event.date)}</time>
+                <div className="text-md font-semibold text-gray-900 dark:text-gray-100">{event.title}</div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+
+      {/* Quick Actions */}
+      {/* Removed: Supervisors cannot assign checklists, schedule evaluations, or send reminders */}
     </div>
   );
 };

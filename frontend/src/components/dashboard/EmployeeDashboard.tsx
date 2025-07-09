@@ -76,8 +76,8 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
         // Fetch learning progress
         const learningRes = await analyticsService.getPersonalTraining();
         setLearning(learningRes);
-      } catch (err) {
-        setError('Failed to load dashboard data.');
+      } catch (err: any) {
+        setError(err?.response?.data?.message || err?.message || 'Failed to load dashboard data.');
         console.error(err);
       } finally {
         setLoading(false);

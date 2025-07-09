@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import Layout from '../../components/layout/Layout';
 import { User, UserPlus, Search, Edit, Trash2, RotateCcw } from 'lucide-react';
 import { Modal, Button, Input, Select, message, Form, Popconfirm, Tabs } from 'antd';
+import teamService, { Team } from '../../services/teamService';
+import userService from '../../services/userService';
+import { useAuth } from '../../context/AuthContext';
 
 const { Option } = Select;
 
@@ -32,6 +35,19 @@ const UserManagement: React.FC = () => {
   const [programFilter, setProgramFilter] = useState<string | undefined>(undefined);
   const [roles, setRoles] = useState<{ id: string; name: string; description: string }[]>([]);
   const [selectedRole, setSelectedRole] = useState<string | undefined>(undefined);
+  const { user } = useAuth();
+  // Team management state
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [showTeamModal, setShowTeamModal] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [teamForm, setTeamForm] = useState({ name: '', description: '', managerId: '', members: [] as string[] });
+  const [allUsers, setAllUsers] = useState<UserType[]>([]);
+  // Fetch all users for dropdowns when modal opens
+  useEffect(() => {
+    if (showTeamModal) {
+      userService.getUsers().then(setAllUsers);
+    }
+  }, [showTeamModal]);
 
   const roleOptions = [
     { value: 'employee', label: 'Employee' },
@@ -116,7 +132,21 @@ const UserManagement: React.FC = () => {
       }
     };
     fetchRoles();
-  }, []);
+    // Fetch teams for HR
+    if (user?.role === 'hr') {
+      teamService.getTeams()
+        .then(data => {
+          if (Array.isArray(data)) {
+            setTeams(data);
+          } else if (data && typeof data === 'object') {
+            setTeams([data]);
+          } else {
+            setTeams([]);
+          }
+        })
+        .catch(() => setTeams([]));
+    }
+  }, [user]);
 
   const handleAdd = () => {
     setEditingUser(null);
@@ -247,6 +277,50 @@ const UserManagement: React.FC = () => {
     }
   };
 
+  // Team modal handlers
+  const openCreateTeam = () => {
+    setEditingTeam(null);
+    setTeamForm({ name: '', description: '', managerId: '', members: [] });
+    setShowTeamModal(true);
+  };
+  const openEditTeam = (team: Team) => {
+    setEditingTeam(team);
+    setTeamForm({
+      name: team.name,
+      description: team.description || '',
+      managerId: team.managerId,
+      members: team.members ? team.members.map(m => m.id) : [],
+    });
+    setShowTeamModal(true);
+  };
+  const handleTeamFormChange = (field: string, value: any) => {
+    setTeamForm(prev => ({ ...prev, [field]: value }));
+  };
+  const handleSaveTeam = async () => {
+    try {
+      if (editingTeam) {
+        await teamService.updateTeam(editingTeam.id, teamForm);
+      } else {
+        await teamService.createTeam(teamForm);
+      }
+      setShowTeamModal(false);
+      setEditingTeam(null);
+      teamService.getTeams()
+        .then(data => {
+          if (Array.isArray(data)) {
+            setTeams(data);
+          } else if (data && typeof data === 'object') {
+            setTeams([data]);
+          } else {
+            setTeams([]);
+          }
+        })
+        .catch(() => setTeams([]));
+    } catch (err) {
+      message.error('Failed to save team');
+    }
+  };
+
   const filteredUsers = users.filter(u =>
     (departmentFilter ? u.department === departmentFilter : true) &&
     (roleFilter ? u.role === roleFilter : true) &&
@@ -257,197 +331,253 @@ const UserManagement: React.FC = () => {
 
   return (
     <Layout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Manage user accounts, roles, and permissions
-            </p>
-          </div>
-          <Button
-            type="primary"
-            icon={<UserPlus className="h-5 w-5 mr-2" />}
-            onClick={handleAdd}
-          >
-            Add New User
-          </Button>
-        </div>
-
-        <Tabs
-          defaultActiveKey="active"
-          items={[
-            {
-              key: 'active',
-              label: `Active Users (${filteredUsers.length})`,
-              children: (
-        <div className="bg-white shadow rounded-lg">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                <input
-                  type="text"
-                          placeholder="Search active users..."
-                  className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                          value={search}
-                          onChange={e => setSearch(e.target.value)}
-                />
+      <h1 className="text-2xl font-bold mb-2">User Management</h1>
+      <p className="mb-6 text-gray-600">Manage user accounts, roles, and permissions</p>
+      <Tabs defaultActiveKey="active" style={{ background: '#fff', padding: 16 }}>
+        <Tabs.TabPane tab={`Active Users (${filteredUsers.length})`} key="active">
+          <div className="bg-white shadow rounded-lg">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                  <input
+                    type="text"
+                    placeholder="Search active users..."
+                    className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                  />
+                </div>
+                <Select
+                  allowClear
+                  placeholder="Filter by Department"
+                  style={{ minWidth: 160 }}
+                  value={departmentFilter}
+                  onChange={setDepartmentFilter}
+                >
+                  {departments.map(dep => (
+                    <Option key={dep.id} value={dep.name}>{dep.name}</Option>
+                  ))}
+                </Select>
+                <Select
+                  allowClear
+                  placeholder="Filter by Role"
+                  style={{ minWidth: 140 }}
+                  value={roleFilter}
+                  onChange={setRoleFilter}
+                >
+                  {roles.map(opt => (
+                    <Option key={opt.name} value={opt.name}>{opt.name.charAt(0).toUpperCase() + opt.name.slice(1)}</Option>
+                  ))}
+                </Select>
+                <Select
+                  allowClear
+                  placeholder="Filter by Program"
+                  style={{ minWidth: 180 }}
+                  value={programFilter}
+                  onChange={setProgramFilter}
+                >
+                  {programOptions.map(opt => (
+                    <Option key={opt.value} value={opt.value}>{opt.label}</Option>
+                  ))}
+                </Select>
               </div>
-                      <Select
-                        allowClear
-                        placeholder="Filter by Department"
-                        style={{ minWidth: 160 }}
-                        value={departmentFilter}
-                        onChange={setDepartmentFilter}
-                      >
-                        {departments.map(dep => (
-                          <Option key={dep.id} value={dep.name}>{dep.name}</Option>
-                        ))}
-                      </Select>
-                      <Select
-                        allowClear
-                        placeholder="Filter by Role"
-                        style={{ minWidth: 140 }}
-                        value={roleFilter}
-                        onChange={setRoleFilter}
-                      >
-                        {roles.map(opt => (
-                          <Option key={opt.name} value={opt.name}>{opt.name.charAt(0).toUpperCase() + opt.name.slice(1)}</Option>
-                        ))}
-                      </Select>
-                      <Select
-                        allowClear
-                        placeholder="Filter by Program"
-                        style={{ minWidth: 180 }}
-                        value={programFilter}
-                        onChange={setProgramFilter}
-                      >
-                        {programOptions.map(opt => (
-                          <Option key={opt.value} value={opt.value}>{opt.label}</Option>
-                        ))}
-                      </Select>
             </div>
-          </div>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Join Date</th>
-                          <th className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 flex-shrink-0">
-                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                            <User className="h-6 w-6 text-blue-600" />
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Join Date</th>
+                    <th className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredUsers.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="h-10 w-10 flex-shrink-0">
+                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                              <User className="h-6 w-6 text-blue-600" />
+                            </div>
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                            <div className="text-sm text-gray-500">{user.email}</div>
                           </div>
                         </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                          <div className="text-sm text-gray-500">{user.email}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-900 capitalize">{user.role}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-900">{user.department}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-900">{user.programType || '-'}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{user.status || 'active'}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.startDate ? new Date(user.startDate).toLocaleDateString() : '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                        <Button icon={<Edit className="h-4 w-4" />} size="small" onClick={() => handleEdit(user)} />
+                        <Popconfirm title="Deactivate this user?" onConfirm={() => handleDelete(user.id)} okText="Deactivate" cancelText="Cancel">
+                          <Button icon={<Trash2 className="h-4 w-4" />} size="small" danger />
+                        </Popconfirm>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Tabs.TabPane>
+        <Tabs.TabPane tab={`Deactivated Users (${deactivatedUsers.length})`} key="deactivated">
+          <div className="bg-white shadow rounded-lg">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deactivated Date</th>
+                    <th className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {deactivatedUsers.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="h-10 w-10 flex-shrink-0">
+                            <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+                              <User className="h-6 w-6 text-gray-600" />
+                            </div>
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                            <div className="text-sm text-gray-500">{user.email}</div>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900 capitalize">{user.role}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900">{user.department}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="text-sm text-gray-900">{user.programType || '-'}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{user.status || 'active'}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {user.startDate ? new Date(user.startDate).toLocaleDateString() : '-'}
-                    </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                              <Button icon={<Edit className="h-4 w-4" />} size="small" onClick={() => handleEdit(user)} />
-                              <Popconfirm title="Deactivate this user?" onConfirm={() => handleDelete(user.id)} okText="Deactivate" cancelText="Cancel">
-                                <Button icon={<Trash2 className="h-4 w-4" />} size="small" danger />
-                              </Popconfirm>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-900 capitalize">{user.role}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-900">{user.department}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-900">{user.programType || '-'}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.deletedAt ? new Date(user.deletedAt).toLocaleDateString() : '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                        <Popconfirm title="Restore this user?" onConfirm={() => handleRestore(user.id)} okText="Restore" cancelText="Cancel">
+                          <Button icon={<RotateCcw className="h-4 w-4" />} size="small" type="primary" />
+                        </Popconfirm>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Tabs.TabPane>
+        {user?.role === 'hr' && (
+          <Tabs.TabPane tab="Teams" key="teams">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Teams</h2>
+              <Button type="primary" onClick={openCreateTeam}>Create Team</Button>
+            </div>
+            <table className="min-w-full bg-white border">
+              <thead>
+                <tr>
+                  <th className="px-4 py-2 border">Name</th>
+                  <th className="px-4 py-2 border">Description</th>
+                  <th className="px-4 py-2 border">Manager</th>
+                  <th className="px-4 py-2 border">Members</th>
+                  <th className="px-4 py-2 border">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(Array.isArray(teams) ? teams : []).map(team => (
+                  <tr key={team.id}>
+                    <td className="px-4 py-2 border">{team.name}</td>
+                    <td className="px-4 py-2 border">{team.description}</td>
+                    <td className="px-4 py-2 border">{team.managerId}</td>
+                    <td className="px-4 py-2 border">{team.members?.map(m => m.name).join(', ')}</td>
+                    <td className="px-4 py-2 border">
+                      <Button size="small" onClick={() => openEditTeam(team)}>Edit</Button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-                </div>
-              ),
-            },
-            {
-              key: 'deactivated',
-              label: `Deactivated Users (${deactivatedUsers.length})`,
-              children: (
-                <div className="bg-white shadow rounded-lg">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deactivated Date</th>
-                          <th className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {deactivatedUsers.map((user) => (
-                          <tr key={user.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="h-10 w-10 flex-shrink-0">
-                                  <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
-                                    <User className="h-6 w-6 text-gray-600" />
-                                  </div>
-              </div>
-                                <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                                  <div className="text-sm text-gray-500">{user.email}</div>
-              </div>
-            </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="text-sm text-gray-900 capitalize">{user.role}</span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="text-sm text-gray-900">{user.department}</span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="text-sm text-gray-900">{user.programType || '-'}</span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {user.deletedAt ? new Date(user.deletedAt).toLocaleDateString() : '-'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                              <Popconfirm title="Restore this user?" onConfirm={() => handleRestore(user.id)} okText="Restore" cancelText="Cancel">
-                                <Button icon={<RotateCcw className="h-4 w-4" />} size="small" type="primary" />
-                              </Popconfirm>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-          </div>
-        </div>
-              ),
-            },
-          ]}
-        />
+            <Modal
+              title={editingTeam ? 'Edit Team' : 'Create Team'}
+              open={showTeamModal}
+              onCancel={() => setShowTeamModal(false)}
+              onOk={handleSaveTeam}
+            >
+              <Form layout="vertical">
+                <Form.Item label="Team Name" required>
+                  <Input value={teamForm.name} onChange={e => handleTeamFormChange('name', e.target.value)} />
+                </Form.Item>
+                <Form.Item label="Description">
+                  <Input value={teamForm.description} onChange={e => handleTeamFormChange('description', e.target.value)} />
+                </Form.Item>
+                <Form.Item label="Manager" required>
+                  <Select
+                    showSearch
+                    value={teamForm.managerId}
+                    onChange={value => handleTeamFormChange('managerId', value)}
+                    filterOption={(input, option) =>
+                      (option?.children as string).toLowerCase().includes(input.toLowerCase())
+                    }
+                    placeholder="Select a manager"
+                  >
+                    {allUsers.filter(u => u.role === 'manager').map(u => (
+                      <Select.Option key={u.id} value={u.id}>
+                        {u.name} ({u.email})
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+                <Form.Item label="Members">
+                  <Select
+                    mode="multiple"
+                    showSearch
+                    value={teamForm.members}
+                    onChange={value => handleTeamFormChange('members', value)}
+                    filterOption={(input, option) =>
+                      (option?.children as string).toLowerCase().includes(input.toLowerCase())
+                    }
+                    placeholder="Select team members"
+                  >
+                    {allUsers.map(u => (
+                      <Select.Option key={u.id} value={u.id}>
+                        {u.name} ({u.email})
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Form>
+            </Modal>
+          </Tabs.TabPane>
+        )}
+      </Tabs>
 
         <Modal
           title={editingUser ? 'Edit User' : 'Add New User'}
@@ -570,7 +700,6 @@ const UserManagement: React.FC = () => {
             </Form.Item>
           </Form>
         </Modal>
-      </div>
     </Layout>
   );
 };

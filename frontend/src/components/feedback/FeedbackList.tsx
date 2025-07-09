@@ -84,7 +84,7 @@ const FeedbackList: React.FC<FeedbackListProps> = ({
   return (
     <div className="space-y-4">
       {feedbacks.map((feedback) => (
-        <div key={feedback.id} className="bg-white shadow rounded-lg overflow-hidden">
+        <div key={feedback.id} id={`feedback-${feedback.id}`} className="bg-white shadow rounded-lg overflow-hidden">
           <div className="p-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">

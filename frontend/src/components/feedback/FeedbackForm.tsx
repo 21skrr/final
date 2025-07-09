@@ -14,6 +14,7 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
     type: 'general',
     isAnonymous: false,
     shareWithSupervisor: false,
+    priority: 'medium',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,16 +30,15 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
     try {
-      const response = await feedbackService.submitFeedback(formData);
-      onSubmit?.(formData);
+      await onSubmit?.(formData);
       // Reset form
       setFormData({
         content: '',
         type: 'general',
         isAnonymous: false,
         shareWithSupervisor: false,
+        priority: 'medium',
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit feedback');
@@ -90,6 +90,22 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
+            Priority
+          </label>
+          <select
+            value={formData.priority}
+            onChange={(e) => handleInputChange('priority', e.target.value)}
+            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            required
+          >
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             Message
           </label>
           <textarea
@@ -113,19 +129,6 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
             />
             <label htmlFor="isAnonymous" className="ml-2 block text-sm text-gray-700">
               Submit anonymously
-            </label>
-          </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="shareWithSupervisor"
-              checked={formData.shareWithSupervisor}
-              onChange={(e) => handleInputChange('shareWithSupervisor', e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="shareWithSupervisor" className="ml-2 block text-sm text-gray-700">
-              Share with my supervisor
             </label>
           </div>
         </div>

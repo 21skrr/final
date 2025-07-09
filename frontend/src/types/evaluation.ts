@@ -13,11 +13,12 @@ export interface Evaluation {
   employeeId: string;
   supervisorId: string;
   date: string;
-  type: 'field' | 'probation' | 'periodic' | 'training';
+  type: 'field' | 'probation' | 'periodic' | 'training' | '3-month' | '6-month' | '12-month' | 'performance';
   status: EvaluationStatus;
   score?: number;
   feedback?: string;
   criteria: EvaluationCriteria[];
   strengths?: string[];
   areasForImprovement?: string[];
+  title?: string; // Added for backend compatibility
 } 

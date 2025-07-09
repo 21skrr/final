@@ -112,6 +112,14 @@ router.patch(
 // GET /api/evaluations/export/csv (HR only)
 router.get("/export/csv", auth, isRH, evaluationController.exportEvaluationCSV);
 
+// GET /api/evaluations/:id/export?format=csv - Export a single evaluation as CSV
+router.get(
+  "/:id/export",
+  auth,
+  isRH,
+  evaluationController.exportSingleEvaluationCSV
+);
+
 // POST /api/evaluations/:evaluationId/criteria
 router.post(
   "/:evaluationId/criteria",
@@ -157,5 +165,12 @@ router.get(
 );
 
 // Get evaluator evaluations
+
+// POST /api/evaluations/:id/remind - Send reminder for evaluation
+router.post(
+  "/:id/remind",
+  [auth, checkRole("hr", "manager")], // Only HR and managers can send reminders
+  evaluationController.sendEvaluationReminder
+);
 
 module.exports = router;

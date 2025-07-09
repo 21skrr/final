@@ -92,6 +92,7 @@ export interface CreateFeedbackRequest {
   type: FeedbackType;
   isAnonymous: boolean;
   shareWithSupervisor: boolean;
+  priority: FeedbackPriority;
 }
 
 export interface FeedbackFilters {

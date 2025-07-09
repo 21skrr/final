@@ -44,7 +44,9 @@ const Notification = sequelize.define(
         "new_employee",
         "compliance_alert",
         "feedback_available",
-        "feedback_submission"
+        "feedback_submission",
+        "evaluation_reminder",
+        "evaluation_overdue"
       ),
       allowNull: false,
       defaultValue: "system",

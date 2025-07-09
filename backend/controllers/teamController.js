@@ -382,6 +382,27 @@ const updateTeamSettings = async (req, res) => {
   }
 };
 
+// @desc    Get all teams
+// @route   GET /api/teams/all
+// @access  Private (HR/Admin)
+const getAllTeams = async (req, res) => {
+  try {
+    const teams = await Team.findAll({
+      include: [
+        {
+          model: User,
+          as: "Users",
+          attributes: ["id", "name", "email", "role", "department", "startDate"],
+        },
+      ],
+    });
+    res.json(teams);
+  } catch (error) {
+    console.error("Error fetching all teams:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   getTeamMembers,
   getTeamById,
@@ -392,4 +413,5 @@ module.exports = {
   getTeamFeedbackAnalytics,
   getTeamSettings,
   updateTeamSettings,
+  getAllTeams,
 };

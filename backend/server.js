@@ -1,7 +1,42 @@
 require("dotenv").config();
 const app = require("./app");
 const { sequelize } = require("./models");
+const cron = require('node-cron');
+const { autoScheduleEvaluations } = require('./services/evaluationScheduler');
+const { getSystemSetting } = require('./utils/systemSettingsService');
 
+let evaluationCronJobs = {};
+
+async function startEvaluationSchedulers() {
+  const cron3 = (await getSystemSetting('evaluationAutomationCron_3month')) || '0 2 * * *';
+  const cron6 = (await getSystemSetting('evaluationAutomationCron_6month')) || '0 3 * * *';
+  const cron12 = (await getSystemSetting('evaluationAutomationCron_12month')) || '0 4 * * *';
+
+  // Stop existing jobs
+  Object.values(evaluationCronJobs).forEach(job => job.stop && job.stop());
+  evaluationCronJobs = {};
+
+  evaluationCronJobs['3month'] = cron.schedule(cron3, () => {
+    console.log('Running auto-schedule 3-month evaluations...');
+    autoScheduleEvaluations('3-month');
+  });
+  evaluationCronJobs['6month'] = cron.schedule(cron6, () => {
+    console.log('Running auto-schedule 6-month evaluations...');
+    autoScheduleEvaluations('6-month');
+  });
+  evaluationCronJobs['12month'] = cron.schedule(cron12, () => {
+    console.log('Running auto-schedule 12-month evaluations...');
+    autoScheduleEvaluations('12-month');
+  });
+
+  console.log('Evaluation automation scheduled:', { cron3, cron6, cron12 });
+}
+
+// Call on server start
+startEvaluationSchedulers();
+
+// Expose a way to restart the schedulers (for use in settings update controller)
+module.exports.restartEvaluationSchedulers = startEvaluationSchedulers;
 
 const PORT = process.env.PORT || 5000;
 

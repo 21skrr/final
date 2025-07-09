@@ -1,1 +1,1 @@
-export const API_BASE_URL = "http://localhost:5000"; // Change this to your backend URL if different 
+export const API_BASE_URL = "http://localhost:5000/api"; // Change this to your backend URL if different 

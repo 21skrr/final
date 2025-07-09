@@ -579,6 +579,116 @@ const addEmployeeComment = async (req, res) => {
   }
 };
 
+// Send reminder for evaluation
+const sendEvaluationReminder = async (req, res) => {
+  try {
+    const evaluation = await Evaluation.findByPk(req.params.id, {
+      include: [
+        { model: User, as: "employee", attributes: { exclude: ['passwordHash'] } },
+        { model: User, as: "supervisor", attributes: { exclude: ['passwordHash'] } },
+      ],
+    });
+
+    if (!evaluation) {
+      return res.status(404).json({ message: "Evaluation not found" });
+    }
+
+    // Authorization: Only HR and managers can send reminders
+    const user = req.user;
+    if (!['hr', 'manager'].includes(user.role)) {
+      return res.status(403).json({ message: "Not authorized to send reminders" });
+    }
+
+    // Send notification to the evaluator (supervisor)
+    const { sendNotification } = require('../utils/notificationHelper');
+    
+    await sendNotification({
+      userId: evaluation.evaluatorId,
+      type: 'evaluation_reminder',
+      title: 'Evaluation Reminder',
+      message: `Reminder: You have a pending evaluation for ${evaluation.employee?.name || 'an employee'} due on ${evaluation.dueDate ? new Date(evaluation.dueDate).toLocaleDateString() : 'soon'}. Please complete it as soon as possible.`,
+      metadata: {
+        evaluationId: evaluation.id,
+        employeeId: evaluation.employeeId,
+        evaluationType: evaluation.type,
+        dueDate: evaluation.dueDate
+      }
+    });
+
+    // Also send notification to the employee if the evaluation is overdue
+    const now = new Date();
+    const dueDate = evaluation.dueDate ? new Date(evaluation.dueDate) : null;
+    if (dueDate && dueDate < now) {
+      await sendNotification({
+        userId: evaluation.employeeId,
+        type: 'evaluation_overdue',
+        title: 'Evaluation Overdue',
+        message: `Your evaluation is overdue. Please contact your supervisor to complete it as soon as possible.`,
+        metadata: {
+          evaluationId: evaluation.id,
+          evaluatorId: evaluation.evaluatorId,
+          evaluationType: evaluation.type,
+          dueDate: evaluation.dueDate
+        }
+      });
+    }
+
+    res.json({ message: "Reminder sent successfully" });
+  } catch (error) {
+    console.error("Error sending evaluation reminder:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Export a single evaluation as CSV
+const exportSingleEvaluationCSV = async (req, res) => {
+  try {
+    const evaluation = await Evaluation.findByPk(req.params.id, {
+      include: [
+        { model: User, as: "employee", attributes: ["id", "name", "email"] },
+        { model: User, as: "supervisor", attributes: ["id", "name", "email"] },
+        { model: EvaluationCriteria, as: "criteria" }
+      ]
+    });
+    if (!evaluation) {
+      return res.status(404).json({ message: "Evaluation not found" });
+    }
+
+    // Flatten criteria for CSV (as JSON string)
+    const criteria = evaluation.criteria?.map(c => ({
+      category: c.category,
+      criteria: c.criteria,
+      rating: c.rating,
+      comments: c.comments
+    })) || [];
+
+    const row = {
+      evaluationId: evaluation.id,
+      employeeName: evaluation.employee?.name || "",
+      employeeEmail: evaluation.employee?.email || "",
+      evaluatorName: evaluation.supervisor?.name || "",
+      evaluatorEmail: evaluation.supervisor?.email || "",
+      type: evaluation.type,
+      status: evaluation.status,
+      overallScore: evaluation.overallScore,
+      comments: evaluation.comments,
+      dueDate: evaluation.dueDate,
+      createdAt: evaluation.createdAt,
+      criteria: JSON.stringify(criteria)
+    };
+
+    const fields = Object.keys(row);
+    const parser = new Parser({ fields });
+    const csv = parser.parse([row]);
+    res.header("Content-Type", "text/csv");
+    res.attachment(`evaluation-${evaluation.id}.csv`);
+    return res.send(csv);
+  } catch (error) {
+    console.error("Error exporting evaluation as CSV:", error);
+    res.status(500).json({ error: "Failed to export evaluation" });
+  }
+};
+
 module.exports = {
   getAllEvaluations,
   getEvaluationById,
@@ -599,4 +709,6 @@ module.exports = {
   getEvaluationCriteriaByEvaluationId,
   validateEvaluation,
   addEmployeeComment,
+  sendEvaluationReminder,
+  exportSingleEvaluationCSV,
 };

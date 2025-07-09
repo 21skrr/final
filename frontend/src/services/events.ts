@@ -20,7 +20,7 @@ function getAuthHeaders() {
 export const eventsService = {
   // Get all events
   getAllEvents: async (filters?: { startDate?: string; endDate?: string }) => {
-    const response = await axios.get(`${API_BASE_URL}/api/events`, {
+    const response = await axios.get(`${API_BASE_URL}/events`, {
       params: filters,
       headers: getAuthHeaders(),
     });
@@ -29,7 +29,7 @@ export const eventsService = {
 
   // Get a specific event
   getEvent: async (id: string) => {
-    const response = await axios.get(`${API_BASE_URL}/api/events/${id}`, {
+    const response = await axios.get(`${API_BASE_URL}/events/${id}`, {
       headers: getAuthHeaders(),
     });
     return response.data;
@@ -37,7 +37,7 @@ export const eventsService = {
 
   // Create a new event (HR/Manager only)
   createEvent: async (event: Omit<Event, 'id'>) => {
-    const response = await axios.post(`${API_BASE_URL}/api/events`, event, {
+    const response = await axios.post(`${API_BASE_URL}/events`, event, {
       headers: getAuthHeaders(),
     });
     return response.data;
@@ -45,7 +45,7 @@ export const eventsService = {
 
   // Update an event (HR/Manager only)
   updateEvent: async (id: string, event: Partial<Event>) => {
-    const response = await axios.put(`${API_BASE_URL}/api/events/${id}`, event, {
+    const response = await axios.put(`${API_BASE_URL}/events/${id}`, event, {
       headers: getAuthHeaders(),
     });
     return response.data;
@@ -53,7 +53,7 @@ export const eventsService = {
 
   // Delete an event (HR/Manager only)
   deleteEvent: async (id: string) => {
-    const response = await axios.delete(`${API_BASE_URL}/api/events/${id}`, {
+    const response = await axios.delete(`${API_BASE_URL}/events/${id}`, {
       headers: getAuthHeaders(),
     });
     return response.data;

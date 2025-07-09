@@ -109,7 +109,7 @@ router.get(
   "/export",
   [
     auth,
-    checkRole("hr"),
+    checkRole("hr", "manager"),
     check("format")
       .optional()
       .isIn(["csv", "excel", "pdf", "json"])

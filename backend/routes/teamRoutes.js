@@ -3,10 +3,10 @@ const router = express.Router();
 const teamController = require("../controllers/teamController");
 const { auth, checkRole } = require("../middleware/auth");
 
-// @route   GET /api/team
-// @desc    Get team members
+// @route   GET /api/teams
+// @desc    Get all teams (any authenticated user)
 // @access  Private
-router.get("/", auth, teamController.getTeamMembers);
+router.get("/", auth, teamController.getAllTeams);
 
 // @route   GET /api/team/feedback
 // @desc    Get team feedback (Supervisor only)
@@ -27,6 +27,11 @@ router.get("/settings", auth, teamController.getTeamSettings);
 // @desc    Update team settings
 // @access  Private (Supervisor, HR, Admin)
 router.put("/settings", auth, teamController.updateTeamSettings);
+
+// @route   GET /api/teams/all
+// @desc    Get all teams (HR/Admin)
+// @access  Private (HR/Admin)
+router.get("/all", auth, checkRole("hr", "admin"), teamController.getAllTeams);
 
 // @route   GET /api/team/:id
 // @desc    Get team by ID

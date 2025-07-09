@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../../components/layout/Layout';
 import { Star, Save, MessageSquare } from 'lucide-react';
 import { getEvaluationById, addEmployeeCommentToEvaluation } from '../../services/evaluationService';
@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 
 const EvaluationReview: React.FC = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +23,10 @@ const EvaluationReview: React.FC = () => {
   const [checklistHistory, setChecklistHistory] = useState<any[]>([]);
   const { user } = useAuth();
   const [editableCriteria, setEditableCriteria] = useState<any[]>([]);
+  const [hasAcknowledged, setHasAcknowledged] = useState(false);
+
+  // Determine if the user is an employee
+  const isEmployee = user?.role === 'employee';
 
   useEffect(() => {
     const fetchEvaluation = async () => {
@@ -31,6 +36,10 @@ const EvaluationReview: React.FC = () => {
           setEvaluation(response.data);
           if (user?.role === 'employee' && response.data?.criteria) {
             setEditableCriteria(response.data.criteria.map((c: any) => ({ ...c })));
+          }
+          // If comments already exist, consider as acknowledged
+          if (user?.role === 'employee' && response.data?.comments) {
+            setHasAcknowledged(true);
           }
         }
       } catch (err) {
@@ -70,6 +79,8 @@ const EvaluationReview: React.FC = () => {
       if (id) {
         if (user?.role === 'employee') {
           await addEmployeeCommentToEvaluation(id, employeeComment, editableCriteria);
+          setHasAcknowledged(true);
+          setTimeout(() => navigate('/evaluations'), 1200);
         } else if (employeeComment) {
           await addEmployeeCommentToEvaluation(id, employeeComment);
         } else {
@@ -107,7 +118,7 @@ const EvaluationReview: React.FC = () => {
                 <div>
                   <h3 className="text-lg font-medium text-gray-900">Performance Categories</h3>
                   <div className="mt-4 space-y-4">
-                    {(user?.role === 'employee' ? editableCriteria : evaluation.criteria).map((category, idx) => (
+                    {(isEmployee ? editableCriteria : evaluation.criteria).map((category, idx) => (
                       <div key={category.id} className="space-y-2">
                         <div className="flex justify-between items-center">
                           <label className="block text-sm font-medium text-gray-700">
@@ -127,9 +138,9 @@ const EvaluationReview: React.FC = () => {
                           min="1"
                           max="5"
                           value={category.rating || 1}
-                          onChange={e => user?.role === 'employee' && handleCriteriaChange(idx, Number(e.target.value))}
+                          onChange={e => isEmployee && handleCriteriaChange(idx, Number(e.target.value))}
                           className="w-full"
-                          disabled={user?.role !== 'employee'}
+                          disabled
                         />
                       </div>
                     ))}
@@ -147,6 +158,7 @@ const EvaluationReview: React.FC = () => {
                       placeholder="Add your feedback here..."
                       value={employeeComment}
                       onChange={e => setEmployeeComment(e.target.value)}
+                      disabled
                     />
                   </div>
                 </div>
@@ -160,6 +172,7 @@ const EvaluationReview: React.FC = () => {
                       rows={3}
                       className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
                       placeholder="Set development goals..."
+                      disabled
                     />
                   </div>
                 </div>
@@ -171,6 +184,7 @@ const EvaluationReview: React.FC = () => {
                     checked={acknowledged}
                     onChange={e => setAcknowledged(e.target.checked)}
                     className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                    disabled
                   />
                   <label htmlFor="acknowledge" className="ml-2 block text-sm text-gray-700">
                     I have read and understood this evaluation
@@ -179,16 +193,19 @@ const EvaluationReview: React.FC = () => {
                 {saveError && <div className="text-red-500">{saveError}</div>}
                 {saveSuccess && <div className="text-green-600">Acknowledgment and comment saved!</div>}
               </div>
-              <div className="px-4 py-3 bg-gray-50 text-right sm:px-6 space-x-3">
-                <button
-                  type="submit"
-                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  disabled={saving}
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {saving ? 'Saving...' : 'Acknowledge & Comment'}
-                </button>
-              </div>
+              {/* Hide submit button for employees */}
+              {!isEmployee && (
+                <div className="px-4 py-3 bg-gray-50 text-right sm:px-6 space-x-3">
+                  <button
+                    type="submit"
+                    className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    disabled={saving || hasAcknowledged}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Acknowledge & Comment
+                  </button>
+                </div>
+              )}
             </form>
           </div>
         </div>

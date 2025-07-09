@@ -145,24 +145,12 @@ const createFeedback = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { type, content, isAnonymous, shareWithSupervisor } = req.body;
+    const { type, content, isAnonymous, shareWithSupervisor, priority } = req.body;
 
-    // Get the user's supervisor if shareWithSupervisor is true
-    let toUserId = null;
-    let toDepartment = null;
-    
-    if (shareWithSupervisor) {
-      const user = await User.findByPk(req.user.id, {
-        attributes: ['supervisorId']
-      });
-      toUserId = user.supervisorId;
-    } else {
-      // If not sharing with supervisor, send to department
-      const user = await User.findByPk(req.user.id, {
-        attributes: ['department']
-      });
-      toDepartment = user.department;
-    }
+    // Always send feedback to the user's supervisor
+    const user = await User.findByPk(req.user.id, { attributes: ['supervisorId'] });
+    const toUserId = user.supervisorId;
+    const toDepartment = null;
 
    // Get feedback notification template from system settings
 const notificationTemplate = await getSystemSetting("feedbackNotificationTemplate");
@@ -180,7 +168,8 @@ const feedback = await Feedback.create({
   type,
   message: finalMessage,
   isAnonymous: isAnonymous ? 1 : 0,
-  categories: []
+  categories: [],
+  priority: priority || 'medium'
 });
 
     await logActivity({

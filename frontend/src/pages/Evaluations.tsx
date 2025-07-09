@@ -4,11 +4,14 @@ import { ClipboardCheck, Star, Clock, AlertCircle } from 'lucide-react';
 import { getUserEvaluations } from '../services/evaluationService';
 import { Evaluation } from '../types/evaluation';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const Evaluations: React.FC = () => {
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const isEmployee = user?.role === 'employee';
 
   useEffect(() => {
     const fetchEvaluations = async () => {
@@ -112,12 +115,14 @@ const Evaluations: React.FC = () => {
                       View Results
                     </Link>
                   ) : (
-                    <Link
-                      to={`/evaluations/${evaluation.id}`}
-                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-                    >
-                      {evaluation.status === 'in_progress' ? 'Continue' : 'Start Evaluation'}
-                    </Link>
+                    !isEmployee && (
+                      <Link
+                        to={`/evaluations/${evaluation.id}`}
+                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                      >
+                        {evaluation.status === 'in_progress' ? 'Continue' : 'Start Evaluation'}
+                      </Link>
+                    )
                   )}
                 </div>
               </div>

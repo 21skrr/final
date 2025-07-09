@@ -309,7 +309,7 @@ const Router: React.FC = () => {
     {
       path: '/evaluations/:id',
       element: (
-        <ProtectedRoute requiredRoles={['employee', 'supervisor', 'manager']}>
+        <ProtectedRoute requiredRoles={['employee', 'supervisor', 'manager', 'hr']}>
           <EvaluationReview />
         </ProtectedRoute>
       ),
