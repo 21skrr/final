@@ -48,12 +48,9 @@ const OnboardingDetail: React.FC = () => {
         } else if (isHR) {
           // HR viewing any user's journey
           data = await onboardingService.getUserProgressHR(targetUserId);
-        } else if (isSupervisor) {
-          // Supervisor viewing direct report's journey
+        } else if (isSupervisor || isManager) {
+          // Supervisor or Manager viewing direct report/department member's journey
           data = await onboardingService.getUserProgress(targetUserId);
-        } else if (isManager) {
-          // Manager viewing department member's journey (read-only)
-          data = await onboardingService.getUserProgressManager(targetUserId);
         } else {
           throw new Error('Insufficient permissions to view this onboarding journey');
         }
@@ -256,10 +253,8 @@ const OnboardingDetail: React.FC = () => {
         data = await onboardingService.getMyProgress();
       } else if (isHR) {
         data = await onboardingService.getUserProgressHR(targetUserId);
-      } else if (isSupervisor) {
+      } else if (isSupervisor || isManager) {
         data = await onboardingService.getUserProgress(targetUserId);
-      } else if (isManager) {
-        data = await onboardingService.getUserProgressManager(targetUserId);
       } else {
         throw new Error('Insufficient permissions to view this onboarding journey');
       }

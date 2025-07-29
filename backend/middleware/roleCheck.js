@@ -99,8 +99,8 @@ const onboardingPermissions = {
       return res.status(401).json({ message: "Not authenticated" });
     }
 
-    // Only HR and supervisors can edit tasks
-    if (!['hr', 'supervisor'].includes(req.user.role)) {
+    // Only HR, supervisors, and managers can edit tasks
+    if (!['hr', 'supervisor', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ message: "Task editing not allowed for this role" });
     }
 
@@ -112,6 +112,21 @@ const onboardingPermissions = {
           const targetUser = await User.findByPk(targetUserId);
           if (!targetUser || targetUser.supervisorId !== req.user.id) {
             return res.status(403).json({ message: "Supervisors can only edit their direct reports' tasks" });
+          }
+        } catch (error) {
+          return res.status(500).json({ message: "Error validating access" });
+        }
+      }
+    }
+
+    // For managers, check if they're editing tasks for users in their department
+    if (req.user.role === 'manager') {
+      const targetUserId = req.body.userId || req.params.userId || req.params.id;
+      if (targetUserId && targetUserId !== req.user.id) {
+        try {
+          const targetUser = await User.findByPk(targetUserId);
+          if (!targetUser || targetUser.department !== req.user.department) {
+            return res.status(403).json({ message: "Managers can only edit tasks for users in their department" });
           }
         } catch (error) {
           return res.status(500).json({ message: "Error validating access" });
@@ -141,13 +156,12 @@ const onboardingPermissions = {
       return res.status(401).json({ message: "Not authenticated" });
     }
 
-    if (!['supervisor', 'hr'].includes(req.user.role)) {
-      return res.status(403).json({ message: "Supervisor or HR access only" });
+    if (!['supervisor', 'manager', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({ message: "Supervisor, Manager, or HR access only" });
     }
 
-    // For supervisors, check if they're accessing their direct reports
+    const targetUserId = req.params.userId || req.params.id;
     if (req.user.role === 'supervisor') {
-      const targetUserId = req.params.userId || req.params.id;
       if (targetUserId && targetUserId !== req.user.id) {
         try {
           const targetUser = await User.findByPk(targetUserId);
@@ -157,6 +171,21 @@ const onboardingPermissions = {
         } catch (error) {
           return res.status(500).json({ message: "Error validating access" });
         }
+      }
+    } else if (req.user.role === 'manager') {
+      if (targetUserId && targetUserId !== req.user.id) {
+        try {
+          const targetUser = await User.findByPk(targetUserId);
+          if (!targetUser || targetUser.department !== req.user.department) {
+            return res.status(403).json({ message: "Managers can only access users in their department" });
+          }
+        } catch (error) {
+          return res.status(500).json({ message: "Error validating access" });
+        }
+      }
+      // Managers have read-only access
+      if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+        return res.status(403).json({ message: "Managers have read-only access to onboarding data" });
       }
     }
 

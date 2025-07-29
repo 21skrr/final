@@ -57,6 +57,8 @@ const navItems: NavLink[] = [
     { name: 'Admin', path: '/admin', icon: Shield, roles: ['hr'] },
     { name: 'Department Surveys', path: '/manager/department-surveys', icon: PieChart, roles: ['manager'] },
     { name: 'Team Surveys', path: '/supervisor/team-surveys', icon: Users, roles: ['supervisor'] },
+    { name: 'Onboarding Management', path: '/manager/onboarding', icon: Briefcase, roles: ['manager'] },
+    { name: 'Onboarding Management', path: '/supervisor/onboarding', icon: Briefcase, roles: ['supervisor'] },
     {
       name: 'Surveys',
       path: '/admin/surveys',

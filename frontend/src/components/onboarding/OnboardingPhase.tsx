@@ -58,6 +58,9 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
     if (user?.role === 'hr') {
       return true; // HR can edit all tasks
     }
+    if (user?.role === 'manager') {
+      return true; // Managers can edit tasks for their department
+    }
     return false;
   };
 

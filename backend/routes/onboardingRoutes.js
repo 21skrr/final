@@ -75,8 +75,13 @@ router.get("/progress/:userId/manager", auth, onboardingPermissions.manager, onb
 
 // --- HR Routes (Full access) ---
 
-// GET /api/onboarding/progress - Get all progresses (HR only)
-router.get("/progress", auth, onboardingPermissions.hr, onboardingController.getAllProgresses);
+// GET /api/onboarding/progress - Get all progresses (HR, manager, supervisor)
+router.get("/progress", auth, (req, res, next) => {
+  if (["hr", "manager", "supervisor"].includes(req.user.role)) {
+    return next();
+  }
+  return res.status(403).json({ message: "Not authorized" });
+}, onboardingController.getAllProgresses);
 
 // GET /api/onboarding/progress/:userId - Get specific user's data (HR)
 router.get("/progress/:userId/hr", auth, onboardingPermissions.hr, onboardingController.getUserOnboardingProgress);

@@ -8,6 +8,7 @@ import api from '../../services/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import Layout from '../../components/layout/Layout';
 import { ColumnsType } from 'antd/es/table';
+import { useAuth } from '../../context/AuthContext';
 
 const { Option } = Select;
 const { confirm } = Modal;
@@ -36,6 +37,7 @@ const OnboardingManagement: React.FC = () => {
   const [editCompletion, setEditCompletion] = useState<number>(0);
   const [currentPhases, setCurrentPhases] = useState<{ [userId: string]: string }>({});
   const [currentStatuses, setCurrentStatuses] = useState<{ [userId: string]: string }>({});
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchEmployees();
@@ -97,7 +99,15 @@ const OnboardingManagement: React.FC = () => {
   };
 
   const handleViewEmployee = (userId: string) => {
-    navigate(`/admin/onboarding/${userId}`);
+    if (user?.role === 'hr') {
+      navigate(`/admin/onboarding/${userId}`);
+    } else if (user?.role === 'manager') {
+      navigate(`/manager/onboarding/${userId}`);
+    } else if (user?.role === 'supervisor') {
+      navigate(`/supervisor/onboarding/${userId}`);
+    } else {
+      navigate(`/onboarding/${userId}`);
+    }
   };
 
   const handleDeleteJourney = (userId: string, name: string) => {

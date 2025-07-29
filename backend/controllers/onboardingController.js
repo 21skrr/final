@@ -92,27 +92,63 @@ const getUserProgress = async (req, res) => {
 // GET /api/onboarding/progress
 const getAllProgresses = async (req, res) => {
   try {
-    // Verify the user has permission - Only HR can view all.
-    if (req.user.role !== "hr") {
+    let progresses;
+    if (req.user.role === "hr") {
+      // HR: all progresses
+      progresses = await OnboardingProgress.findAll({
+        include: [
+          {
+            model: User,
+            attributes: [
+              "id",
+              "name",
+              "email",
+              "role",
+              "department",
+              "startDate",
+            ],
+          },
+        ],
+      });
+    } else if (req.user.role === "manager") {
+      // Manager: only employees in their department
+      progresses = await OnboardingProgress.findAll({
+        include: [
+          {
+            model: User,
+            where: { department: req.user.department, role: 'employee' },
+            attributes: [
+              "id",
+              "name",
+              "email",
+              "role",
+              "department",
+              "startDate",
+            ],
+          },
+        ],
+      });
+    } else if (req.user.role === "supervisor") {
+      // Supervisor: only direct reports
+      progresses = await OnboardingProgress.findAll({
+        include: [
+          {
+            model: User,
+            where: { supervisorId: req.user.id, role: 'employee' },
+            attributes: [
+              "id",
+              "name",
+              "email",
+              "role",
+              "department",
+              "startDate",
+            ],
+          },
+        ],
+      });
+    } else {
       return res.status(403).json({ message: "Not authorized" });
     }
-
-    const progresses = await OnboardingProgress.findAll({
-      include: [
-        {
-          model: User,
-          attributes: [
-            "id",
-            "name",
-            "email",
-            "role",
-            "department",
-            "startDate",
-          ],
-        },
-      ],
-    });
-
     res.json(progresses);
   } catch (error) {
     console.error("Error fetching all onboarding progresses:", error);

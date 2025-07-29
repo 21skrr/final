@@ -167,7 +167,7 @@ class OnboardingService {
 
   // Role-based permission checks
   canEditTasks(userRole: string): boolean {
-    return ['hr', 'supervisor'].includes(userRole);
+    return ['hr', 'supervisor', 'manager'].includes(userRole);
   }
 
   canAdvancePhases(userRole: string): boolean {

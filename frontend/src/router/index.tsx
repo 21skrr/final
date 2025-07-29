@@ -52,6 +52,8 @@ import EvaluationResult from '../pages/evaluations/EvaluationResult';
 // Add these imports at the top with the other imports
 import OnboardingDetail from '../pages/OnboardingDetail';
 import OnboardingManagement from '../pages/admin/OnboardingManagement';
+import ManagerOnboardingManagement from '../pages/manager/OnboardingManagement';
+import SupervisorOnboardingManagement from '../pages/supervisor/OnboardingManagement';
 
 
 import ChecklistDetail from '../pages/ChecklistDetail';
@@ -64,7 +66,6 @@ import EmployeeChecklists from '../pages/EmployeeChecklists';
 import SupervisorTeamChecklists from '../pages/SupervisorTeamChecklists';
 import ManagerChecklistDashboard from '../pages/ManagerChecklistDashboard';
 import ManagerChecklistDetail from '../pages/ManagerChecklistDetail';
-import ChecklistAssignmentDetailPage from '../pages/ChecklistAssignmentDetail';
 import SurveyDetail from '../pages/SurveyDetail';
 import SurveyResponseForm from '../pages/SurveyResponseForm';
 import SurveyHistory from '../pages/SurveyHistory';
@@ -108,16 +109,6 @@ const ProtectedRoute: React.FC<{
   }
   
   if (requiredRoles && !requiredRoles.includes(user.role)) {
-    return <Navigate to="/dashboard" replace />;
-  }
-  
-  return <>{children}</>;
-};
-
-const PrivateRoute: React.FC<{ children: React.ReactElement; role: string[] }> = ({ children, role }) => {
-  const { user } = useAuth();
-  
-  if (!user || !role.includes(user.role)) {
     return <Navigate to="/dashboard" replace />;
   }
   
@@ -486,7 +477,39 @@ const Router: React.FC = () => {
     {
       path: '/admin/onboarding/:userId',
       element: (
-        <ProtectedRoute requiredRoles={['hr', 'manager']}>
+        <ProtectedRoute requiredRoles={['hr', 'manager', 'supervisor']}>
+          <OnboardingDetail />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/manager/onboarding',
+      element: (
+        <ProtectedRoute requiredRoles={['manager']}>
+          <ManagerOnboardingManagement />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/manager/onboarding/:userId',
+      element: (
+        <ProtectedRoute requiredRoles={['manager']}>
+          <OnboardingDetail />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/supervisor/onboarding',
+      element: (
+        <ProtectedRoute requiredRoles={['supervisor']}>
+          <SupervisorOnboardingManagement />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/supervisor/onboarding/:userId',
+      element: (
+        <ProtectedRoute requiredRoles={['supervisor']}>
           <OnboardingDetail />
         </ProtectedRoute>
       ),
@@ -622,7 +645,7 @@ const Router: React.FC = () => {
     {
       path: '/admin/onboarding-management',
       element: (
-        <ProtectedRoute roles={['hr']}>
+        <ProtectedRoute requiredRoles={['hr']}>
           <HROnboardingManagement />
         </ProtectedRoute>
       )
@@ -630,7 +653,7 @@ const Router: React.FC = () => {
     {
       path: '/admin/task-validation',
       element: (
-        <ProtectedRoute roles={['hr']}>
+        <ProtectedRoute requiredRoles={['hr']}>
           <HRTaskValidation />
         </ProtectedRoute>
       )
