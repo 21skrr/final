@@ -1,7 +1,17 @@
-export type OnboardingStage = 'prepare' | 'orient' | 'land' | 'integrate' | 'excel';
-export type UserRole = 'employee' | 'supervisor' | 'manager' | 'hr';
-export type ProgramType = 'inkompass' | 'earlyTalent' | 'apprenticeship' | 'academicPlacement' | 'workExperience';
-export type TaskStatus = 'assigned' | 'in_progress' | 'completed' | 'overdue';
+export type OnboardingStage =
+  | "prepare"
+  | "orient"
+  | "land"
+  | "integrate"
+  | "excel";
+export type UserRole = "employee" | "supervisor" | "manager" | "hr";
+export type ProgramType =
+  | "inkompass"
+  | "earlyTalent"
+  | "apprenticeship"
+  | "academicPlacement"
+  | "workExperience";
+export type TaskStatus = "assigned" | "in_progress" | "completed" | "overdue";
 
 // Backend Model Interfaces
 export interface User {
@@ -38,7 +48,7 @@ export interface OnboardingTask {
   stage: OnboardingStage;
   order: number;
   isDefault: boolean;
-  controlledBy?: 'hr' | 'employee' | 'both';
+  controlledBy?: "hr" | "employee" | "both";
   createdAt: string;
   updatedAt: string;
 }
@@ -153,14 +163,10 @@ export interface Task extends OnboardingTask {
   completedAt?: string;
   completedBy?: string;
   dueDate?: string;
-  hrValidated?: boolean;
-  hrValidatedAt?: string;
-  hrComments?: string;
-  hrValidatedBy?: string;
   evidenceRequired?: boolean;
   evidenceUrl?: string;
   evidenceDescription?: string;
-  verificationStatus?: 'pending' | 'approved' | 'rejected';
+  verificationStatus?: "pending" | "approved" | "rejected";
   verificationNotes?: string;
   verifiedBy?: string;
   verifiedAt?: string;
