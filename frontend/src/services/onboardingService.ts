@@ -182,15 +182,27 @@ class OnboardingService {
   }
 
   // Utility methods
-  getPhaseTitle(stage: OnboardingStage): string {
-    const titles = {
+  getPhaseTitle(stage: OnboardingStage | string): string {
+    const titles: Record<string, string> = {
       prepare: "Prepare",
       orient: "Orient",
       land: "Land",
       integrate: "Integrate",
       excel: "Excel",
     };
-    return titles[stage];
+    return titles[stage] || stage;
+  }
+
+  getPhaseDescription(stage: OnboardingStage | string): string {
+    const descriptions: Record<string, string> = {
+      prepare: "Complete paperwork, review materials, and set up accounts",
+      orient: "Attend orientation, meet the team, and receive equipment",
+      land: "Start self-study, get a buddy, and shadow interactions",
+      integrate:
+        "Lead interactions, demonstrate autonomy, complete assessments",
+      excel: "Set up development plan, join coaching, and track KPIs",
+    };
+    return descriptions[stage] || "";
   }
 
   // Permission helpers for UI

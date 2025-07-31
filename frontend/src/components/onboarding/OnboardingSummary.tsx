@@ -17,10 +17,7 @@ const OnboardingSummary: React.FC<OnboardingSummaryProps> = ({ journey }) => {
 
   // Only consider current phase for employees
   const isEmployee = journey.user?.role === "employee";
-  const phasesToCheck =
-    isEmployee && Array.isArray(journey.phases)
-      ? journey.phases.filter((phase) => phase.stage === journey.currentStage)
-      : journey.phases;
+  const phasesToCheck = Array.isArray(journey.phases) ? journey.phases : [];
 
   const getNextUpcomingTask = (): Task | null => {
     for (const phase of phasesToCheck) {

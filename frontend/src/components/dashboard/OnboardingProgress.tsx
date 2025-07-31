@@ -72,6 +72,7 @@ const OnboardingProgress: React.FC = () => {
     );
   }
 
+  // Only show current and completed phases
   const stages: OnboardingStage[] = [
     "prepare",
     "orient",
@@ -88,11 +89,8 @@ const OnboardingProgress: React.FC = () => {
     (journey.progress as unknown as OnboardingProgressWithOverall)?.overall ??
     0;
 
-  // Only show current phase for employees
-  let visibleStages = stages;
-  if (isEmployee) {
-    visibleStages = [journey.currentStage];
-  }
+  // Only show completed phases and the current phase
+  const visibleStages = stages.filter((stage, idx) => idx <= currentStageIndex);
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -121,15 +119,25 @@ const OnboardingProgress: React.FC = () => {
             const isPastStage = index < currentStageIndex;
             // Use tasksByPhase from journey, which includes isCompleted
             const tasks: Task[] = journey.tasksByPhase?.[stageKey] || [];
+            const phaseCompleted =
+              tasks.length > 0 && tasks.every((t) => t.isCompleted);
             return (
               <div
                 key={stageKey}
-                className="border rounded-lg p-4 transition-all duration-200 border-gray-200 bg-white"
+                className={`border rounded-lg p-4 transition-all duration-200 ${
+                  phaseCompleted
+                    ? "border-green-300 bg-green-50"
+                    : isCurrentStage
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-200 bg-white"
+                }`}
               >
                 <div className="flex items-start">
                   <div className="flex-shrink-0 mt-1">
-                    {isCurrentStage || isPastStage ? (
+                    {phaseCompleted ? (
                       <CheckCircle className="w-6 h-6 text-green-500" />
+                    ) : isCurrentStage ? (
+                      <CheckCircle className="w-6 h-6 text-blue-500" />
                     ) : (
                       <Circle className="w-6 h-6 text-gray-300" />
                     )}
