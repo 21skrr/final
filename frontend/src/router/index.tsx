@@ -88,6 +88,9 @@ import HRTaskValidation from '../pages/admin/HRTaskValidation';
 import SurveyAnalytics from '../pages/admin/SurveyAnalytics';
 import HRNotificationCenter from '../pages/admin/HRNotificationCenter';
 import ChecklistEdit from '../pages/ChecklistEdit';
+import SupervisorAssessments from '../pages/supervisor/SupervisorAssessments';
+import HRValidationQueue from '../pages/admin/HRValidationQueue';
+import HRAssessmentQueue from '../pages/admin/HRAssessmentQueue';
 
 // Route protection component
 const ProtectedRoute: React.FC<{
@@ -250,6 +253,14 @@ const Router: React.FC = () => {
       element: (
         <ProtectedRoute requiredRoles={['hr']}>
           <HRChecklistPhaseManager />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/hr/validation-queue',
+      element: (
+        <ProtectedRoute requiredRoles={['hr']}>
+          <HRValidationQueue />
         </ProtectedRoute>
       ),
     },
@@ -603,6 +614,14 @@ const Router: React.FC = () => {
       element: <SupervisorEvaluationForm />,
     },
     {
+      path: '/supervisor/assessments',
+      element: (
+        <ProtectedRoute requiredRoles={['supervisor']}>
+          <SupervisorAssessments />
+        </ProtectedRoute>
+      ),
+    },
+    {
       path: '/manager/evaluations',
       element: <ManagerEvaluations />,
     },
@@ -663,6 +682,14 @@ const Router: React.FC = () => {
       element: (
         <ProtectedRoute requiredRoles={['hr']}>
           <HRNotificationCenter />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/admin/assessment-queue',
+      element: (
+        <ProtectedRoute requiredRoles={['hr']}>
+          <HRAssessmentQueue />
         </ProtectedRoute>
       ),
     },

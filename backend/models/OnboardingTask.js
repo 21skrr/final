@@ -10,7 +10,7 @@ const OnboardingTask = sequelize.define(
       defaultValue: DataTypes.UUIDV4,
     },
     title: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(255),
       allowNull: false,
     },
     description: {
@@ -18,7 +18,7 @@ const OnboardingTask = sequelize.define(
       allowNull: true,
     },
     stage: {
-      type: DataTypes.ENUM("prepare", "orient", "land", "integrate", "excel"),
+      type: DataTypes.ENUM("pre_onboarding", "phase_1", "phase_2"),
       allowNull: false,
     },
     order: {
@@ -36,10 +36,20 @@ const OnboardingTask = sequelize.define(
       allowNull: false,
       defaultValue: "both",
     },
+    hrValidated: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
     completed: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false,
+    },
+    journeyType: {
+      type: DataTypes.ENUM("SFP", "CC", "both"),
+      allowNull: false,
+      defaultValue: "both",
     },
   },
   {

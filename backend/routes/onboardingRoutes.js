@@ -14,7 +14,7 @@ const restrictToCurrentPhase = async (req, res, next) => {
     const userId = req.user.id;
     // You may need to adjust the import path for your onboarding progress model
     const OnboardingProgress = require("../models/OnboardingProgress");
-    const progress = await OnboardingProgress.findOne({ user: userId });
+    const progress = await OnboardingProgress.findOne({ where: { UserId: userId } });
     if (!progress) {
       return res.status(404).json({ message: "Onboarding progress not found" });
     }
@@ -54,6 +54,13 @@ router.get(
   auth,
   onboardingPermissions.employee,
   onboardingController.getDetailedProgress
+);
+
+// GET /api/onboarding/journey-types - Get available journey types
+router.get(
+  "/journey-types",
+  auth,
+  onboardingController.getJourneyTypes
 );
 
 // --- Supervisor Routes (Access to direct reports) ---
@@ -108,7 +115,6 @@ router.put(
   "/tasks/:taskId/complete",
   [
     auth,
-    onboardingPermissions.canEditTasks,
     check("completed", "Completed status is required").isBoolean(),
   ],
   onboardingController.updateTaskCompletion
@@ -203,7 +209,7 @@ router.post(
     },
     check("resetToStage", "Stage is invalid")
       .optional()
-      .isIn(["prepare", "orient", "land", "integrate", "excel"]),
+      .isIn(["pre_onboarding", "phase_1", "phase_2"]),
   ],
   onboardingController.resetJourney
 );
@@ -245,6 +251,7 @@ router.post(
     auth,
     onboardingPermissions.hr,
     check("userId", "User ID is required").not().isEmpty(),
+    check("journeyType", "Journey type is required").isIn(["SFP", "CC"]),
     check("templateId", "Template ID is optional").optional().not().isEmpty(),
   ],
   onboardingController.createJourney
@@ -264,5 +271,8 @@ router.put(
   auth,
   onboardingController.validateUserTaskProgress
 );
+
+// GET /api/onboarding/debug/:userId/phase1 - Debug Phase 1 status (for testing)
+router.get("/debug/:userId/phase1", auth, onboardingController.debugPhase1Status);
 
 module.exports = router;

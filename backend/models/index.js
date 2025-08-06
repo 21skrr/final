@@ -46,6 +46,8 @@ const TeamSettings = require('./TeamSettings')(sequelize);
 const ManagerPreference = require('./ManagerPreference')(sequelize);
 const SystemSetting = require("./SystemSetting")(sequelize);
 const Role = require("./Role");
+const SupervisorAssessment = require("./SupervisorAssessment");
+const HRAssessment = require("./HRAssessment");
 
 
 
@@ -303,6 +305,29 @@ SurveySchedule.belongsTo(Survey, { foreignKey: 'surveyId', as: 'survey' });
 // Add association from User to ActivityLog
 User.hasMany(ActivityLog, { foreignKey: 'userId' });
 
+// SupervisorAssessment associations
+OnboardingProgress.hasOne(SupervisorAssessment, { foreignKey: 'OnboardingProgressId' });
+SupervisorAssessment.belongsTo(OnboardingProgress, { foreignKey: 'OnboardingProgressId' });
+
+User.hasMany(SupervisorAssessment, { foreignKey: 'UserId', as: 'employeeAssessments' });
+SupervisorAssessment.belongsTo(User, { foreignKey: 'UserId', as: 'employee' });
+
+User.hasMany(SupervisorAssessment, { foreignKey: 'SupervisorId', as: 'supervisorAssessments' });
+SupervisorAssessment.belongsTo(User, { foreignKey: 'SupervisorId', as: 'supervisor' });
+
+User.hasMany(SupervisorAssessment, { foreignKey: 'hrValidatorId', as: 'hrValidations' });
+SupervisorAssessment.belongsTo(User, { foreignKey: 'hrValidatorId', as: 'hrValidator' });
+
+// HRAssessment associations
+OnboardingProgress.hasOne(HRAssessment, { foreignKey: 'OnboardingProgressId' });
+HRAssessment.belongsTo(OnboardingProgress, { foreignKey: 'OnboardingProgressId' });
+
+User.hasMany(HRAssessment, { foreignKey: 'UserId', as: 'employeeHRAssessments' });
+HRAssessment.belongsTo(User, { foreignKey: 'UserId', as: 'employee' });
+
+User.hasMany(HRAssessment, { foreignKey: 'HRId', as: 'hrAssessments' });
+HRAssessment.belongsTo(User, { foreignKey: 'HRId', as: 'hr' });
+
 // Initialize associations
 Object.keys(module.exports).forEach((modelName) => {
   if (module.exports[modelName].associate) {
@@ -370,6 +395,8 @@ module.exports = {
   ManagerPreference,
   SystemSetting,
   Role,
+  SupervisorAssessment,
+  HRAssessment,
 };
 
 

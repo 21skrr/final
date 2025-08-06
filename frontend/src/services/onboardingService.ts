@@ -135,10 +135,12 @@ class OnboardingService {
 
   async createJourney(
     userId: string,
+    journeyType: "SFP" | "CC",
     templateId?: string
   ): Promise<OnboardingProgressResponse> {
     const response = await api.post("/onboarding/create", {
       userId,
+      journeyType,
       templateId,
     });
     return response.data;
@@ -146,6 +148,11 @@ class OnboardingService {
 
   async getDefaultTasks(): Promise<any> {
     const response = await api.get("/onboarding/tasks/default");
+    return response.data;
+  }
+
+  async getJourneyTypes(): Promise<any> {
+    const response = await api.get("/onboarding/journey-types");
     return response.data;
   }
 
@@ -184,25 +191,28 @@ class OnboardingService {
   // Utility methods
   getPhaseTitle(stage: OnboardingStage | string): string {
     const titles: Record<string, string> = {
-      prepare: "Prepare",
-      orient: "Orient",
-      land: "Land",
-      integrate: "Integrate",
-      excel: "Excel",
+      pre_onboarding: "Pre-Onboarding",
+      phase_1: "Phase 1",
+      phase_2: "Phase 2",
     };
     return titles[stage] || stage;
   }
 
   getPhaseDescription(stage: OnboardingStage | string): string {
     const descriptions: Record<string, string> = {
-      prepare: "Complete paperwork, review materials, and set up accounts",
-      orient: "Attend orientation, meet the team, and receive equipment",
-      land: "Start self-study, get a buddy, and shadow interactions",
-      integrate:
-        "Lead interactions, demonstrate autonomy, complete assessments",
-      excel: "Set up development plan, join coaching, and track KPIs",
+      pre_onboarding: "Complete initial setup, paperwork, and preparation",
+      phase_1: "Begin orientation and initial training activities",
+      phase_2: "Complete advanced training and final assessments",
     };
     return descriptions[stage] || "";
+  }
+
+  getJourneyTypeLabel(journeyType: "SFP" | "CC"): string {
+    const labels: Record<string, string> = {
+      SFP: "Smoke-Free Products",
+      CC: "CC",
+    };
+    return labels[journeyType] || journeyType;
   }
 
   // Permission helpers for UI

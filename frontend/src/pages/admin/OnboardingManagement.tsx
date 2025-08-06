@@ -35,6 +35,8 @@ import {
   ProgramType,
   TaskStatus,
   UserRole,
+  JourneyType,
+  JourneyTypeOption,
 } from "../../types/onboarding";
 import onboardingService from "../../services/onboardingService";
 import api from "../../services/api";
@@ -76,6 +78,8 @@ const OnboardingManagement: React.FC = () => {
   const [selectedEmployee, setSelectedEmployee] =
     useState<EmployeeOnboarding | null>(null);
   const [allUsers, setAllUsers] = useState<SimpleUser[]>([]);
+  const [journeyTypes, setJourneyTypes] = useState<JourneyTypeOption[]>([]);
+  const [selectedJourneyType, setSelectedJourneyType] = useState<JourneyType | null>(null);
   const [filters, setFilters] = useState({
     department: "",
     phase: "",
@@ -86,7 +90,7 @@ const OnboardingManagement: React.FC = () => {
   const [csvLoading, setCsvLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editPhase, setEditPhase] = useState<OnboardingStage>("prepare");
+  const [editPhase, setEditPhase] = useState<OnboardingStage>("pre_onboarding");
   const [editCompletion, setEditCompletion] = useState<number>(0);
   const [currentPhases, setCurrentPhases] = useState<{
     [userId: string]: string;
@@ -98,7 +102,18 @@ const OnboardingManagement: React.FC = () => {
 
   useEffect(() => {
     fetchEmployees();
+    fetchJourneyTypes();
   }, []);
+
+  const fetchJourneyTypes = async () => {
+    try {
+      const response = await onboardingService.getJourneyTypes();
+      setJourneyTypes(response.journeyTypes || []);
+    } catch (error) {
+      console.error("Failed to fetch journey types:", error);
+      message.error("Failed to load journey types");
+    }
+  };
 
   const fetchEmployees = async () => {
     try {
@@ -142,18 +157,20 @@ const OnboardingManagement: React.FC = () => {
     }
   };
 
-  const handleCreateJourney = async (values: { employeeId: string }) => {
+  const handleCreateJourney = async (values: { employeeId: string; journeyType: JourneyType }) => {
     try {
       setLoading(true);
-      await onboardingService.createJourney(values.employeeId);
+      await onboardingService.createJourney(values.employeeId, values.journeyType);
       message.success("Onboarding journey created successfully");
       setCreateModalVisible(false);
       form.resetFields();
+      setSelectedEmployee(null);
+      setSelectedJourneyType(null);
       // Refresh the data
       await fetchEmployees();
       await fetchAllUsers();
-    } catch {
-      message.error("Failed to create onboarding journey");
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || "Failed to create onboarding journey");
     } finally {
       setLoading(false);
     }
@@ -197,7 +214,7 @@ const OnboardingManagement: React.FC = () => {
         return "green";
       case "on track":
         return "blue";
-      case "excel":
+      case "phase_2":
         return "purple";
       case "delayed":
         return "red";
@@ -248,11 +265,9 @@ const OnboardingManagement: React.FC = () => {
 
   const phaseDistribution = React.useMemo(() => {
     const phaseCounts = {
-      Prepare: 0,
-      Orient: 0,
-      Land: 0,
-      Integrate: 0,
-      Excel: 0,
+              "Pre-Onboarding": 0,
+        "Phase 1": 0,
+        "Phase 2": 0,
       Completed: 0,
     };
 
@@ -260,7 +275,13 @@ const OnboardingManagement: React.FC = () => {
       if (emp.completionPercentage === 100) {
         phaseCounts["Completed"]++;
       } else {
-        phaseCounts[emp.currentPhase as keyof typeof phaseCounts]++;
+        const phaseKey = emp.currentPhase === "pre_onboarding" ? "Pre-Onboarding" :
+                        emp.currentPhase === "phase_1" ? "Phase 1" :
+                        emp.currentPhase === "phase_2" ? "Phase 2" :
+                        emp.currentPhase;
+        if (phaseKey in phaseCounts) {
+          phaseCounts[phaseKey as keyof typeof phaseCounts]++;
+        }
       }
     });
 
@@ -296,7 +317,7 @@ const OnboardingManagement: React.FC = () => {
     setActionLoading(true);
     try {
       await api.post(`/onboarding/${selectedEmployee.userId}/reset`, {
-        resetToStage: "prepare",
+        resetToStage: "pre_onboarding",
         keepCompletedTasks: false,
       });
       message.success("Journey reset successfully");
@@ -655,7 +676,7 @@ const OnboardingManagement: React.FC = () => {
                 onChange={(value) => setFilters({ ...filters, phase: value })}
                 allowClear
               >
-                {["Prepare", "Orient", "Land", "Integrate", "Excel"].map(
+                {["Pre-Onboarding", "Phase 1", "Phase 2"].map(
                   (phase) => (
                     <Option key={phase} value={phase}>
                       {phase}
@@ -718,6 +739,7 @@ const OnboardingManagement: React.FC = () => {
           onCancel={() => {
             setCreateModalVisible(false);
             setSelectedEmployee(null);
+            setSelectedJourneyType(null);
           }}
           footer={null}
         >
@@ -740,7 +762,7 @@ const OnboardingManagement: React.FC = () => {
                         department: user.department ?? "",
                         programType: (user.programType ??
                           "inkompass") as ProgramType,
-                        currentPhase: "prepare",
+                        currentPhase: "pre_onboarding",
                         completionPercentage: 0,
                         status: "in_progress",
                         startDate: user.startDate ?? "",
@@ -759,11 +781,28 @@ const OnboardingManagement: React.FC = () => {
                   ))}
                 </Select>
               </div>
+              <div>
+                <label className="block mb-2">Select Journey Type:</label>
+                <Select
+                  style={{ width: "100%" }}
+                  placeholder="Choose a journey type"
+                  value={selectedJourneyType || undefined}
+                  onChange={(value) => setSelectedJourneyType(value as JourneyType)}
+                  allowClear
+                >
+                  {journeyTypes.map((type) => (
+                    <Option key={type.value} value={type.value}>
+                      {type.label}
+                    </Option>
+                  ))}
+                </Select>
+              </div>
               <div className="flex justify-end space-x-2">
                 <Button
                   onClick={() => {
                     setCreateModalVisible(false);
                     setSelectedEmployee(null);
+                    setSelectedJourneyType(null);
                   }}
                 >
                   Cancel
@@ -771,10 +810,10 @@ const OnboardingManagement: React.FC = () => {
                 <Button
                   type="primary"
                   onClick={() =>
-                    selectedEmployee &&
-                    handleCreateJourney({ employeeId: selectedEmployee.userId })
+                    selectedEmployee && selectedJourneyType &&
+                    handleCreateJourney({ employeeId: selectedEmployee.userId, journeyType: selectedJourneyType })
                   }
-                  disabled={!selectedEmployee}
+                  disabled={!selectedEmployee || !selectedJourneyType}
                 >
                   Create Journey
                 </Button>
@@ -808,10 +847,13 @@ const OnboardingManagement: React.FC = () => {
               onChange={setEditPhase}
               style={{ width: "100%" }}
             >
-              {["prepare", "orient", "land", "integrate", "excel"].map(
+              {["pre_onboarding", "phase_1", "phase_2"].map(
                 (phase) => (
                   <Option key={phase} value={phase}>
-                    {phase.charAt(0).toUpperCase() + phase.slice(1)}
+                    {phase === "pre_onboarding" ? "Pre-Onboarding" : 
+                     phase === "phase_1" ? "Phase 1" : 
+                     phase === "phase_2" ? "Phase 2" : 
+                     phase.charAt(0).toUpperCase() + phase.slice(1)}
                   </Option>
                 )
               )}

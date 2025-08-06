@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { UserRole } from "../../types/user";
+import { useSupervisorAssessments } from "../../hooks/useSupervisorAssessments";
 
 // Unified link structure
 interface NavLink {
@@ -46,10 +47,13 @@ const navItems: NavLink[] = [
     // Evaluation links by role
     { name: 'Evaluations', path: '/evaluations', icon: FileText, roles: ['employee'] },
     { name: 'My Team Evaluations', path: '/supervisor/evaluations', icon:Users, roles: ['supervisor'] },
+    { name: 'Supervisor Assessments', path: '/supervisor/assessments', icon:Users, roles: ['supervisor'] },
     { name: 'Team Evaluations', path: '/manager/evaluations', icon:Users, roles: ['manager'] },
     { name: 'Evaluation Reports', path: '/manager/evaluations/reports', icon:BarChart2, roles: ['manager'] },
     { name: 'All Evaluations', path: '/admin/evaluations', icon:FileText, roles: ['hr'] },
     { name: 'Evaluation Analytics', path: '/admin/evaluations/reports', icon:BarChart2, roles: ['hr'] },
+    { name: 'HR Validation Queue', path: '/hr/validation-queue', icon:Shield, roles: ['hr'] },
+    { name: 'HR Assessment Queue', path: '/admin/assessment-queue', icon:Shield, roles: ['hr'] },
     // Role-specific checklist links
     { name: 'Team Checklists', path: '/supervisor/team-checklists', icon: CheckSquare, roles: ['supervisor'] },
     { name: 'Department Checklists', path: '/manager/checklist-dashboard', icon: CheckSquare, roles: ['manager'] },
@@ -78,6 +82,7 @@ const Sidebar: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const [expandedItem, setExpandedItem] = useState<string | null>(null);
+    const { pendingAssessments, pendingHRApprovals } = useSupervisorAssessments();
 
     const handleLogout = () => {
         logout();
@@ -125,6 +130,16 @@ const Sidebar: React.FC = () => {
                             <div className="flex items-center">
                                 <item.icon className="w-5 h-5 mr-3" />
                                 <span>{item.name}</span>
+                                {item.name === 'Supervisor Assessments' && pendingAssessments > 0 && (
+                                    <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                                        {pendingAssessments}
+                                    </span>
+                                )}
+                                {item.name === 'HR Validation Queue' && pendingHRApprovals > 0 && (
+                                    <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                                        {pendingHRApprovals}
+                                    </span>
+                                )}
                             </div>
                             {item.children && (
                                 expandedItem === item.name ? <ChevronUp size={16} /> : <ChevronDown size={16} />

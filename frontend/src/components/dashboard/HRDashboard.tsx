@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { User } from '../../types/user';
-import { UserPlus, Users, CalendarClock, ClipboardList, BarChart, AlertTriangle } from 'lucide-react';
+import { UserPlus, Users, CalendarClock, ClipboardList, BarChart, AlertTriangle, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import analyticsService from '../../services/analyticsService';
+import { useSupervisorAssessments } from '../../hooks/useSupervisorAssessments';
+import { useHRAssessments } from '../../hooks/useHRAssessments';
 import { Bar, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -33,6 +35,8 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user }) => {
   const [evaluationEffectiveness, setEvaluationEffectiveness] = useState<any[]>([]);
   const [loadingAll, setLoadingAll] = useState(true);
   const [errorAll, setErrorAll] = useState<string | null>(null);
+  const { pendingHRApprovals } = useSupervisorAssessments();
+  const { pendingCount: pendingHRAssessments } = useHRAssessments();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -159,6 +163,48 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user }) => {
           </div>
         </div>
       </div>
+
+      {/* Pending HR Approvals */}
+      {pendingHRApprovals > 0 && (
+        <div className="bg-blue-50 border border-blue-200 p-6 rounded-lg shadow-md">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Shield className="h-8 w-8 text-blue-600 mr-3" />
+              <div>
+                <h2 className="text-xl font-bold text-blue-800">Pending HR Approvals</h2>
+                <p className="text-blue-600">You have {pendingHRApprovals} supervisor assessment(s) waiting for your approval</p>
+              </div>
+            </div>
+            <Link
+              to="/hr/validation-queue"
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Review Now
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Pending HR Assessments */}
+      {pendingHRAssessments > 0 && (
+        <div className="bg-green-50 border border-green-200 p-6 rounded-lg shadow-md">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Shield className="h-8 w-8 text-green-600 mr-3" />
+              <div>
+                <h2 className="text-xl font-bold text-green-800">Pending HR Assessments</h2>
+                <p className="text-green-600">You have {pendingHRAssessments} Phase 2 completion assessment(s) waiting for your review</p>
+              </div>
+            </div>
+            <Link
+              to="/admin/assessment-queue"
+              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+            >
+              Review Now
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Completion Rates */}
       <div className="bg-white p-6 rounded-lg shadow-md">

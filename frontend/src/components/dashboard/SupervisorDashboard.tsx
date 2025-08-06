@@ -7,6 +7,7 @@ import * as evaluationService from '../../services/evaluationService';
 import eventService from '../../services/eventService';
 import analyticsService from '../../services/analyticsService';
 import onboardingService from '../../services/onboardingService';
+import supervisorAssessmentService from '../../services/supervisorAssessmentService';
 
 interface SupervisorDashboardProps {
   user: User;
@@ -42,6 +43,7 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [pendingEvaluations, setPendingEvaluations] = useState<Evaluation[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+  const [pendingAssessments, setPendingAssessments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -102,6 +104,23 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
           .sort((a, b) => new Date(a.startDate ?? a.date ?? '').getTime() - new Date(b.startDate ?? b.date ?? '').getTime())
           .slice(0, 3);
         setUpcomingEvents(upcoming);
+
+        // Fetch pending supervisor assessments
+        try {
+          const assessmentsResponse = await supervisorAssessmentService.getSupervisorAssessments(user.id);
+          const pending = assessmentsResponse.assessments.filter(
+            (assessment: any) => 
+              assessment.status === 'pending_certificate' || 
+              assessment.status === 'certificate_uploaded' ||
+              assessment.status === 'assessment_pending' ||
+              assessment.status === 'assessment_completed' ||
+              assessment.status === 'decision_pending' ||
+              assessment.status === 'hr_approval_pending'
+          );
+          setPendingAssessments(pending);
+        } catch (assessmentError) {
+          console.error('Error fetching assessments:', assessmentError);
+        }
       } catch (err) {
         setError('Failed to load dashboard data.');
         console.error(err);
@@ -200,6 +219,13 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
             <div className="text-sm text-gray-500 dark:text-gray-300">Upcoming Events</div>
           </div>
         </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex items-center space-x-4">
+          <AlertTriangle className="h-8 w-8 text-blue-500" />
+          <div>
+            <div className="text-2xl font-bold">{pendingAssessments.length}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-300">Pending Assessments</div>
+          </div>
+        </div>
       </div>
 
       {/* Needs Attention Section */}
@@ -220,6 +246,30 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
                   <div className="text-xs text-gray-500 dark:text-gray-300">Progress: <span className="font-semibold text-yellow-700 dark:text-yellow-200">{member.progress ?? 0}%</span></div>
                 </div>
                 <Link to={`/team`} className="ml-4 px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200">View</Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Pending Supervisor Assessments */}
+      {pendingAssessments.length > 0 && (
+        <div className="bg-blue-50 dark:bg-blue-900 rounded-lg shadow p-4 mb-8">
+          <div className="flex items-center mb-2">
+            <AlertTriangle className="h-5 w-5 text-blue-600 mr-2" />
+            <span className="font-semibold text-blue-800 dark:text-blue-200">Pending Supervisor Assessments</span>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            {pendingAssessments.map(assessment => (
+              <div key={assessment.id} className="flex items-center space-x-3 bg-white dark:bg-gray-800 rounded p-3 shadow">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold bg-blue-200 text-blue-800">
+                  {getInitials(assessment.employee?.name || 'Employee')}
+                </div>
+                <div>
+                  <div className="font-medium">{assessment.employee?.name || 'Employee'}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-300">Status: <span className="font-semibold text-blue-700 dark:text-blue-200">{assessment.status}</span></div>
+                </div>
+                <Link to={`/supervisor/assessments`} className="ml-4 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded hover:bg-blue-200">Review</Link>
               </div>
             ))}
           </div>

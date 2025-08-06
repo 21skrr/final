@@ -1,9 +1,10 @@
 export type OnboardingStage =
-  | "prepare"
-  | "orient"
-  | "land"
-  | "integrate"
-  | "excel";
+  | "pre_onboarding"
+  | "phase_1"
+  | "phase_2";
+
+export type JourneyType = "SFP" | "CC";
+
 export type UserRole = "employee" | "supervisor" | "manager" | "hr";
 export type ProgramType =
   | "inkompass"
@@ -39,6 +40,22 @@ export interface OnboardingProgress {
   createdAt: string;
   updatedAt: string;
   overall?: number;
+  status?: "pending" | "in_progress" | "completed" | "overdue";
+  teamId?: number;
+  assessmentPdfUrl?: string;
+  assessmentAnswers?: string;
+  assessmentStatus?: "pending" | "approved" | "rejected";
+  assessmentReviewNotes?: string;
+  orientProgress?: number;
+  landProgress?: number;
+  integrateProgress?: number;
+  excelProgress?: number;
+  orientStatus?: "pending" | "in_progress" | "completed" | "on_hold" | "approved";
+  landStatus?: "pending" | "in_progress" | "completed" | "on_hold" | "approved";
+  integrateStatus?: "pending" | "in_progress" | "completed" | "on_hold" | "approved";
+  excelStatus?: "pending" | "in_progress" | "completed" | "on_hold" | "approved";
+  certificateFile?: string;
+  journeyType: JourneyType;
 }
 
 export interface OnboardingTask {
@@ -49,6 +66,9 @@ export interface OnboardingTask {
   order: number;
   isDefault: boolean;
   controlledBy?: "hr" | "employee" | "both";
+  hrValidated?: boolean;
+  completed?: boolean;
+  journeyType: JourneyType | "both";
   createdAt: string;
   updatedAt: string;
 }
@@ -110,6 +130,7 @@ export interface OnboardingJourney {
   currentStage: OnboardingStage;
   tasksCompleted: number;
   totalTasks: number;
+  journeyType: JourneyType;
 }
 
 export interface EmployeeOnboarding {
@@ -125,6 +146,7 @@ export interface EmployeeOnboarding {
   startDate: string;
   daysSinceStart: number;
   daysSinceLastActivity?: number;
+  journeyType: JourneyType;
 }
 
 // API Response Types
@@ -137,6 +159,50 @@ export interface OnboardingProgressResponse {
   User: User;
   createdAt: string;
   updatedAt: string;
+  journeyType: JourneyType;
+  supervisorAssessment?: {
+    id: string;
+    status: string;
+    supervisorDecision?: string;
+    supervisorComments?: string;
+    hrDecision?: string;
+    hrDecisionComments?: string;
+    hrDecisionDate?: string;
+    employee?: {
+      id: string;
+      name: string;
+      email: string;
+      department: string;
+    };
+    supervisor?: {
+      id: string;
+      name: string;
+      email: string;
+    };
+    hrValidator?: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  };
+  hrAssessment?: {
+    id: string;
+    status: string;
+    hrDecision?: string;
+    hrDecisionComments?: string;
+    hrDecisionDate?: string;
+    employee?: {
+      id: string;
+      name: string;
+      email: string;
+      department: string;
+    };
+    hr?: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  };
 }
 
 export interface OnboardingDashboardData {
@@ -149,11 +215,13 @@ export interface OnboardingDashboardData {
     averageCompletionTime: number;
   };
   phaseDistribution: {
-    prepare: number;
-    orient: number;
-    land: number;
-    integrate: number;
-    excel: number;
+    pre_onboarding: number;
+    phase_1: number;
+    phase_2: number;
+  };
+  journeyTypeDistribution: {
+    SFP: number;
+    CC: number;
   };
 }
 
@@ -172,4 +240,9 @@ export interface Task extends OnboardingTask {
   verifiedAt?: string;
   progressId?: string;
   User?: User; // For user details who completed the task
+}
+
+export interface JourneyTypeOption {
+  value: JourneyType;
+  label: string;
 }

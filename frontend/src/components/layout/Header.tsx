@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import NotificationsPanel from "../features/NotificationsPanel";
 import pmiLogo from "../../assets/pmi-logo.png";
 import { useNotifications } from '../../context/NotificationContext';
+import { useSupervisorAssessments } from '../../hooks/useSupervisorAssessments';
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
@@ -15,6 +16,7 @@ const Header: React.FC = () => {
   const [prevScrollPos, setPrevScrollPos] = useState(0);
   const [visible, setVisible] = useState(true);
   const { unreadCount } = useNotifications();
+  const { pendingAssessments, pendingHRApprovals } = useSupervisorAssessments();
 
   const handleLogout = () => {
     logout();
@@ -81,20 +83,52 @@ const Header: React.FC = () => {
               Resources
             </Link>
             {user?.role === "hr" && (
-              <Link
-                to="/admin"
-                className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
-              >
-                Admin
-              </Link>
+              <>
+                <Link
+                  to="/admin"
+                  className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                >
+                  Admin
+                </Link>
+                <Link
+                  to="/hr/validation-queue"
+                  className="text-gray-600 hover:text-blue-600 font-medium transition-colors relative"
+                >
+                  HR Approval Queue
+                  {pendingHRApprovals > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                      {pendingHRApprovals}
+                    </span>
+                  )}
+                </Link>
+                <Link
+                  to="/admin/assessment-queue"
+                  className="text-gray-600 hover:text-blue-600 font-medium transition-colors relative"
+                >
+                  HR Assessment Queue
+                </Link>
+              </>
             )}
             {user?.role === "supervisor" && (
-              <Link
-                to="/supervisor/evaluations"
-                className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
-              >
-                My Team Evaluations
-              </Link>
+              <>
+                <Link
+                  to="/supervisor/evaluations"
+                  className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                >
+                  My Team Evaluations
+                </Link>
+                <Link
+                  to="/supervisor/assessments"
+                  className="text-gray-600 hover:text-blue-600 font-medium transition-colors relative"
+                >
+                  Supervisor Assessments
+                  {pendingAssessments > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                      {pendingAssessments}
+                    </span>
+                  )}
+                </Link>
+              </>
             )}
             {user?.role === "manager" && (
               <Link

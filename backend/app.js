@@ -40,6 +40,8 @@ const evaluationCriteriaRoutes = require("./routes/evaluationCriteriaRoutes");
 const resourceRoutes = require("./routes/resourceRoutes");
 const hrRoutes = require("./routes/hrRoutes");
 const activityLogRoutes = require('./routes/activityLogRoutes');
+const supervisorAssessmentRoutes = require('./routes/supervisorAssessmentRoutes');
+const hrAssessmentRoutes = require('./routes/hrAssessmentRoutes');
 
 const app = express();
 
@@ -120,6 +122,8 @@ app.use("/api/evaluationcriteria", evaluationCriteriaRoutes);
 app.use("/api/resources", resourceRoutes);
 app.use("/api", hrRoutes);
 app.use('/api/activitylogs', activityLogRoutes);
+app.use('/api/supervisor-assessments', supervisorAssessmentRoutes);
+app.use('/api/hr-assessments', hrAssessmentRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
