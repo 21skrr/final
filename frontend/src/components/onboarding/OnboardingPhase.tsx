@@ -347,12 +347,7 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
                 <strong>Status:</strong>{" "}
                 {selectedTask.completed ? "Completed" : "Not Started"}
               </div>
-              {selectedTask.completed && (
-                <div>
-                  <strong>HR Validated:</strong>{" "}
-                  {selectedTask.hrValidated ? "Yes" : "No"}
-                </div>
-              )}
+              {selectedTask.completed }
               {isEmployee && (
                 <div className="p-3 bg-gray-50 rounded text-sm text-gray-600">
                   <strong>Note:</strong> You cannot edit this task. Contact your

@@ -49,7 +49,12 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
 
   // Move darkMode state and toggle function here
   const [darkMode, setDarkMode] = useState(false);
-  const toggleDarkMode = () => setDarkMode(d => !d);
+  // const toggleDarkMode = () => setDarkMode(d => !d); // Disabled dark mode
+
+  // Force light mode on component mount and keep it disabled
+  useEffect(() => {
+    setDarkMode(false);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -184,9 +189,7 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
           <h1 className="text-3xl font-bold">Supervisor Dashboard</h1>
           <p className="text-lg text-gray-500 dark:text-gray-300 mt-1">You’re making a difference! Here’s what’s happening with your team.</p>
         </div>
-        <button onClick={toggleDarkMode} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">
-          {darkMode ? <Sun className="h-5 w-5 text-yellow-400" /> : <Moon className="h-5 w-5 text-gray-700" />}
-        </button>
+        {/* Removed: Dark mode toggle button */}
       </div>
 
       {/* Quick Stats */}

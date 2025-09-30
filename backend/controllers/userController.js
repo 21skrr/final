@@ -8,7 +8,7 @@ const { User, UserSetting, TeamSettings } = require("../models");
 const scheduleFeedbackCyclesForUser = require("../utils/autoScheduleFeedback");
 const Department = require("../models/Department");
 
-// Get all users (admin only)
+// Get all users (admin, hr, and supervisor for assessment purposes)
 const getAllUsers = async (req, res) => {
   try {
     const { role } = req.query;
@@ -16,8 +16,14 @@ const getAllUsers = async (req, res) => {
       deletedAt: null // Only show non-deleted users
     };
 
+    // Add role-based filtering
     if (role) {
       whereClause.role = role;
+    }
+
+    // For supervisors, only allow them to see employees (not other supervisors, HR, or admin users)
+    if (req.user.role === "supervisor") {
+      whereClause.role = "employee";
     }
 
     const users = await User.findAll({
@@ -73,11 +79,19 @@ const getUserById = async (req, res) => {
     if (
       req.user.role !== "admin" &&
       req.user.role !== "hr" &&
+      req.user.role !== "supervisor" &&
       req.user.id !== req.params.id
     ) {
       return res
         .status(403)
         .json({ message: "Not authorized to view this user" });
+    }
+
+    // For supervisors, only allow access to employees
+    if (req.user.role === "supervisor" && user.role !== "employee") {
+      return res
+        .status(403)
+        .json({ message: "Supervisors can only view employee data" });
     }
 
     res.json(user);

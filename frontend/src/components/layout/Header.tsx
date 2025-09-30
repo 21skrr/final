@@ -6,6 +6,7 @@ import NotificationsPanel from "../features/NotificationsPanel";
 import pmiLogo from "../../assets/pmi-logo.png";
 import { useNotifications } from '../../context/NotificationContext';
 import { useSupervisorAssessments } from '../../hooks/useSupervisorAssessments';
+import { useHRAssessments } from '../../hooks/useHRAssessments';
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
@@ -17,6 +18,11 @@ const Header: React.FC = () => {
   const [visible, setVisible] = useState(true);
   const { unreadCount } = useNotifications();
   const { pendingAssessments, pendingHRApprovals } = useSupervisorAssessments();
+  const { pendingCount: pendingHRAssessments } = useHRAssessments();
+
+  console.log('[Header] pendingAssessments:', pendingAssessments);
+  console.log('[Header] pendingHRApprovals:', pendingHRApprovals);
+  console.log('[Header] pendingHRAssessments:', pendingHRAssessments);
 
   const handleLogout = () => {
     logout();
@@ -106,6 +112,11 @@ const Header: React.FC = () => {
                   className="text-gray-600 hover:text-blue-600 font-medium transition-colors relative"
                 >
                   HR Assessment Queue
+                  {pendingHRAssessments > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                      {pendingHRAssessments}
+                    </span>
+                  )}
                 </Link>
               </>
             )}

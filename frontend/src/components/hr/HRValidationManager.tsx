@@ -221,7 +221,6 @@ const HRValidationManager: React.FC<HRValidationManagerProps> = ({
             <Select placeholder="Select your decision">
               <Option value="approve">Approve - Allow to proceed to Phase 2</Option>
               <Option value="reject">Reject - Terminate onboarding</Option>
-              <Option value="request_changes">Request Changes - Send back to supervisor</Option>
             </Select>
           </Form.Item>
 

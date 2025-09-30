@@ -1016,6 +1016,22 @@ const createJourney = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // Security check for supervisors: only allow creating journeys for their direct reports
+    if (req.user.role === "supervisor") {
+      if (user.supervisorId !== req.user.id) {
+        return res.status(403).json({ 
+          message: "Supervisors can only create onboarding journeys for their direct reports" 
+        });
+      }
+      
+      // Ensure the target user is an employee
+      if (user.role !== "employee") {
+        return res.status(403).json({ 
+          message: "Supervisors can only create onboarding journeys for employees" 
+        });
+      }
+    }
+
     // Check if journey already exists
     const existingProgress = await OnboardingProgress.findOne({
       where: { UserId: userId },
@@ -1121,6 +1137,16 @@ const calculatePhaseProgress = async (userId, phase) => {
 const getUserOnboardingProgress = async (req, res) => {
   const { userId } = req.params;
   try {
+    // Security check for supervisors: only allow access to their direct reports
+    if (req.user.role === "supervisor") {
+      const targetUser = await User.findByPk(userId);
+      if (!targetUser || targetUser.supervisorId !== req.user.id) {
+        return res.status(403).json({ 
+          message: "Supervisors can only view onboarding progress for their direct reports" 
+        });
+      }
+    }
+
     const phases = ["pre_onboarding", "phase_1", "phase_2"];
     const progress = {};
     const tasksByPhase = {};
@@ -1136,6 +1162,7 @@ const getUserOnboardingProgress = async (req, res) => {
     }
 
     // Get supervisor assessment information
+    const SupervisorAssessment = require("../models/SupervisorAssessment");
     const supervisorAssessment = await SupervisorAssessment.findOne({
       where: { OnboardingProgressId: onboardingProgress.id },
       include: [
@@ -1767,40 +1794,58 @@ const checkAndTriggerSupervisorAssessment = async (userId) => {
       return;
     }
 
-    if (onboardingProgress.stage !== "phase_1") {
-      console.log(`[DEBUG] User ${userId} is not in phase_1, current stage: ${onboardingProgress.stage}`);
-      return;
+    console.log(`[DEBUG] User ${userId} current stage: ${onboardingProgress.stage}`);
+
+    // Check if Phase 1 is completed using either the NEW system or LEGACY system
+    let phase1Completed = false;
+    
+    if (onboardingProgress.stage === "phase_1" || onboardingProgress.stage === "phase_2") {
+      // NEW system - check if all Phase 1 tasks are completed
+      console.log(`[DEBUG] Using NEW system - checking phase_1 tasks`);
+      
+      const phase1Tasks = await OnboardingTask.findAll({
+        where: { 
+          stage: "phase_1",
+          journeyType: { [Op.or]: [onboardingProgress.journeyType, "both"] }
+        },
+      });
+
+      console.log(`[DEBUG] Found ${phase1Tasks.length} phase_1 tasks for journey type ${onboardingProgress.journeyType}`);
+
+      if (phase1Tasks.length > 0) {
+        const userTaskProgress = await UserTaskProgress.findAll({
+          where: { 
+            UserId: userId,
+            OnboardingTaskId: { [Op.in]: phase1Tasks.map(task => task.id) }
+          },
+        });
+
+        console.log(`[DEBUG] User has progress on ${userTaskProgress.length} tasks`);
+        console.log(`[DEBUG] Completed tasks: ${userTaskProgress.filter(t => t.isCompleted).length}`);
+
+        phase1Completed = phase1Tasks.length > 0 && 
+          userTaskProgress.length === phase1Tasks.length &&
+          userTaskProgress.every(task => task.isCompleted);
+
+        console.log(`[DEBUG] NEW system - All Phase 1 tasks completed: ${phase1Completed}`);
+      }
+    } else {
+      // LEGACY system - check orient, land, integrate, excel progress
+      console.log(`[DEBUG] Using LEGACY system - checking orient, land, integrate, excel progress`);
+      
+      const orientCompleted = onboardingProgress.orientProgress >= 100;
+      const landCompleted = onboardingProgress.landProgress >= 100;
+      const integrateCompleted = onboardingProgress.integrateProgress >= 100;
+      const excelCompleted = onboardingProgress.excelProgress >= 100;
+      
+      // Consider Phase 1 completed if orient and land are both 100%
+      phase1Completed = orientCompleted && landCompleted;
+      
+      console.log(`[DEBUG] LEGACY system - Orient: ${onboardingProgress.orientProgress}%, Land: ${onboardingProgress.landProgress}%, Integrate: ${onboardingProgress.integrateProgress}%, Excel: ${onboardingProgress.excelProgress}%`);
+      console.log(`[DEBUG] LEGACY system - Phase 1 completed (orient + land): ${phase1Completed}`);
     }
 
-    console.log(`[DEBUG] User ${userId} is in phase_1, checking tasks completion`);
-
-    // Check if all Phase 1 tasks are completed
-    const phase1Tasks = await OnboardingTask.findAll({
-      where: { 
-        stage: "phase_1",
-        journeyType: { [Op.or]: [onboardingProgress.journeyType, "both"] }
-      },
-    });
-
-    console.log(`[DEBUG] Found ${phase1Tasks.length} phase_1 tasks for journey type ${onboardingProgress.journeyType}`);
-
-    const userTaskProgress = await UserTaskProgress.findAll({
-      where: { 
-        UserId: userId,
-        OnboardingTaskId: { [Op.in]: phase1Tasks.map(task => task.id) }
-      },
-    });
-
-    console.log(`[DEBUG] User has progress on ${userTaskProgress.length} tasks`);
-    console.log(`[DEBUG] Completed tasks: ${userTaskProgress.filter(t => t.isCompleted).length}`);
-
-    const allTasksCompleted = phase1Tasks.length > 0 && 
-      userTaskProgress.length === phase1Tasks.length &&
-      userTaskProgress.every(task => task.isCompleted);
-
-    console.log(`[DEBUG] All Phase 1 tasks completed: ${allTasksCompleted}`);
-
-    if (allTasksCompleted) {
+    if (phase1Completed) {
       // Check if supervisor assessment already exists
       const SupervisorAssessment = require("../models/SupervisorAssessment");
       const existingAssessment = await SupervisorAssessment.findOne({
@@ -1818,7 +1863,7 @@ const checkAndTriggerSupervisorAssessment = async (userId) => {
       
       if (user && user.supervisorId) {
         // Create supervisor assessment
-        await SupervisorAssessment.create({
+        const assessment = await SupervisorAssessment.create({
           OnboardingProgressId: onboardingProgress.id,
           UserId: userId,
           SupervisorId: user.supervisorId,
@@ -1827,9 +1872,49 @@ const checkAndTriggerSupervisorAssessment = async (userId) => {
         });
 
         console.log(`[SUCCESS] Supervisor assessment created for user ${userId}`);
+
+        // Send notification to supervisor
+        try {
+          const { sendNotification } = require('../utils/notificationHelper');
+          await sendNotification({
+            userId: user.supervisorId,
+            type: 'system_alert', // Use existing type temporarily
+            title: 'Supervisor Assessment Required',
+            message: `${user.name} has completed Phase 1 of onboarding and requires your assessment. Please review their progress and complete the assessment.`,
+            metadata: {
+              assessmentId: assessment.id,
+              employeeId: userId,
+              employeeName: user.name,
+              type: 'supervisor_assessment'
+            }
+          });
+          console.log(`[SUCCESS] Notification sent to supervisor ${user.supervisorId}`);
+        } catch (notificationError) {
+          console.error(`[ERROR] Failed to send notification to supervisor:`, notificationError);
+        }
+
+        // Also send notification to the employee
+        try {
+          const { sendNotification } = require('../utils/notificationHelper');
+          await sendNotification({
+            userId: userId,
+            type: 'system_alert', // Use existing type temporarily
+            title: 'Assessment Pending',
+            message: 'You have completed Phase 1! Your supervisor will now assess your progress before you can proceed to Phase 2.',
+            metadata: {
+              assessmentId: assessment.id,
+              type: 'supervisor_assessment_pending'
+            }
+          });
+          console.log(`[SUCCESS] Notification sent to employee ${userId}`);
+        } catch (notificationError) {
+          console.error(`[ERROR] Failed to send notification to employee:`, notificationError);
+        }
       } else {
         console.log(`[ERROR] User ${userId} does not have a supervisor assigned`);
       }
+    } else {
+      console.log(`[DEBUG] Phase 1 not completed for user ${userId}, skipping assessment creation`);
     }
   } catch (error) {
     console.error("Error checking and triggering supervisor assessment:", error);
@@ -1923,6 +2008,7 @@ const getTasksByPhase = async (req, res) => {
 
     // Check if this is Phase 2 and if HR has approved the supervisor assessment
     if (phase === "phase_2") {
+      const SupervisorAssessment = require("../models/SupervisorAssessment");
       const supervisorAssessment = await SupervisorAssessment.findOne({
         where: { OnboardingProgressId: userProgress.id }
       });
@@ -2022,8 +2108,8 @@ const validateUserTaskProgress = async (req, res) => {
 const getJourneyTypes = async (req, res) => {
   try {
     const journeyTypes = [
-      { value: "SFP", label: "SFP (Student Future Program)" },
-      { value: "CC", label: "CC (Career Connect)" }
+      { value: "SFP", label: "SFP (Smoke Free Product)" },
+      { value: "CC", label: "CC (Conventional Cigarette)" }
     ];
     
     res.json({

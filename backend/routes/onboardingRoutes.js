@@ -145,20 +145,32 @@ router.get(
   onboardingController.getAllProgresses
 );
 
-// GET /api/onboarding/progress/:userId - Get specific user's data (HR)
+// GET /api/onboarding/progress/:userId - Get specific user's data (HR and supervisor)
 router.get(
   "/progress/:userId/hr",
   auth,
-  onboardingPermissions.hr,
+  // Allow HR and supervisor to view onboarding progress
+  (req, res, next) => {
+    if (["hr", "supervisor"].includes(req.user.role)) {
+      return next();
+    }
+    return res.status(403).json({ message: "Not authorized" });
+  },
   onboardingController.getUserOnboardingProgress
 );
 
-// PUT /api/onboarding/progress/:userId - Update user progress (HR)
+// PUT /api/onboarding/progress/:userId - Update user progress (HR and supervisor)
 router.put(
   "/progress/:userId/hr",
   [
     auth,
-    onboardingPermissions.hr,
+    // Allow HR and supervisor to update onboarding progress
+    (req, res, next) => {
+      if (["hr", "supervisor"].includes(req.user.role)) {
+        return next();
+      }
+      return res.status(403).json({ message: "Not authorized" });
+    },
     check("stage", "Stage is required")
       .optional()
       .isIn(["prepare", "orient", "land", "integrate", "excel"]),
@@ -169,10 +181,19 @@ router.put(
   onboardingController.updateUserProgress
 );
 
-// PUT /api/onboarding/progress/:userId/advance - Advance to next phase (HR)
+// PUT /api/onboarding/progress/:userId/advance - Advance to next phase (HR and supervisor)
 router.put(
   "/progress/:userId/advance/hr",
-  [auth, onboardingPermissions.hr],
+  [
+    auth,
+    // Allow HR and supervisor to advance phases
+    (req, res, next) => {
+      if (["hr", "supervisor"].includes(req.user.role)) {
+        return next();
+      }
+      return res.status(403).json({ message: "Not authorized" });
+    },
+  ],
   onboardingController.advanceToNextPhase
 );
 
@@ -244,12 +265,18 @@ router.get(
   onboardingController.exportOnboardingCSV
 );
 
-// POST /api/onboarding/create - Create new journey (HR only)
+// POST /api/onboarding/create - Create new journey (HR and supervisor)
 router.post(
   "/create",
   [
     auth,
-    onboardingPermissions.hr,
+    // Allow HR and supervisor to create journeys
+    (req, res, next) => {
+      if (["hr", "supervisor"].includes(req.user.role)) {
+        return next();
+      }
+      return res.status(403).json({ message: "Not authorized" });
+    },
     check("userId", "User ID is required").not().isEmpty(),
     check("journeyType", "Journey type is required").isIn(["SFP", "CC"]),
     check("templateId", "Template ID is optional").optional().not().isEmpty(),

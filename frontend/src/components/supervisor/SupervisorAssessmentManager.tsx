@@ -343,7 +343,6 @@ const SupervisorAssessmentManager: React.FC<SupervisorAssessmentManagerProps> = 
             <Select placeholder="Select your decision">
               <Option value="proceed_to_phase_2">Proceed to Phase 2</Option>
               <Option value="terminate">Terminate</Option>
-              <Option value="put_on_hold">Put on Hold</Option>
             </Select>
           </Form.Item>
 

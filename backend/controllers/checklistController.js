@@ -311,6 +311,19 @@ const updateChecklistProgress = async (req, res) => {
       if (notes !== undefined) progress.notes = notes;
       await progress.save();
     }
+
+    // If a task was completed, check if Phase 1 is completed and trigger supervisor assessment
+    if (isCompleted && userId) {
+      try {
+        // Import the function to check and trigger supervisor assessment
+        const { checkAndTriggerSupervisorAssessment } = require('./onboardingController');
+        await checkAndTriggerSupervisorAssessment(userId);
+      } catch (assessmentError) {
+        console.error('Error checking supervisor assessment trigger:', assessmentError);
+        // Don't fail the main request if assessment trigger fails
+      }
+    }
+
     res.json(progress);
   } catch (error) {
     console.error('Error updating checklist progress:', error);
