@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { User } from '../../types/user';
-import { Users, Calendar, ClipboardCheck, AlertTriangle, Sun, Moon, PlusCircle, Send, CheckCircle } from 'lucide-react';
+import { Users, Calendar, ClipboardCheck, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import teamService from '../../services/teamService';
 import * as evaluationService from '../../services/evaluationService';
 import eventService from '../../services/eventService';
-import analyticsService from '../../services/analyticsService';
 import onboardingService from '../../services/onboardingService';
 import supervisorAssessmentService from '../../services/supervisorAssessmentService';
 
@@ -43,7 +42,7 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [pendingEvaluations, setPendingEvaluations] = useState<Evaluation[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
-  const [pendingAssessments, setPendingAssessments] = useState<any[]>([]);
+  const [pendingAssessments, setPendingAssessments] = useState<{ id: string; employee?: { name: string }; status: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,9 +69,9 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
             let progress = null;
             try {
               const journey = await onboardingService.getJourney(member.id);
-              progress = journey?.progress?.overall ?? null;
+              progress = journey?.progress?.overall ?? undefined;
             } catch {
-              progress = null;
+              progress = undefined;
             }
             return {
               ...member,
@@ -114,7 +113,7 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
         try {
           const assessmentsResponse = await supervisorAssessmentService.getSupervisorAssessments(user.id);
           const pending = assessmentsResponse.assessments.filter(
-            (assessment: any) => 
+            (assessment: { status: string }) => 
               assessment.status === 'pending_certificate' || 
               assessment.status === 'certificate_uploaded' ||
               assessment.status === 'assessment_pending' ||
@@ -312,6 +311,25 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
         </div>
       </div>
 
+      {/* My Onboarding Progress */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div className="flex items-center mb-4">
+          <CheckCircle className="h-6 w-6 text-purple-500 mr-2" />
+          <h2 className="text-xl font-bold">My Onboarding Progress</h2>
+          <Link to="/supervisor/my-onboarding" className="ml-auto px-3 py-1 text-sm bg-purple-100 text-purple-800 rounded hover:bg-purple-200">View Details</Link>
+        </div>
+        <div className="text-center py-4">
+          <p className="text-gray-500 dark:text-gray-300 mb-3">Track your supervisor onboarding journey</p>
+          <Link 
+            to="/supervisor/my-onboarding" 
+            className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            View My Progress
+          </Link>
+        </div>
+      </div>
+
       {/* Pending Evaluations */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
         <div className="flex items-center mb-4">
@@ -348,7 +366,7 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
           <p className="text-gray-500 dark:text-gray-300 text-center py-2">No upcoming events</p>
         ) : (
           <ol className="relative border-l border-purple-200 dark:border-purple-700">
-            {upcomingEvents.map((event, idx) => (
+            {upcomingEvents.map((event) => (
               <li key={event.id} className="mb-6 ml-4">
                 <div className="absolute w-3 h-3 bg-purple-400 rounded-full mt-1.5 -left-1.5 border border-white dark:border-gray-900"></div>
                 <time className="mb-1 text-xs font-normal leading-none text-purple-500 dark:text-purple-300">{formatDate(event.startDate || event.date)} {formatTime(event.startDate || event.date)}</time>

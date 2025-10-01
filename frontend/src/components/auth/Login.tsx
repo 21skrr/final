@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Mail, Lock, AlertCircle } from "lucide-react";
+import { Mail, Lock, AlertCircle } from 'lucide-react';
 import { useAuth } from "../../context/AuthContext";
 import pmiLogoo from "../../assets/pmi.png";
 

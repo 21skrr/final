@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Bell, Menu, X, LogOut, User, Settings } from "lucide-react";
+import { Bell, Menu, X, LogOut, User, Settings } from 'lucide-react';
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import NotificationsPanel from "../features/NotificationsPanel";

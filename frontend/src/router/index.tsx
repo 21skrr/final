@@ -54,6 +54,7 @@ import OnboardingDetail from '../pages/OnboardingDetail';
 import OnboardingManagement from '../pages/admin/OnboardingManagement';
 import ManagerOnboardingManagement from '../pages/manager/OnboardingManagement';
 import SupervisorOnboardingManagement from '../pages/supervisor/OnboardingManagement';
+import SupervisorOnboardingProgress from '../pages/supervisor/SupervisorOnboardingProgress';
 
 
 import ChecklistDetail from '../pages/ChecklistDetail';
@@ -522,6 +523,14 @@ const Router: React.FC = () => {
       element: (
         <ProtectedRoute requiredRoles={['supervisor']}>
           <OnboardingDetail />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/supervisor/my-onboarding',
+      element: (
+        <ProtectedRoute requiredRoles={['supervisor']}>
+          <SupervisorOnboardingProgress />
         </ProtectedRoute>
       ),
     },

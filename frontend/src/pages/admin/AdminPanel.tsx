@@ -1,10 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/layout/Layout';
-import {
-  Users, Briefcase, Settings, Bell, FileText,
-  BarChart2, Calendar, MessageSquare, Edit
-} from 'lucide-react';
+import { Users, Briefcase, Settings, Bell, FileText, BarChart2, Calendar, MessageSquare, Edit } from 'lucide-react';
 
 const adminFeatures = [
   { name: 'User Management', path: '/admin/users', icon: Users, description: 'Add, edit, and manage user accounts and roles.' },

@@ -7,34 +7,17 @@ import { User, UserRole } from '../../types/user';
 import Select from 'react-select';
 
 const TABS = [
-  { key: 'dashboard', label: 'Overview' },
   { key: 'send', label: 'Send Notification' },
-  { key: 'system-alerts', label: 'System Alerts' },
-  { key: 'summary-reports', label: 'Summary Reports' },
-  { key: 'new-employees', label: 'New Employees' },
-  { key: 'feedback-checkpoints', label: 'Feedback Checkpoints' },
-  { key: 'weekly-reports', label: 'Weekly Reports' },
-  { key: 'compliance-alerts', label: 'Compliance Alerts' },
-  { key: 'leave-requests', label: 'Leave Requests' },
   { key: 'templates', label: 'Templates' },
-  { key: 'preferences', label: 'Preferences & Rules' },
 ];
 
 const ALL_ROLES: UserRole[] = ['employee', 'supervisor', 'hr', 'manager'];
 
 const HRNotificationCenter: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('send');
 
   // Data states for each tab
-  const [systemAlerts, setSystemAlerts] = useState<any[]>([]);
-  const [summaryReports, setSummaryReports] = useState<any[]>([]);
-  const [newEmployees, setNewEmployees] = useState<any[]>([]);
-  const [feedbackCheckpoints, setFeedbackCheckpoints] = useState<any[]>([]);
-  const [weeklyReports, setWeeklyReports] = useState<any[]>([]);
-  const [complianceAlerts, setComplianceAlerts] = useState<any[]>([]);
-  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [templates, setTemplates] = useState<NotificationTemplate[]>([]);
-  const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
 
   // Loading and error states
   const [loading, setLoading] = useState(false);
@@ -75,32 +58,8 @@ const HRNotificationCenter: React.FC = () => {
       setError(null);
       try {
         switch (activeTab) {
-          case 'system-alerts':
-            setSystemAlerts(await notificationService.getSystemAlerts());
-            break;
-          case 'summary-reports':
-            setSummaryReports(await notificationService.getSummaryReports());
-            break;
-          case 'new-employees':
-            setNewEmployees(await notificationService.getNewEmployees());
-            break;
-          case 'feedback-checkpoints':
-            setFeedbackCheckpoints(await notificationService.getFeedbackCheckpoints());
-            break;
-          case 'weekly-reports':
-            setWeeklyReports(await notificationService.getWeeklyReports());
-            break;
-          case 'compliance-alerts':
-            setComplianceAlerts(await notificationService.getComplianceAlerts());
-            break;
-          case 'leave-requests':
-            setLeaveRequests(await notificationService.getLeaveRequests());
-            break;
           case 'templates':
             setTemplates(await notificationService.getTemplates());
-            break;
-          case 'preferences':
-            setPreferences(await notificationService.getPreferences());
             break;
           default:
             break;
@@ -111,7 +70,7 @@ const HRNotificationCenter: React.FC = () => {
         setLoading(false);
       }
     };
-    if (activeTab !== 'dashboard') fetchData();
+    if (activeTab === 'templates') fetchData();
   }, [activeTab]);
 
   useEffect(() => {
@@ -238,29 +197,6 @@ const HRNotificationCenter: React.FC = () => {
   };
 
   // Render helpers
-  const renderList = (items: any[], fields: string[], sample?: any[]) => {
-    if (loading) return <p>Loading...</p>;
-    if (error) return <p className="text-red-600">{error}</p>;
-    if (!items || items.length === 0) return <div className="text-gray-500">No data found.{sample && sample.length > 0 && (
-      <div className="mt-2"><b>Sample:</b> <pre className="bg-gray-100 p-2 rounded text-xs">{JSON.stringify(sample, null, 2)}</pre></div>
-    )}</div>;
-    return (
-      <table className="min-w-full text-sm border">
-        <thead>
-          <tr>
-            {fields.map(f => <th key={f} className="border px-2 py-1 text-left">{f}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item, idx) => (
-            <tr key={idx} className="border-t">
-              {fields.map(f => <td key={f} className="border px-2 py-1">{item[f]}</td>)}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    );
-  };
 
   return (
     <Layout>
@@ -278,54 +214,6 @@ const HRNotificationCenter: React.FC = () => {
           ))}
         </div>
         <div className="bg-white rounded-b-lg shadow p-6 min-h-[400px]">
-          {activeTab === 'dashboard' && (
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Overview</h2>
-              <p>Quick stats and summary of unread alerts, pending feedback, new joiners, compliance issues, and system errors. (Coming soon)</p>
-            </div>
-          )}
-          {activeTab === 'system-alerts' && (
-            <div>
-              <h2 className="text-xl font-semibold mb-4">System Alerts</h2>
-              {renderList(systemAlerts, ['type', 'title', 'message', 'createdAt'])}
-            </div>
-          )}
-          {activeTab === 'summary-reports' && (
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Summary Reports</h2>
-              {renderList(summaryReports, ['title', 'message', 'createdAt'])}
-            </div>
-          )}
-          {activeTab === 'new-employees' && (
-            <div>
-              <h2 className="text-xl font-semibold mb-4">New Employees</h2>
-              {renderList(newEmployees, ['userId', 'title', 'message', 'createdAt'])}
-            </div>
-          )}
-          {activeTab === 'feedback-checkpoints' && (
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Feedback Checkpoints</h2>
-              {renderList(feedbackCheckpoints, ['title', 'message', 'createdAt'])}
-            </div>
-          )}
-          {activeTab === 'weekly-reports' && (
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Weekly Reports</h2>
-              {renderList(weeklyReports, ['title', 'message', 'createdAt'])}
-            </div>
-          )}
-          {activeTab === 'compliance-alerts' && (
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Compliance Alerts</h2>
-              {renderList(complianceAlerts, ['title', 'message', 'createdAt'])}
-            </div>
-          )}
-          {activeTab === 'leave-requests' && (
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Leave Requests</h2>
-              {renderList(leaveRequests, ['userId', 'title', 'message', 'createdAt'])}
-            </div>
-          )}
           {activeTab === 'templates' && (
             <div>
               <h2 className="text-xl font-semibold mb-4">Notification Templates</h2>
@@ -403,14 +291,6 @@ const HRNotificationCenter: React.FC = () => {
                     )}
                   </div>
                 </div>
-              )}
-            </div>
-          )}
-          {activeTab === 'preferences' && (
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Notification Preferences & Rules</h2>
-              {loading ? <p>Loading...</p> : error ? <p className="text-red-600">{error}</p> : preferences && (
-                <pre className="bg-gray-100 p-4 rounded text-xs overflow-x-auto">{JSON.stringify(preferences, null, 2)}</pre>
               )}
             </div>
           )}

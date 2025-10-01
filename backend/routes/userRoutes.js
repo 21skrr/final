@@ -53,8 +53,8 @@ const updateUserValidation = [
     .withMessage("Invalid program type"),
 ];
 
-// Get all users (admin, hr, and supervisor for assessment purposes)
-router.get("/", auth, checkRole("admin", "hr", "supervisor"), userController.getAllUsers);
+// Get all users (admin, hr, manager, and supervisor for assessment purposes)
+router.get("/", auth, checkRole("admin", "hr", "manager", "supervisor"), userController.getAllUsers);
 
 // Get deactivated users (admin and hr only)
 router.get("/deactivated", auth, checkRole("admin", "hr"), userController.getDeactivatedUsers);

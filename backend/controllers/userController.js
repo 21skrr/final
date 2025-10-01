@@ -21,16 +21,45 @@ const getAllUsers = async (req, res) => {
       whereClause.role = role;
     }
 
-    // For supervisors, only allow them to see employees (not other supervisors, HR, or admin users)
+    // For supervisors, allow them to see all employees
     if (req.user.role === "supervisor") {
       whereClause.role = "employee";
+      // No department filtering - show all employees
     }
 
+    // For managers, allow them to see employees and supervisors in their department
+    if (req.user.role === "manager") {
+      whereClause.role = { [Op.in]: ["employee", "supervisor"] };
+      // Optionally filter by department if manager has department info
+      if (req.user.department) {
+        whereClause.department = req.user.department;
+      }
+    }
+
+    console.log("User role:", req.user.role);
+    console.log("User department:", req.user.department);
+    console.log("Where clause:", whereClause);
+    
+    // First, let's check all employees without any filters
+    const allEmployees = await User.findAll({
+      where: { role: "employee" },
+      attributes: ["id", "name", "email", "deletedAt"],
+      order: [["createdAt", "DESC"]],
+    });
+    
+    console.log("All employees in database:", allEmployees.length);
+    console.log("All employee names:", allEmployees.map(u => u.name));
+    console.log("Employees with deletedAt:", allEmployees.filter(u => u.deletedAt).map(u => ({ name: u.name, deletedAt: u.deletedAt })));
+    
     const users = await User.findAll({
       where: whereClause,
       attributes: { exclude: ["passwordHash"] },
       order: [["createdAt", "DESC"]],
     });
+    
+    console.log("Found users after filtering:", users.length);
+    console.log("User names after filtering:", users.map(u => u.name));
+    
     res.json(users);
   } catch (error) {
     console.error("Error fetching users:", error);

@@ -166,6 +166,12 @@ const OnboardingDetail: React.FC = () => {
           completed,
           targetUserId
         );
+      } else if (isManager) {
+        await onboardingService.updateTaskCompletion(
+          taskId,
+          completed,
+          targetUserId
+        );
       } else {
         message.error("You do not have permission to complete tasks");
         return;
@@ -203,6 +209,8 @@ const OnboardingDetail: React.FC = () => {
       if (isHR) {
         await onboardingService.advanceToNextPhaseHR(userId);
       } else if (isSupervisor) {
+        await onboardingService.advanceToNextPhase(userId);
+      } else if (isManager) {
         await onboardingService.advanceToNextPhase(userId);
       } else {
         message.error("You do not have permission to advance phases");
@@ -283,6 +291,10 @@ const OnboardingDetail: React.FC = () => {
           tasks: completedTasks,
         });
       } else if (isSupervisor) {
+        await onboardingService.updateUserProgress(targetUserId, {
+          tasks: completedTasks,
+        });
+      } else if (isManager) {
         await onboardingService.updateUserProgress(targetUserId, {
           tasks: completedTasks,
         });
@@ -490,7 +502,18 @@ const OnboardingDetail: React.FC = () => {
             <Button
               type="default"
               icon={<RollbackOutlined />}
-              onClick={() => navigate("/admin/onboarding")}
+              onClick={() => {
+                // Navigate back to the appropriate page based on user role
+                if (isManager) {
+                  navigate("/manager/onboarding");
+                } else if (isSupervisor) {
+                  navigate("/supervisor/onboarding");
+                } else if (isHR) {
+                  navigate("/admin/onboarding");
+                } else {
+                  navigate("/admin/onboarding"); // fallback
+                }
+              }}
             >
               Exit
             </Button>

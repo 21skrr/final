@@ -110,11 +110,12 @@ router.put(
   onboardingController.updateTaskStatus
 );
 
-// PUT /api/onboarding/tasks/:taskId/complete - Update completion status (Supervisor/HR)
+// PUT /api/onboarding/tasks/:taskId/complete - Update completion status (Supervisor/HR/Manager)
 router.put(
   "/tasks/:taskId/complete",
   [
     auth,
+    onboardingPermissions.canEditTasks,
     check("completed", "Completed status is required").isBoolean(),
   ],
   onboardingController.updateTaskCompletion
@@ -164,9 +165,9 @@ router.put(
   "/progress/:userId/hr",
   [
     auth,
-    // Allow HR and supervisor to update onboarding progress
+    // Allow HR, supervisor, and manager to update onboarding progress
     (req, res, next) => {
-      if (["hr", "supervisor"].includes(req.user.role)) {
+      if (["hr", "supervisor", "manager"].includes(req.user.role)) {
         return next();
       }
       return res.status(403).json({ message: "Not authorized" });
@@ -186,9 +187,9 @@ router.put(
   "/progress/:userId/advance/hr",
   [
     auth,
-    // Allow HR and supervisor to advance phases
+    // Allow HR, supervisor, and manager to advance phases
     (req, res, next) => {
-      if (["hr", "supervisor"].includes(req.user.role)) {
+      if (["hr", "supervisor", "manager"].includes(req.user.role)) {
         return next();
       }
       return res.status(403).json({ message: "Not authorized" });
@@ -270,9 +271,9 @@ router.post(
   "/create",
   [
     auth,
-    // Allow HR and supervisor to create journeys
+    // Allow HR, supervisor, and manager to create journeys
     (req, res, next) => {
-      if (["hr", "supervisor"].includes(req.user.role)) {
+      if (["hr", "supervisor", "manager"].includes(req.user.role)) {
         return next();
       }
       return res.status(403).json({ message: "Not authorized" });

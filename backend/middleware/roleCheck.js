@@ -17,20 +17,20 @@ module.exports = (roles) => {
 
 // Onboarding-specific middleware for different user roles
 const onboardingPermissions = {
-  // Employee can only access their own data
+  // Employee and Supervisor can access their own data
   employee: async (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ message: "Not authenticated" });
     }
 
-    if (req.user.role !== 'employee') {
-      return res.status(403).json({ message: "Employee access only" });
+    if (!['employee', 'supervisor'].includes(req.user.role)) {
+      return res.status(403).json({ message: "Employee or Supervisor access only" });
     }
 
-    // For employee routes, ensure they can only access their own data
+    // For employee/supervisor routes, ensure they can only access their own data
     const targetUserId = req.params.userId || req.params.id;
     if (targetUserId && targetUserId !== req.user.id) {
-      return res.status(403).json({ message: "Employees can only access their own data" });
+      return res.status(403).json({ message: "You can only access your own data" });
     }
 
     next();
@@ -62,7 +62,7 @@ const onboardingPermissions = {
     next();
   },
 
-  // Manager can access department data (read-only)
+  // Manager can access department data (with edit permissions)
   manager: async (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ message: "Not authenticated" });
@@ -72,11 +72,7 @@ const onboardingPermissions = {
       return res.status(403).json({ message: "Manager access only" });
     }
 
-    // Managers have read-only access to onboarding data
-    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
-      return res.status(403).json({ message: "Managers have read-only access to onboarding data" });
-    }
-
+    // Managers can now edit onboarding data for their department
     next();
   },
 
@@ -183,10 +179,7 @@ const onboardingPermissions = {
           return res.status(500).json({ message: "Error validating access" });
         }
       }
-      // Managers have read-only access
-      if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
-        return res.status(403).json({ message: "Managers have read-only access to onboarding data" });
-      }
+      // Managers can now edit onboarding data for their department
     }
 
     next();
@@ -198,8 +191,8 @@ const onboardingPermissions = {
       return res.status(401).json({ message: "Not authenticated" });
     }
 
-    // Only HR and supervisors can advance phases
-    if (!['hr', 'supervisor'].includes(req.user.role)) {
+    // Only HR, supervisors, and managers can advance phases
+    if (!['hr', 'supervisor', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ message: "Phase advancement not allowed for this role" });
     }
 
@@ -211,6 +204,21 @@ const onboardingPermissions = {
           const targetUser = await User.findByPk(targetUserId);
           if (!targetUser || targetUser.supervisorId !== req.user.id) {
             return res.status(403).json({ message: "Supervisors can only advance their direct reports' phases" });
+          }
+        } catch (error) {
+          return res.status(500).json({ message: "Error validating access" });
+        }
+      }
+    }
+
+    // For managers, check if they're advancing phases for users in their department
+    if (req.user.role === 'manager') {
+      const targetUserId = req.params.userId || req.params.id;
+      if (targetUserId && targetUserId !== req.user.id) {
+        try {
+          const targetUser = await User.findByPk(targetUserId);
+          if (!targetUser || targetUser.department !== req.user.department) {
+            return res.status(403).json({ message: "Managers can only advance phases for users in their department" });
           }
         } catch (error) {
           return res.status(500).json({ message: "Error validating access" });

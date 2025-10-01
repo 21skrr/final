@@ -1,28 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import {
-  LayoutDashboard,
-  Users,
-  Briefcase,
-  CheckSquare,
-  FileText,
-  Calendar,
-  MessageSquare,
-  HelpCircle,
-  LogOut,
-  ChevronDown,
-  ChevronUp,
-  BarChart2,
-  Send,
-  Layers,
-  Bell,
-  Shield,
-  PieChart,
-  BookOpen,
-  Settings,
-  Monitor,
-  BarChart
-} from "lucide-react";
+import { LayoutDashboard, Users, Briefcase, CheckSquare, FileText, Calendar, MessageSquare, HelpCircle, LogOut, ChevronDown, ChevronUp, BarChart2, Send, Layers, Bell, Shield, PieChart, BookOpen, Settings, Monitor, BarChart } from 'lucide-react';
 import { useAuth } from "../../context/AuthContext";
 import { UserRole } from "../../types/user";
 import { useSupervisorAssessments } from "../../hooks/useSupervisorAssessments";
@@ -39,7 +17,6 @@ interface NavLink {
 const navItems: NavLink[] = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['employee', 'hr', 'manager', 'supervisor'] },
     { name: 'Programs', path: '/programs', icon: Briefcase, roles: ['employee', 'hr', 'manager', 'supervisor'] },
-    { name: 'Checklists', path: '/checklists', icon: CheckSquare, roles: ['employee', 'hr', 'manager', 'supervisor'] },
     { name: 'Forms & Surveys', path: '/forms', icon: FileText, roles: ['employee', 'hr'] },
     { name: 'Calendar', path: '/calendar', icon: Calendar, roles: ['employee', 'hr', 'manager', 'supervisor'] },
     { name: 'Feedback', path: '/feedback', icon: MessageSquare, roles: ['employee', 'hr', 'manager', 'supervisor'] },
@@ -63,6 +40,7 @@ const navItems: NavLink[] = [
     { name: 'Team Surveys', path: '/supervisor/team-surveys', icon: Users, roles: ['supervisor'] },
     { name: 'Onboarding Management', path: '/manager/onboarding', icon: Briefcase, roles: ['manager'] },
     { name: 'Onboarding Management', path: '/supervisor/onboarding', icon: Briefcase, roles: ['supervisor'] },
+    { name: 'My Onboarding Progress', path: '/supervisor/my-onboarding', icon: CheckSquare, roles: ['supervisor'] },
     {
       name: 'Surveys',
       path: '/admin/surveys',
@@ -82,7 +60,7 @@ const Sidebar: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const [expandedItem, setExpandedItem] = useState<string | null>(null);
-    const { pendingAssessments, pendingHRApprovals } = useSupervisorAssessments();
+    const { pendingAssessments, pendingHRAssessments } = useSupervisorAssessments();
 
     const handleLogout = () => {
         logout();
@@ -135,9 +113,9 @@ const Sidebar: React.FC = () => {
                                         {pendingAssessments}
                                     </span>
                                 )}
-                                {item.name === 'HR Validation Queue' && pendingHRApprovals > 0 && (
+                                {item.name === 'HR Assessment Queue' && pendingHRAssessments > 0 && (
                                     <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                                        {pendingHRApprovals}
+                                        {pendingHRAssessments}
                                     </span>
                                 )}
                             </div>

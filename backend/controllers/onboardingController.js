@@ -10,6 +10,7 @@ const {
   OnboardingTask,
   UserTaskProgress,
   SupervisorAssessment,
+  HRAssessment,
 } = require("../models");
 const { validationResult } = require("express-validator");
 const { Op } = require("sequelize");
@@ -213,12 +214,15 @@ const getAllProgresses = async (req, res) => {
         ],
       });
     } else if (req.user.role === "manager") {
-      // Manager: only employees in their department
+      // Manager: employees and supervisors in their department
       progresses = await OnboardingProgress.findAll({
         include: [
           {
             model: User,
-            where: { department: req.user.department, role: "employee" },
+            where: { 
+              department: req.user.department, 
+              role: { [Op.in]: ["employee", "supervisor"] }
+            },
             attributes: [
               "id",
               "name",
@@ -282,7 +286,7 @@ const updateUserProgress = async (req, res) => {
     }
 
     // Verify the user has permission
-    if (req.user.role !== "hr" && req.user.role !== "supervisor") {
+    if (req.user.role !== "hr" && req.user.role !== "supervisor" && req.user.role !== "manager") {
       return res.status(403).json({ message: "Not authorized" });
     }
 
@@ -292,6 +296,16 @@ const updateUserProgress = async (req, res) => {
       if (!targetUser || targetUser.supervisorId !== req.user.id) {
         return res.status(403).json({
           message: "Supervisors can only update their direct reports' progress",
+        });
+      }
+    }
+
+    // For managers, check if they're updating progress for users in their department
+    if (req.user.role === "manager") {
+      const targetUser = await User.findByPk(req.params.userId);
+      if (!targetUser || targetUser.department !== req.user.department) {
+        return res.status(403).json({
+          message: "Managers can only update progress for users in their department",
         });
       }
     }
@@ -983,6 +997,16 @@ const deleteUserProgress = async (req, res) => {
       where: { UserId: userId },
     });
 
+    // Delete all related SupervisorAssessment records
+    await SupervisorAssessment.destroy({
+      where: { OnboardingProgressId: progress.id },
+    });
+
+    // Delete all related HRAssessment records
+    await HRAssessment.destroy({
+      where: { OnboardingProgressId: progress.id },
+    });
+
     // Then delete the main progress record
     await progress.destroy();
 
@@ -1016,18 +1040,19 @@ const createJourney = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Security check for supervisors: only allow creating journeys for their direct reports
+    // Security checks based on user role
     if (req.user.role === "supervisor") {
-      if (user.supervisorId !== req.user.id) {
-        return res.status(403).json({ 
-          message: "Supervisors can only create onboarding journeys for their direct reports" 
-        });
-      }
-      
-      // Ensure the target user is an employee
+      // Supervisors can only create journeys for employees
       if (user.role !== "employee") {
         return res.status(403).json({ 
           message: "Supervisors can only create onboarding journeys for employees" 
+        });
+      }
+    } else if (req.user.role === "manager") {
+      // Managers can create journeys for both employees and supervisors
+      if (!["employee", "supervisor"].includes(user.role)) {
+        return res.status(403).json({ 
+          message: "Managers can only create onboarding journeys for employees and supervisors" 
         });
       }
     }
@@ -1137,12 +1162,18 @@ const calculatePhaseProgress = async (userId, phase) => {
 const getUserOnboardingProgress = async (req, res) => {
   const { userId } = req.params;
   try {
-    // Security check for supervisors: only allow access to their direct reports
+    // Security check for supervisors: only allow access to their direct reports or their own progress
     if (req.user.role === "supervisor") {
       const targetUser = await User.findByPk(userId);
-      if (!targetUser || targetUser.supervisorId !== req.user.id) {
+      if (!targetUser) {
+        return res.status(404).json({ 
+          message: "User not found" 
+        });
+      }
+      // Allow supervisors to view their own progress or their direct reports' progress
+      if (targetUser.id !== req.user.id && targetUser.supervisorId !== req.user.id) {
         return res.status(403).json({ 
-          message: "Supervisors can only view onboarding progress for their direct reports" 
+          message: "Supervisors can only view onboarding progress for their direct reports or their own progress" 
         });
       }
     }
@@ -1333,7 +1364,7 @@ const updateTaskStatus = async (req, res) => {
 
   try {
     // Check if user can edit tasks
-    if (!["hr", "supervisor"].includes(req.user.role)) {
+    if (!["hr", "supervisor", "manager"].includes(req.user.role)) {
       return res
         .status(403)
         .json({ error: "Task editing not allowed for this role" });
@@ -1435,7 +1466,7 @@ const advanceToNextPhase = async (req, res) => {
     const { userId } = req.params;
 
     // Check if user can advance phases
-    if (!["hr", "supervisor"].includes(req.user.role)) {
+    if (!["hr", "supervisor", "manager"].includes(req.user.role)) {
       return res
         .status(403)
         .json({ message: "Phase advancement not allowed for this role" });
@@ -1652,7 +1683,7 @@ const updateTaskCompletion = async (req, res) => {
 
   try {
     // Check if user can edit tasks
-    if (!["hr", "supervisor"].includes(req.user.role)) {
+    if (!["hr", "supervisor", "manager"].includes(req.user.role)) {
       return res
         .status(403)
         .json({ error: "Task editing not allowed for this role" });
@@ -1672,7 +1703,27 @@ const updateTaskCompletion = async (req, res) => {
 
       if (userTaskProgress) {
         const targetUser = await User.findByPk(userTaskProgress.UserId);
-        
+        if (!targetUser || targetUser.supervisorId !== req.user.id) {
+          return res.status(403).json({ 
+            error: "Supervisors can only edit their direct reports' tasks" 
+          });
+        }
+      }
+    }
+
+    // For managers, check if they're editing tasks for users in their department
+    if (req.user.role === "manager") {
+      const userTaskProgress = await UserTaskProgress.findOne({
+        where: { OnboardingTaskId: taskId },
+      });
+
+      if (userTaskProgress) {
+        const targetUser = await User.findByPk(userTaskProgress.UserId);
+        if (!targetUser || targetUser.department !== req.user.department) {
+          return res.status(403).json({ 
+            error: "Managers can only edit tasks for users in their department" 
+          });
+        }
       }
     }
 

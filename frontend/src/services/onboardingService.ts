@@ -217,18 +217,18 @@ class OnboardingService {
 
   // Permission helpers for UI
   canEditTasks(role: string): boolean {
-    // Only HR and Supervisor can edit tasks
-    return role === "hr" || role === "supervisor";
+    // HR, Supervisor, and Manager can edit tasks
+    return role === "hr" || role === "supervisor" || role === "manager";
   }
 
   canAdvancePhases(role: string): boolean {
-    // Only HR and Supervisor can advance phases
-    return role === "hr" || role === "supervisor";
+    // HR, Supervisor, and Manager can advance phases
+    return role === "hr" || role === "supervisor" || role === "manager";
   }
 
   canValidateTasks(role: string): boolean {
-    // Only HR can validate tasks
-    return role === "hr";
+    // HR and Manager can validate tasks
+    return role === "hr" || role === "manager";
   }
 }
 

@@ -77,6 +77,12 @@ class SupervisorAssessmentService {
     return response.data;
   }
 
+  // Get pending HR assessments (for HR Assessment Queue)
+  async getPendingHRAssessments(): Promise<AssessmentListResponse> {
+    const response = await api.get("/hr-assessments/pending");
+    return response.data;
+  }
+
   // Helper methods for status checks
   isCertificateUploaded(status: string): boolean {
     return status === "certificate_uploaded" || 

@@ -6,6 +6,7 @@ export const useSupervisorAssessments = () => {
   const { user } = useAuth();
   const [pendingAssessments, setPendingAssessments] = useState(0);
   const [pendingHRApprovals, setPendingHRApprovals] = useState(0);
+  const [pendingHRAssessments, setPendingHRAssessments] = useState(0);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -14,6 +15,7 @@ export const useSupervisorAssessments = () => {
     }
     if (user?.role === 'hr') {
       fetchPendingHRApprovals();
+      fetchPendingHRAssessments();
     }
   }, [user?.id, user?.role]);
 
@@ -54,9 +56,29 @@ export const useSupervisorAssessments = () => {
     }
   };
 
+  const fetchPendingHRAssessments = async () => {
+    try {
+      setLoading(true);
+      const response = await supervisorAssessmentService.getPendingHRAssessments();
+      // Filter for pending HR assessments (for notifications)
+      const pending = response.assessments.filter(
+        (assessment: any) => 
+          assessment.status === 'assessment_pending' || 
+          assessment.status === 'decision_pending' ||
+          assessment.status === 'hr_approval_pending'
+      ).length;
+      setPendingHRAssessments(pending);
+    } catch (error) {
+      console.error('Error fetching pending HR assessments:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return { 
     pendingAssessments, 
     pendingHRApprovals, 
+    pendingHRAssessments,
     loading, 
     refetch: user?.role === 'supervisor' ? fetchPendingAssessments : fetchPendingHRApprovals 
   };

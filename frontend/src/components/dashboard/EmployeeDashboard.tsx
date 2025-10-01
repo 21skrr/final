@@ -25,57 +25,77 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
       setLoading(true);
       setError(null);
       try {
-        // Fetch events
-        const events = await eventService.getEvents();
-        // Filter for upcoming events (future dates, limit 3)
-        const now = new Date();
-        const upcoming = events
-          .filter((e: any) => new Date(e.startDate || e.date) > now)
-          .sort((a: any, b: any) => new Date(a.startDate || a.date).getTime() - new Date(b.startDate || b.date).getTime())
-          .slice(0, 3);
-        setUpcomingEvents(upcoming);
+        // Fetch events with error handling
+        try {
+          const events = await eventService.getEvents();
+          // Filter for upcoming events (future dates, limit 3)
+          const now = new Date();
+          const upcoming = events
+            .filter((e: any) => new Date(e.startDate || e.date) > now)
+            .sort((a: any, b: any) => new Date(a.startDate || a.date).getTime() - new Date(b.startDate || b.date).getTime())
+            .slice(0, 3);
+          setUpcomingEvents(upcoming);
+        } catch (err) {
+          console.warn('Failed to fetch events:', err);
+          setUpcomingEvents([]);
+        }
 
-        // Fetch tasks (checklist assignments)
-        const assignments = await checklistAssignmentService.getMyAssignments();
-        console.log('Assignments:', assignments);
-        // Flatten checklist items, but if no items, use the assignment itself as a task
-        let allTasks: any[] = [];
-        assignments.forEach((assignment: any) => {
-          if (assignment.items && assignment.items.length > 0) {
-            assignment.items.forEach((item: any) => {
-              allTasks.push({
-                id: item.id,
-                title: item.title,
-                dueDate: item.dueDate || assignment.dueDate,
-                isCompleted: item.isCompleted,
-                priority: item.priority || 'medium',
+        // Fetch tasks (checklist assignments) with error handling
+        try {
+          const assignments = await checklistAssignmentService.getMyAssignments();
+          console.log('Assignments:', assignments);
+          // Flatten checklist items, but if no items, use the assignment itself as a task
+          let allTasks: any[] = [];
+          assignments.forEach((assignment: any) => {
+            if (assignment.items && assignment.items.length > 0) {
+              assignment.items.forEach((item: any) => {
+                allTasks.push({
+                  id: item.id,
+                  title: item.title,
+                  dueDate: item.dueDate || assignment.dueDate,
+                  isCompleted: item.isCompleted,
+                  priority: item.priority || 'medium',
+                });
               });
-            });
-          } else {
-            // If no items, treat the assignment as a single task
-            allTasks.push({
-              id: assignment.id,
-              title: assignment.title,
-              dueDate: assignment.dueDate,
-              isCompleted: assignment.isCompleted || false,
-              priority: assignment.priority || 'medium',
-            });
-          }
-        });
-        // Prefer incomplete tasks, but if none, show completed ones
-        let incompleteTasks = allTasks.filter(t => !t.isCompleted);
-        let displayTasks = incompleteTasks.length > 0 ? incompleteTasks : allTasks;
-        displayTasks = displayTasks.sort((a, b) => new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime()).slice(0, 4);
-        console.log('Dashboard Tasks:', displayTasks);
-        setTasks(displayTasks);
+            } else {
+              // If no items, treat the assignment as a single task
+              allTasks.push({
+                id: assignment.id,
+                title: assignment.title,
+                dueDate: assignment.dueDate,
+                isCompleted: assignment.isCompleted || false,
+                priority: assignment.priority || 'medium',
+              });
+            }
+          });
+          // Prefer incomplete tasks, but if none, show completed ones
+          let incompleteTasks = allTasks.filter(t => !t.isCompleted);
+          let displayTasks = incompleteTasks.length > 0 ? incompleteTasks : allTasks;
+          displayTasks = displayTasks.sort((a, b) => new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime()).slice(0, 4);
+          console.log('Dashboard Tasks:', displayTasks);
+          setTasks(displayTasks);
+        } catch (err) {
+          console.warn('Failed to fetch tasks:', err);
+          setTasks([]);
+        }
 
-        // Fetch available surveys
-        const surveyRes = await surveyService.getAvailableSurveys();
-        setSurveys(surveyRes.data || surveyRes);
+        // Fetch available surveys with error handling
+        try {
+          const surveyRes = await surveyService.getAvailableSurveys();
+          setSurveys(surveyRes || []);
+        } catch (err) {
+          console.warn('Failed to fetch surveys:', err);
+          setSurveys([]);
+        }
 
-        // Fetch learning progress
-        const learningRes = await analyticsService.getPersonalTraining();
-        setLearning(learningRes);
+        // Fetch learning progress with error handling
+        try {
+          const learningRes = await analyticsService.getPersonalTraining();
+          setLearning(learningRes);
+        } catch (err) {
+          console.warn('Failed to fetch learning data:', err);
+          setLearning(null);
+        }
       } catch (err: any) {
         setError(err?.response?.data?.message || err?.message || 'Failed to load dashboard data.');
         console.error(err);
@@ -122,7 +142,7 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <OnboardingProgress user={user} />
+          <OnboardingProgress />
         </div>
         
         <div className="space-y-6">
@@ -136,7 +156,7 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
                 <p className="text-gray-500 text-center py-4">No upcoming events</p>
               ) : (
                 <ul className="divide-y divide-gray-200">
-                  {upcomingEvents.map((event) => (
+                  {upcomingEvents?.map((event) => (
                     <li key={event.id} className="py-3">
                       <div className="flex justify-between">
                         <p className="text-sm font-medium text-gray-900">{event.title}</p>
@@ -177,7 +197,7 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
                 <p className="text-gray-500 text-center py-4">No tasks to display</p>
               ) : (
                 <ul className="divide-y divide-gray-200">
-                  {tasks.map((task) => (
+                  {tasks?.map((task) => (
                     <li key={task.id} className="py-3 flex items-start">
                       <div className="flex-shrink-0 mt-0.5">
                         <input
@@ -225,17 +245,17 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
             <h2 className="text-lg font-medium">Upcoming Surveys</h2>
           </div>
           <div className="p-4">
-            {surveys.length === 0 ? (
+            {!surveys || surveys.length === 0 || !surveys[0] ? (
               <p className="text-gray-500 text-center py-4">No upcoming surveys</p>
             ) : (
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <h3 className="font-medium text-purple-800">{surveys[0].title}</h3>
+                <h3 className="font-medium text-purple-800">{surveys[0]?.title || 'Survey'}</h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  {surveys[0].description || 'Please share your feedback on your onboarding experience so far.'}
+                  {surveys[0]?.description || 'Please share your feedback on your onboarding experience so far.'}
                 </p>
                 <div className="mt-3">
                   <Link
-                    to={`/forms/${surveys[0].id}`}
+                    to={`/forms/${surveys[0]?.id || '#'}`}
                     className="inline-flex items-center px-3 py-1.5 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
                   >
                     Complete Survey

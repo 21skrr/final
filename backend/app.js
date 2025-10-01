@@ -51,7 +51,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Then CORS, session, etc.
 app.use(cors({
-  origin: 'http://localhost:5173', // Allow frontend origin
+  origin: ['http://localhost:5173', 'http://localhost:5174'], // Allow frontend origins
   credentials: true // Allow cookies/auth headers
 }));
 

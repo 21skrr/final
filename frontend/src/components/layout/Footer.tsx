@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { ChevronUp } from "lucide-react";
-import { Facebook, Twitter, Youtube, Linkedin } from "lucide-react";
+import { ChevronUp } from 'lucide-react';
+import { Facebook, Twitter, Youtube, Linkedin } from 'lucide-react';
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();

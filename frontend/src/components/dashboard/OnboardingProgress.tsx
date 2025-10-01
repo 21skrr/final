@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { CheckCircle, Circle, AlertTriangle, XCircle } from "lucide-react";
-import { OnboardingStage } from "../../types/user";
+import { CheckCircle, Circle, AlertTriangle, XCircle } from 'lucide-react';
 import onboardingService from "../../services/onboardingService";
-import type { OnboardingJourney } from "../../types/onboarding";
+import type { OnboardingJourney, OnboardingStage } from "../../types/onboarding";
 import { useAuth } from "../../context/AuthContext";
 
 type Task = {
@@ -35,11 +34,33 @@ const OnboardingProgress: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [journeyData, defaultTasksData] = await Promise.all([
-          onboardingService.getJourney(),
-          onboardingService.getDefaultTasks(),
-        ]);
-        setJourney(journeyData);
+        setError(null);
+        
+        // Try to fetch journey data
+        let journeyData = null;
+        let defaultTasksData = null;
+        
+        try {
+          journeyData = await onboardingService.getJourney();
+        } catch (err) {
+          console.warn("Failed to fetch onboarding journey:", err);
+          // Set default journey data if API fails
+          journeyData = {
+            currentStage: "pre_onboarding" as OnboardingStage,
+            progress: { overall: 0 },
+            tasksByPhase: {}
+          };
+        }
+        
+        try {
+          defaultTasksData = await onboardingService.getDefaultTasks();
+        } catch (err) {
+          console.warn("Failed to fetch default tasks:", err);
+          // Set default tasks if API fails
+          defaultTasksData = {};
+        }
+        
+        setJourney(journeyData as any);
         setDefaultTasks(defaultTasksData);
       } catch (err) {
         console.error("Error fetching onboarding journey or tasks:", err);
@@ -74,9 +95,9 @@ const OnboardingProgress: React.FC = () => {
 
   // Only show current and completed phases
   const stages: OnboardingStage[] = [
-    "pre_onboarding",
-    "phase_1",
-    "phase_2",
+    "pre_onboarding" as OnboardingStage,
+    "phase_1" as OnboardingStage,
+    "phase_2" as OnboardingStage,
   ];
   const currentStageIndex = stages.findIndex(
     (stage) => stage === journey.currentStage
@@ -93,12 +114,12 @@ const OnboardingProgress: React.FC = () => {
   const supervisorAssessment = (journey as any).supervisorAssessment;
 
   // Check if Phase 2 is completed and there's an HR assessment
-  const phase2Tasks = journey.tasksByPhase?.["phase_2"] || [];
+  const phase2Tasks = journey.tasksByPhase?.["phase_2" as OnboardingStage] || [];
   const phase2Completed = phase2Tasks.length > 0 && phase2Tasks.every((t) => t.isCompleted);
   const hrAssessment = (journey as any).hrAssessment;
 
   // Determine which stages to show based on supervisor assessment and HR assessment
-  let visibleStages = stages.filter((stage, idx) => idx <= currentStageIndex);
+  let visibleStages = stages.filter((_, idx) => idx <= currentStageIndex);
   
   // If Phase 1 is completed but HR hasn't approved, hide Phase 2
   if (phase1Completed && supervisorAssessment) {
@@ -107,7 +128,7 @@ const OnboardingProgress: React.FC = () => {
       visibleStages = stages;
     } else if (supervisorAssessment.status !== "hr_approved" && supervisorAssessment.status !== "completed") {
       // Hide Phase 2 if not approved
-      visibleStages = stages.filter((stage) => stage !== "phase_2");
+      visibleStages = stages.filter((stage) => stage !== "phase_2" as OnboardingStage);
     }
   }
 
@@ -144,21 +165,20 @@ const OnboardingProgress: React.FC = () => {
 
       <div className="p-6">
         <div className="space-y-6">
-          {visibleStages.map((stageKey, index) => {
+          {visibleStages.map((stageKey) => {
             const isCurrentStage = stageKey === journey.currentStage;
-            const isPastStage = index < currentStageIndex;
             // Use tasksByPhase from journey, which includes isCompleted
             const tasks: Task[] = journey.tasksByPhase?.[stageKey] || [];
             const phaseCompleted =
               tasks.length > 0 && tasks.every((t) => t.isCompleted);
 
             // Check if this is Phase 2 and should show rejection message
-            const isPhase2Rejected = stageKey === "phase_2" && 
+            const isPhase2Rejected = stageKey === "phase_2" as OnboardingStage && 
               phase1Completed && 
               supervisorAssessment?.status === "hr_rejected";
 
             // Check if this is Phase 2 and should show HR assessment status
-            const isPhase2HRAssessment = stageKey === "phase_2" && 
+            const isPhase2HRAssessment = stageKey === "phase_2" as OnboardingStage && 
               phase2Completed && 
               hrAssessment;
 
@@ -249,7 +269,7 @@ const OnboardingProgress: React.FC = () => {
                     )}
 
                     {/* Show pending approval message for Phase 2 if waiting for HR */}
-                    {stageKey === "phase_2" && 
+                    {stageKey === "phase_2" as OnboardingStage && 
                      phase1Completed && 
                      supervisorAssessment?.status === "hr_approval_pending" && (
                       <div className="mt-3 p-3 bg-yellow-100 border border-yellow-200 rounded-md">
