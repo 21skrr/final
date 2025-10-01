@@ -18,6 +18,7 @@ const navItems: NavLink[] = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['employee', 'hr', 'manager', 'supervisor'] },
     { name: 'Programs', path: '/programs', icon: Briefcase, roles: ['employee', 'hr', 'manager', 'supervisor'] },
     { name: 'Forms & Surveys', path: '/forms', icon: FileText, roles: ['employee', 'hr'] },
+    { name: 'Checklists', path: '/checklists', icon: CheckSquare, roles: ['employee', 'hr'] },
     { name: 'Calendar', path: '/calendar', icon: Calendar, roles: ['employee', 'hr', 'manager', 'supervisor'] },
     { name: 'Feedback', path: '/feedback', icon: MessageSquare, roles: ['employee', 'hr', 'manager', 'supervisor'] },
     { name: 'Help & Resources', path: '/resources', icon: BookOpen, roles: ['employee', 'hr', 'manager', 'supervisor'] },
@@ -48,7 +49,6 @@ const navItems: NavLink[] = [
       roles: ['hr'],
       children: [
         { name: 'Survey Templates', path: '/admin/survey-templates', icon: FileText, roles: ['hr'] },
-        { name: 'Survey Settings', path: '/admin/survey-settings', icon: Settings, roles: ['hr'] },
         { name: 'Survey Monitoring', path: '/admin/survey-monitoring', icon: Monitor, roles: ['hr'] },
         { name: 'Survey Analytics', path: '/admin/survey-analytics', icon: BarChart, roles: ['hr'] },
       ]

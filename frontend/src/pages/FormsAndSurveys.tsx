@@ -99,8 +99,7 @@ const HRSurveyDashboard: React.FC = () => {
   const navigate = useNavigate();
   const features = [
     { name: 'Survey Templates', path: '/admin/survey-templates', icon: Edit, description: 'Create and manage reusable survey templates.' },
-    { name: 'Monitor Surveys', path: '/admin/survey-monitoring', icon: BarChart2, description: 'Track survey progress and view participation.' },
-    { name: 'Survey Settings', path: '/admin/survey-settings', icon: Settings, description: 'Configure global settings for all surveys.' }
+    { name: 'Monitor Surveys', path: '/admin/survey-monitoring', icon: BarChart2, description: 'Track survey progress and view participation.' }
   ];
 
   return (

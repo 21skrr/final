@@ -38,7 +38,6 @@ import RolesPermissions from '../pages/admin/RolesPermissions';
 import SystemSettings from '../pages/admin/SystemSettings';
 import NotificationTemplates from '../pages/admin/NotificationTemplates';
 import SurveyTemplates from "../pages/admin/SurveyTemplates";
-import SurveySettings from '../pages/admin/SurveySettings';
 import SurveyMonitoring from '../pages/admin/SurveyMonitoring';
 import TeamSurveys from '../pages/supervisor/TeamSurveys';
 import DepartmentSurveys from '../pages/manager/DepartmentSurveys';
@@ -434,14 +433,6 @@ const Router: React.FC = () => {
       element: (
         <ProtectedRoute requiredRoles={['hr']}>
           <NotificationTemplates />
-        </ProtectedRoute>
-      ),
-    },
-    {
-      path: '/admin/survey-settings',
-      element: (
-        <ProtectedRoute requiredRoles={['hr']}>
-          <SurveySettings />
         </ProtectedRoute>
       ),
     },

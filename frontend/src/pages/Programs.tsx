@@ -74,27 +74,6 @@ const Programs: React.FC = () => {
             count={showCounts ? programCounts.workExperience : undefined}
           />
         </div>
-        
-        <div className="bg-blue-50 rounded-lg p-6 border border-blue-100">
-          <h2 className="text-xl font-semibold text-gray-900 mb-3">Looking for Help?</h2>
-          <p className="text-gray-600 mb-4">
-            If you have questions about any of our early careers programs or need assistance with the onboarding process, our team is here to help.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <a
-              href="/resources"
-              className="inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-            >
-              View Resources
-            </a>
-            <a
-              href="/contact"
-              className="inline-flex justify-center items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50"
-            >
-              Contact HR Team
-            </a>
-          </div>
-        </div>
       </div>
     </Layout>
   );
