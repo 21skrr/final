@@ -4,10 +4,13 @@ import { User } from '../types/user';
 interface CreateUserRequest {
   email: string;
   name: string;
+  password: string;
   role: string;
-  department?: string;
+  department: string;
+  startDate: string;
   programType?: string;
   supervisorId?: string;
+  teamId?: string;
 }
 
 interface UpdateUserRequest {

@@ -167,6 +167,7 @@ const SupervisorFeedback: React.FC = () => {
             feedback={viewFeedback}
             isOpen={showViewModal}
             onClose={handleCloseViewModal}
+            userRole={user?.role || 'supervisor'}
           />
         )}
       </div>

@@ -42,12 +42,55 @@ const UserManagement: React.FC = () => {
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [teamForm, setTeamForm] = useState({ name: '', description: '', managerId: '', members: [] as string[] });
   const [allUsers, setAllUsers] = useState<UserType[]>([]);
+  const [supervisors, setSupervisors] = useState<UserType[]>([]);
   // Fetch all users for dropdowns when modal opens
   useEffect(() => {
     if (showTeamModal) {
       userService.getUsers().then(setAllUsers);
     }
   }, [showTeamModal]);
+
+  // Fetch supervisors and teams when modal opens for user creation
+  useEffect(() => {
+    if (showModal) {
+      // Fetch supervisors (users with role 'supervisor')
+      const fetchSupervisors = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const res = await fetch('http://localhost:5000/api/users?role=supervisor', {
+            headers: { 'Authorization': `Bearer ${token}` },
+            credentials: 'include',
+          });
+          if (!res.ok) throw new Error('Failed to fetch supervisors');
+          const data = await res.json();
+          setSupervisors(data);
+        } catch (err) {
+          console.error('Error fetching supervisors:', err);
+          message.error('Failed to load supervisors');
+        }
+      };
+      
+      // Fetch teams
+      const fetchTeams = async () => {
+        try {
+          const data = await teamService.getTeams();
+          if (Array.isArray(data)) {
+            setTeams(data);
+          } else if (data && typeof data === 'object') {
+            setTeams([data]);
+          } else {
+            setTeams([]);
+          }
+        } catch (err) {
+          console.error('Error fetching teams:', err);
+          setTeams([]);
+        }
+      };
+
+      fetchSupervisors();
+      fetchTeams();
+    }
+  }, [showModal]);
 
   const roleOptions = [
     { value: 'employee', label: 'Employee' },
@@ -381,6 +424,14 @@ const UserManagement: React.FC = () => {
                     <Option key={opt.value} value={opt.value}>{opt.label}</Option>
                   ))}
                 </Select>
+                <Button 
+                  type="primary" 
+                  icon={<UserPlus className="h-4 w-4" />}
+                  onClick={handleAdd}
+                  className="whitespace-nowrap"
+                >
+                  Add New User
+                </Button>
               </div>
             </div>
 
@@ -653,6 +704,70 @@ const UserManagement: React.FC = () => {
               <Form.Item
                 name="programType"
                 label="Program Type"
+                rules={[]}
+                style={{ display: 'none' }}
+              >
+                <Input disabled />
+              </Form.Item>
+            )}
+            {/* Supervisor: required only for employees */}
+            {selectedRole === 'employee' && (
+              <Form.Item
+                name="supervisorId"
+                label="Supervisor"
+                rules={[{ required: true, message: 'Please select a supervisor' }]}
+              >
+                <Select 
+                  placeholder="Select supervisor"
+                  showSearch
+                  filterOption={(input, option) =>
+                    (option?.children as string).toLowerCase().includes(input.toLowerCase())
+                  }
+                >
+                  {supervisors.map(supervisor => (
+                    <Option key={supervisor.id} value={supervisor.id}>
+                      {supervisor.name} ({supervisor.email})
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            )}
+            {selectedRole !== 'employee' && (
+              <Form.Item
+                name="supervisorId"
+                label="Supervisor"
+                rules={[]}
+                style={{ display: 'none' }}
+              >
+                <Input disabled />
+              </Form.Item>
+            )}
+            {/* Team: required only for employees */}
+            {selectedRole === 'employee' && (
+              <Form.Item
+                name="teamId"
+                label="Team"
+                rules={[{ required: true, message: 'Please select a team' }]}
+              >
+                <Select 
+                  placeholder="Select team"
+                  showSearch
+                  filterOption={(input, option) =>
+                    (option?.children as string).toLowerCase().includes(input.toLowerCase())
+                  }
+                >
+                  {teams.map(team => (
+                    <Option key={team.id} value={team.id}>
+                      {team.name}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            )}
+            {selectedRole !== 'employee' && (
+              <Form.Item
+                name="teamId"
+                label="Team"
                 rules={[]}
                 style={{ display: 'none' }}
               >

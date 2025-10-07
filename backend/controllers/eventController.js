@@ -1,5 +1,6 @@
 const { Event, User, EventParticipant } = require("../models");
 const { validationResult } = require("express-validator");
+const { sendEventDayNotifications, sendEventStartingSoonNotifications } = require("../reminderScheduler");
 
 // Get all events
 const getAllEvents = async (req, res) => {
@@ -316,6 +317,33 @@ const updateAttendance = async (req, res) => {
   }
 };
 
+// Manually trigger event notifications (for testing)
+const triggerEventNotifications = async (req, res) => {
+  try {
+    // Check if user has HR role
+    if (req.user.role !== "hr") {
+      return res.status(403).json({
+        message: "Access denied. Only HR can trigger event notifications.",
+      });
+    }
+
+    const { type } = req.body; // 'day' or 'starting_soon'
+
+    if (type === 'day') {
+      await sendEventDayNotifications();
+      res.json({ message: "Event day notifications triggered successfully" });
+    } else if (type === 'starting_soon') {
+      await sendEventStartingSoonNotifications();
+      res.json({ message: "Event starting soon notifications triggered successfully" });
+    } else {
+      res.status(400).json({ message: "Invalid notification type. Use 'day' or 'starting_soon'" });
+    }
+  } catch (error) {
+    console.error("Error triggering event notifications:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   getAllEvents,
   getUserEvents,
@@ -324,4 +352,5 @@ module.exports = {
   updateEvent,
   deleteEvent,
   updateAttendance,
+  triggerEventNotifications,
 };

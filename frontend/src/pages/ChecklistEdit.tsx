@@ -108,8 +108,14 @@ const ChecklistEdit: React.FC = () => {
     try {
       // Delete removed items first
       for (const itemId of deletedItemIds) {
-        await checklistService.deleteChecklistItem(itemId);
+        try {
+          await checklistService.deleteChecklistItem(itemId);
+        } catch (err) {
+          console.warn(`Failed to delete item ${itemId}:`, err);
+          // Continue with other operations even if deletion fails
+        }
       }
+      
       // Update checklist_combined template info using checklistId
       await checklistService.updateChecklistTemplate(checklistId!, {
         title,
@@ -117,6 +123,7 @@ const ChecklistEdit: React.FC = () => {
         programType,
         stage,
       });
+      
       // Update or create items using checklistId
       for (const [index, item] of items.entries()) {
         if (item.id) {
@@ -131,8 +138,12 @@ const ChecklistEdit: React.FC = () => {
           });
         }
       }
-      alert('Checklist updated!');
+      
+      alert('Checklist updated successfully!');
       navigate('/checklists');
+    } catch (error) {
+      console.error('Error saving checklist:', error);
+      alert(`Failed to save checklist: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSaving(false);
       setDeletedItemIds([]);

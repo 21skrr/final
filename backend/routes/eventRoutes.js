@@ -64,4 +64,15 @@ router.put(
   eventController.updateAttendance
 );
 
+// POST /api/events/trigger-notifications (for testing)
+router.post(
+  "/trigger-notifications",
+  [
+    auth,
+    roleCheck(["hr"]),
+    check("type", "Type must be 'day' or 'starting_soon'").isIn(["day", "starting_soon"]),
+  ],
+  eventController.triggerEventNotifications
+);
+
 module.exports = router;

@@ -23,7 +23,6 @@ const OnboardingTemplate = sequelize.define(
         "inkompass",
         "earlyTalent",
         "apprenticeship",
-        "academicPlacement",
         "workExperience",
         "all"
       ),

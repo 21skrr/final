@@ -12,7 +12,6 @@ const Programs: React.FC = () => {
     inkompass: 8,
     earlyTalent: 12,
     apprenticeship: 6,
-    academicPlacement: 3,
     workExperience: 2,
   };
   
@@ -30,7 +29,7 @@ const Programs: React.FC = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <ProgramCard 
-            title="INKOMPASS Internship" 
+            title="Initial Onboarding" 
             description="A global internship program designed to give university students exposure to PMI's business operations."
             icon={<GraduationCap className="h-8 w-8 text-blue-600" />}
             link="/programs/inkompass"
@@ -39,7 +38,7 @@ const Programs: React.FC = () => {
           />
           
           <ProgramCard 
-            title="Early Talent Development" 
+            title="Invest in Your Career" 
             description="A structured program for recent graduates to develop skills and knowledge in their chosen field."
             icon={<Briefcase className="h-8 w-8 text-green-600" />}
             link="/programs/early-talent"
@@ -48,7 +47,7 @@ const Programs: React.FC = () => {
           />
           
           <ProgramCard 
-            title="Apprenticeship" 
+            title="Infield Shadowing" 
             description="Hands-on training and education for developing practical skills in specific roles."
             icon={<BookOpen className="h-8 w-8 text-yellow-600" />}
             link="/programs/apprenticeship"
@@ -57,16 +56,7 @@ const Programs: React.FC = () => {
           />
           
           <ProgramCard 
-            title="Academic Placement" 
-            description="Opportunities for students to apply academic knowledge in a professional environment."
-            icon={<Users className="h-8 w-8 text-purple-600" />}
-            link="/programs/academic-placement"
-            color="border-purple-500"
-            count={showCounts ? programCounts.academicPlacement : undefined}
-          />
-          
-          <ProgramCard 
-            title="Work Experience" 
+            title="Special Training" 
             description="Short-term placements providing insights into workplace operations and career paths."
             icon={<Clock className="h-8 w-8 text-red-600" />}
             link="/programs/work-experience"

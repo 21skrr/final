@@ -13,7 +13,7 @@ const createUserValidation = [
     .isLength({ min: 6 })
     .withMessage("Password must be at least 6 characters long"),
   check("role")
-    .isIn(["employee", "supervisor", "manager", "admin"])
+    .isIn(["employee", "supervisor", "manager", "admin", "hr"])
     .withMessage("Invalid role"),
   check("department").notEmpty().withMessage("Department is required"),
   check("startDate").isISO8601().withMessage("Valid start date is required"),
@@ -26,6 +26,18 @@ const createUserValidation = [
       "workExperience",
     ])
     .withMessage("Invalid program type"),
+  // Custom validation for employee-specific fields
+  check("role").custom((value, { req }) => {
+    if (value === "employee") {
+      if (!req.body.supervisorId) {
+        throw new Error("Supervisor is required for employees");
+      }
+      if (!req.body.teamId) {
+        throw new Error("Team is required for employees");
+      }
+    }
+    return true;
+  }),
 ];
 
 const updateUserValidation = [
@@ -37,7 +49,7 @@ const updateUserValidation = [
     .withMessage("Password must be at least 6 characters long"),
   check("role")
     .optional()
-    .isIn(["employee", "supervisor", "manager", "admin"])
+    .isIn(["employee", "supervisor", "manager", "admin", "hr"])
     .withMessage("Invalid role"),
   check("department").optional().notEmpty().withMessage("Department is required"),
   check("startDate").optional().isISO8601().withMessage("Valid start date is required"),
@@ -51,6 +63,8 @@ const updateUserValidation = [
       "workExperience",
     ])
     .withMessage("Invalid program type"),
+  check("supervisorId").optional().isUUID().withMessage("Invalid supervisor ID"),
+  check("teamId").optional().isInt().withMessage("Invalid team ID"),
 ];
 
 // Get all users (admin, hr, manager, and supervisor for assessment purposes)

@@ -20,10 +20,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className="flex flex-1 pt-16">
         {/* Sidebar - full height */}
         {user && (
-          <aside className="hidden md:flex w-64 flex-col border-r border-gray-200 bg-gray-50">
-            <div className="flex-1">
-              <Sidebar />
-            </div>
+          <aside className="hidden md:flex w-64 flex-col border-r border-gray-200 bg-gray-50 min-h-full">
+            <Sidebar />
           </aside>
         )}
 

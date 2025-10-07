@@ -1,5 +1,18 @@
 export type UserRole = 'employee' | 'supervisor' | 'hr' | 'manager' | 'admin';
 
+export type ProgramType = 
+  | 'inkompass' 
+  | 'earlyTalent' 
+  | 'apprenticeship' 
+  | 'workExperience';
+
+export type OnboardingStage = 
+  | 'prepare' 
+  | 'orient' 
+  | 'land' 
+  | 'integrate' 
+  | 'excel';
+
 export interface User {
   id: string;
   name: string;
@@ -13,20 +26,6 @@ export interface User {
   onboardingStage?: OnboardingStage;
   onboardingProgress?: number;
 }
-
-export type ProgramType = 
-  | 'inkompass' 
-  | 'earlyTalent' 
-  | 'apprenticeship' 
-  | 'academicPlacement' 
-  | 'workExperience';
-
-export type OnboardingStage = 
-  | 'prepare' 
-  | 'orient' 
-  | 'land' 
-  | 'integrate' 
-  | 'excel';
 
 export interface Notification {
   id: string;

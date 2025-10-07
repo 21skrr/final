@@ -9,7 +9,7 @@ const Inkompass: React.FC = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center mb-6">
             <GraduationCap className="h-8 w-8 text-blue-600 mr-3" />
-            <h1 className="text-3xl font-bold text-gray-900">INKOMPASS Internship</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Initial Onboarding</h1>
           </div>
 
           <div className="space-y-6">
@@ -25,9 +25,9 @@ const Inkompass: React.FC = () => {
             </div>
 
             <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-3">Program Objective</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-3">Program Overview</h2>
               <p className="text-gray-600">
-                INKOMPASS is designed to identify future talent for full-time roles at PMI. This global internship program gives university students valuable exposure to PMI's business operations and culture.
+                Initial Onboarding is designed to identify future talent for full-time roles at PMI. This global internship program gives university students valuable exposure to PMI's business operations and culture.
               </p>
             </div>
 

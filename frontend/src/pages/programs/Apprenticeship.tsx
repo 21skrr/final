@@ -9,7 +9,7 @@ const Apprenticeship: React.FC = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center mb-6">
             <BookOpen className="h-8 w-8 text-yellow-600 mr-3" />
-            <h1 className="text-3xl font-bold text-gray-900">Apprenticeship Program</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Infield Shadowing</h1>
           </div>
 
           <div className="space-y-6">
@@ -27,7 +27,7 @@ const Apprenticeship: React.FC = () => {
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-3">Program Overview</h2>
               <p className="text-gray-600">
-                The Apprenticeship Program combines practical work experience with structured learning, allowing participants to earn while they learn. This program is designed to develop specialist qualifications through a combination of on-the-job training and formal education.
+                The Infield Shadowing Program combines practical work experience with structured learning, allowing participants to earn while they learn. This program is designed to develop specialist qualifications through a combination of on-the-job training and formal education.
               </p>
             </div>
 

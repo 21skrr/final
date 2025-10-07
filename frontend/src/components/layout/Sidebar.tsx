@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, Briefcase, CheckSquare, FileText, Calendar, MessageSquare, HelpCircle, LogOut, ChevronDown, ChevronUp, BarChart2, Send, Layers, Bell, Shield, PieChart, BookOpen, Settings, Monitor, BarChart } from 'lucide-react';
+import { LayoutDashboard, Users, Briefcase, CheckSquare, FileText, Calendar, MessageSquare, ChevronDown, ChevronUp, BarChart2, Bell, Shield, PieChart, BookOpen,  Monitor, BarChart } from 'lucide-react';
 import { useAuth } from "../../context/AuthContext";
 import { UserRole } from "../../types/user";
 import { useSupervisorAssessments } from "../../hooks/useSupervisorAssessments";
@@ -75,7 +75,7 @@ const Sidebar: React.FC = () => {
     const filteredNavItems = user ? navItems.filter(item => item.roles.includes(user.role as UserRole)) : [];
 
     return (
-        <aside className="w-64 flex-shrink-0 bg-white shadow-md">
+        <aside className="w-64 flex-shrink-0 bg-white shadow-md flex flex-col h-full">
             <div className="p-4 border-b">
                 <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold">
@@ -88,7 +88,7 @@ const Sidebar: React.FC = () => {
                 </div>
             </div>
 
-            <nav className="mt-4 pb-4 space-y-1 overflow-y-auto" style={{ height: 'calc(100vh - 150px)'}}>
+            <nav className="mt-4 pb-4 space-y-1 overflow-y-auto flex-1">
                 {filteredNavItems.map((item) => (
                     <div key={item.name}>
                         <Link

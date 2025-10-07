@@ -138,7 +138,7 @@ const createUser = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, email, password, role, department, startDate, programType } =
+    const { name, email, password, role, department, startDate, programType, supervisorId, teamId } =
       req.body;
 
     // Check if user already exists
@@ -162,6 +162,8 @@ const createUser = async (req, res) => {
       department,
       startDate,
       programType,
+      supervisorId: role === 'employee' ? supervisorId : null,
+      teamId: role === 'employee' ? teamId : null,
     });
     try {
     await scheduleFeedbackCyclesForUser(user);
@@ -205,7 +207,7 @@ const updateUser = async (req, res) => {
         .json({ message: "Not authorized to update this user" });
     }
 
-    const { name, email, password, role, department, startDate, programType } =
+    const { name, email, password, role, department, startDate, programType, supervisorId, teamId } =
       req.body;
 
     // Update user
@@ -217,6 +219,14 @@ const updateUser = async (req, res) => {
       startDate: startDate || user.startDate,
       programType: programType || user.programType,
     };
+
+    // Only update supervisorId and teamId if provided and user is an employee
+    if (supervisorId !== undefined) {
+      updateData.supervisorId = supervisorId;
+    }
+    if (teamId !== undefined) {
+      updateData.teamId = teamId;
+    }
 
     // Only update password if provided
     if (password) {

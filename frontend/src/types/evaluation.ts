@@ -1,4 +1,4 @@
-export type EvaluationStatus = 'pending' | 'in_progress' | 'completed' | 'validated';
+export type EvaluationStatus = 'pending' | 'in_progress' | 'completed' | 'validated' | 'draft';
 
 export interface EvaluationCriteria {
   id: string;
@@ -21,4 +21,12 @@ export interface Evaluation {
   strengths?: string[];
   areasForImprovement?: string[];
   title?: string; // Added for backend compatibility
+  dueDate?: string; // Added for due date functionality
+  completedAt?: string; // Added for completion tracking
+  employee?: { // Added for employee details
+    id: string;
+    name: string;
+    email: string;
+  };
+  comments?: string; // Added for general comments
 } 

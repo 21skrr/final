@@ -3,7 +3,7 @@ import { User } from '../../types/user';
 import { Calendar, CheckSquare, FileText, Award, Clock } from 'lucide-react';
 import OnboardingProgress from './OnboardingProgress';
 import { Link } from 'react-router-dom';
-import eventService from '../../services/eventService';
+import { eventsService } from '../../services/events';
 import checklistAssignmentService from '../../services/checklistAssignmentService';
 import surveyService from '../../services/surveyService';
 import analyticsService from '../../services/analyticsService';
@@ -27,13 +27,24 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
       try {
         // Fetch events with error handling
         try {
-          const events = await eventService.getEvents();
+          const events = await eventsService.getAllEvents();
           // Filter for upcoming events (future dates, limit 3)
-          const now = new Date();
+          const today = new Date();
+          today.setHours(0, 0, 0, 0); // Start of today
+          
           const upcoming = events
-            .filter((e: any) => new Date(e.startDate || e.date) > now)
-            .sort((a: any, b: any) => new Date(a.startDate || a.date).getTime() - new Date(b.startDate || b.date).getTime())
+            .filter((e: any) => {
+              const eventDate = new Date(e.startDate);
+              eventDate.setHours(0, 0, 0, 0); // Normalize event date to start of day
+              
+              const today = new Date();
+              today.setHours(0, 0, 0, 0); // Normalize current date to start of day
+              
+              return eventDate > today; // Strictly future days
+            })
+            .sort((a: any, b: any) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
             .slice(0, 3);
+          
           setUpcomingEvents(upcoming);
         } catch (err) {
           console.warn('Failed to fetch events:', err);
@@ -43,7 +54,6 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
         // Fetch tasks (checklist assignments) with error handling
         try {
           const assignments = await checklistAssignmentService.getMyAssignments();
-          console.log('Assignments:', assignments);
           // Flatten checklist items, but if no items, use the assignment itself as a task
           let allTasks: any[] = [];
           assignments.forEach((assignment: any) => {

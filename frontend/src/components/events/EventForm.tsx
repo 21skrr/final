@@ -18,7 +18,7 @@ const EventForm: React.FC<EventFormProps> = ({ event, onClose, onSuccess }) => {
     startDate: '',
     endDate: '',
     location: '',
-    type: 'other',
+    type: 'meeting',
   });
 
   useEffect(() => {
@@ -39,7 +39,7 @@ const EventForm: React.FC<EventFormProps> = ({ event, onClose, onSuccess }) => {
         title: formData.title || '',
         description: formData.description || '',
         location: formData.location || '',
-        type: formData.type || 'other',
+        type: formData.type || 'meeting',
         startDate: formData.startDate ? new Date(formData.startDate).toISOString() : '',
         endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
         createdBy: user?.id || '',
@@ -145,9 +145,8 @@ const EventForm: React.FC<EventFormProps> = ({ event, onClose, onSuccess }) => {
             >
               <option value="meeting">Meeting</option>
               <option value="training">Training</option>
-              <option value="onboarding">Onboarding</option>
-              <option value="orientation">Orientation</option>
-              <option value="other">Other</option>
+              <option value="event">Event</option>
+              <option value="planning">Planning</option>
             </select>
           </div>
 

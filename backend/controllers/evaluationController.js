@@ -366,7 +366,8 @@ const submitEvaluation = async (req, res) => {
 
     // Update the overall evaluation status
     await evaluation.update({
-      status: "in_progress", // Changed status to a valid ENUM value
+      status: "completed", // Set status to completed when evaluation is submitted
+      completedAt: new Date(), // Add completion timestamp
       // Removed the incorrect 'scores' update here
     });
 
@@ -488,6 +489,40 @@ const deleteEvaluationCriterion = async (req, res) => {
     res.json({ message: "Evaluation criterion deleted successfully" });
   } catch (error) {
     console.error("Error deleting evaluation criterion:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Update evaluation comments (for supervisors/HR)
+const updateEvaluationComments = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const evaluation = await Evaluation.findByPk(req.params.id);
+    if (!evaluation) {
+      return res.status(404).json({ message: "Evaluation not found" });
+    }
+
+    // Authorization Check
+    const user = req.user;
+    const isSupervisorOrHr = ['supervisor', 'hr'].includes(user.role);
+
+    if (!isSupervisorOrHr) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const { comments } = req.body;
+
+    await evaluation.update({
+      comments: comments,
+    });
+
+    res.json(evaluation);
+  } catch (error) {
+    console.error("Error updating evaluation comments:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -709,6 +744,7 @@ module.exports = {
   getEvaluationCriteriaByEvaluationId,
   validateEvaluation,
   addEmployeeComment,
+  updateEvaluationComments,
   sendEvaluationReminder,
   exportSingleEvaluationCSV,
 };

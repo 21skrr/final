@@ -95,7 +95,7 @@ const OnboardingPrograms: React.FC = () => {
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center mb-4">
                 <GraduationCap className="h-8 w-8 text-blue-600" />
-                <h3 className="text-xl font-semibold text-gray-900 ml-3">INKOMPASS Internship</h3>
+                <h3 className="text-xl font-semibold text-gray-900 ml-3">Initial Onboarding</h3>
               </div>
               <div className="space-y-3">
                 <p><span className="font-medium">Duration:</span> 3-12 months</p>
@@ -107,7 +107,7 @@ const OnboardingPrograms: React.FC = () => {
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center mb-4">
                 <Users className="h-8 w-8 text-green-600" />
-                <h3 className="text-xl font-semibold text-gray-900 ml-3">Early Talent Development</h3>
+                <h3 className="text-xl font-semibold text-gray-900 ml-3">Invest in Your Career</h3>
               </div>
               <div className="space-y-3">
                 <p><span className="font-medium">Duration:</span> 18-24 months</p>
@@ -119,7 +119,7 @@ const OnboardingPrograms: React.FC = () => {
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center mb-4">
                 <BookOpen className="h-8 w-8 text-yellow-600" />
-                <h3 className="text-xl font-semibold text-gray-900 ml-3">Apprenticeship</h3>
+                <h3 className="text-xl font-semibold text-gray-900 ml-3">Infield Shadowing</h3>
               </div>
               <div className="space-y-3">
                 <p><span className="font-medium">Duration:</span> Varies by location</p>
@@ -130,20 +130,8 @@ const OnboardingPrograms: React.FC = () => {
 
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center mb-4">
-                <Briefcase className="h-8 w-8 text-purple-600" />
-                <h3 className="text-xl font-semibold text-gray-900 ml-3">Academic Placement</h3>
-              </div>
-              <div className="space-y-3">
-                <p><span className="font-medium">Duration:</span> 3-12 months</p>
-                <p><span className="font-medium">Objective:</span> Provide students with business experience linked to their curriculum.</p>
-                <p><span className="font-medium">Onboarding:</span> Buddy, local induction, and networking events.</p>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center mb-4">
                 <Clock className="h-8 w-8 text-red-600" />
-                <h3 className="text-xl font-semibold text-gray-900 ml-3">Work Experience</h3>
+                <h3 className="text-xl font-semibold text-gray-900 ml-3">Special Training</h3>
               </div>
               <div className="space-y-3">
                 <p><span className="font-medium">Duration:</span> 1-12 months</p>

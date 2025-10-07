@@ -4,7 +4,7 @@ import { Users, ClipboardCheck, Calendar, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import analyticsService from '../../services/analyticsService';
 import { useEffect, useState } from 'react';
-import eventService from '../../services/eventService';
+import { eventsService } from '../../services/events';
 
 interface ManagerDashboardProps {
   user: User;
@@ -27,8 +27,22 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ user }) => {
         setDashboard(dash);
         setOnboardingKPI(kpi);
         // Fetch events
-        const allEvents = await eventService.getEvents();
-        setEvents(Array.isArray(allEvents) ? allEvents.slice(0, 3) : []);
+        const allEvents = await eventsService.getAllEvents();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Start of today
+        const upcomingEvents = Array.isArray(allEvents) ? allEvents
+          .filter((e: any) => {
+            const eventDate = new Date(e.startDate);
+            eventDate.setHours(0, 0, 0, 0); // Normalize event date to start of day
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Normalize current date to start of day
+            
+            return eventDate > today; // Strictly future days
+          })
+          .sort((a: any, b: any) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+          .slice(0, 3) : [];
+        setEvents(upcomingEvents);
       } catch {
         setError('Failed to load dashboard data');
       } finally {

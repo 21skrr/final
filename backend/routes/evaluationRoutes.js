@@ -93,6 +93,17 @@ router.patch(
   evaluationController.addEmployeeComment
 );
 
+// Supervisor/HR actions - Update evaluation comments
+router.patch(
+  "/:id/comments",
+  [
+    auth,
+    checkRole("supervisor", "hr"),
+    check("comments", "Comments must be a string").isString(),
+  ],
+  evaluationController.updateEvaluationComments
+);
+
 // Evaluation submissions
 router.patch(
   "/:id/submit",

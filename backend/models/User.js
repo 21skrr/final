@@ -29,7 +29,7 @@ const User = sequelize.define(
     },
     department: DataTypes.STRING,
     startDate: DataTypes.DATE,
-    programType: DataTypes.ENUM('inkompass', 'earlyTalent', 'apprenticeship', 'academicPlacement', 'workExperience'),
+    programType: DataTypes.ENUM('inkompass', 'earlyTalent', 'apprenticeship', 'workExperience'),
     supervisorId: {
       type: DataTypes.UUID,
       allowNull: true

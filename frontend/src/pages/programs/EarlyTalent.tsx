@@ -9,7 +9,7 @@ const EarlyTalent: React.FC = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center mb-6">
             <Users className="h-8 w-8 text-green-600 mr-3" />
-            <h1 className="text-3xl font-bold text-gray-900">Early Talent Development Program</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Invest in Your Career</h1>
           </div>
 
           <div className="space-y-6">
@@ -27,7 +27,7 @@ const EarlyTalent: React.FC = () => {
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-3">Program Overview</h2>
               <p className="text-gray-600">
-                The Early Talent Development Program is designed to develop key functional capabilities and create a robust junior talent pipeline. This structured program combines hands-on experience with comprehensive training to prepare recent graduates for successful careers at PMI.
+                The Invest in Your Career Program is designed to develop key functional capabilities and create a robust junior talent pipeline. This structured program combines hands-on experience with comprehensive training to prepare recent graduates for successful careers at PMI.
               </p>
             </div>
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../../components/layout/Layout';
-import { Bell, Check, Clock, AlertCircle, CheckCircle, Info, Trash2, Filter, Settings, Users, MessageSquare, Calendar, TrendingUp, Award, FileCheck, Shield, UserPlus, BarChart3, FileText } from 'lucide-react';
+import { Bell, Check, Clock, AlertCircle, CheckCircle, Info, Trash2, Filter, Settings } from 'lucide-react';
 import notificationService from '../../services/notificationService';
 import { Notification, NotificationTemplate } from '../../types/user';
 import { useNavigate } from 'react-router-dom';
@@ -9,22 +9,9 @@ const HRNotifications: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [templates, setTemplates] = useState<NotificationTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('all');
   const [filter, setFilter] = useState('all'); // all, unread, read
   const [showTemplates, setShowTemplates] = useState(false);
   const navigate = useNavigate();
-
-  const tabs = [
-    { id: 'all', label: 'All Notifications', icon: Bell },
-    { id: 'summary-reports', label: 'Summary Reports', icon: BarChart3 },
-    { id: 'system-alerts', label: 'System Alerts', icon: AlertCircle },
-    { id: 'new-employees', label: 'New Employees', icon: UserPlus },
-    { id: 'feedback-checkpoints', label: 'Feedback Checkpoints', icon: CheckCircle },
-    { id: 'weekly-reports', label: 'Weekly Reports', icon: TrendingUp },
-    { id: 'compliance-alerts', label: 'Compliance Alerts', icon: Shield },
-    { id: 'leave-requests', label: 'Leave Requests', icon: Calendar },
-    { id: 'probation-deadlines', label: 'Probation Deadlines', icon: Calendar },
-  ];
 
   useEffect(() => {
     if (showTemplates) {
@@ -32,45 +19,12 @@ const HRNotifications: React.FC = () => {
     } else {
       loadNotifications();
     }
-  }, [activeTab, showTemplates]);
+  }, [showTemplates]);
 
   const loadNotifications = async () => {
     try {
       setLoading(true);
-      let data: Notification[] = [];
-
-      switch (activeTab) {
-        case 'all':
-          data = await notificationService.getNotifications();
-          break;
-        case 'summary-reports':
-          data = await notificationService.getSummaryReports();
-          break;
-        case 'system-alerts':
-          data = await notificationService.getSystemAlerts();
-          break;
-        case 'new-employees':
-          data = await notificationService.getNewEmployees();
-          break;
-        case 'feedback-checkpoints':
-          data = await notificationService.getFeedbackCheckpoints();
-          break;
-        case 'weekly-reports':
-          data = await notificationService.getWeeklyReports();
-          break;
-        case 'compliance-alerts':
-          data = await notificationService.getComplianceAlerts();
-          break;
-        case 'leave-requests':
-          data = await notificationService.getLeaveRequests();
-          break;
-        case 'probation-deadlines':
-          data = await notificationService.getProbationDeadlines();
-          break;
-        default:
-          data = await notificationService.getNotifications();
-      }
-
+      const data = await notificationService.getNotifications();
       setNotifications(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading notifications:', error);
@@ -270,28 +224,6 @@ const HRNotifications: React.FC = () => {
         ) : (
           // Notifications View
           <>
-            {/* Tabs */}
-            <div className="border-b border-gray-200 mb-6">
-              <nav className="-mb-px flex space-x-8 overflow-x-auto">
-                {tabs.map((tab) => {
-                  const IconComponent = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
-                        activeTab === tab.id
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <IconComponent className="h-4 w-4" />
-                      <span>{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
 
             {/* Filters and Actions */}
             <div className="flex justify-between items-center mb-6">

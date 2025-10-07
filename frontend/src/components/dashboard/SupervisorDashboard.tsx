@@ -4,7 +4,7 @@ import { Users, Calendar, ClipboardCheck, AlertTriangle, CheckCircle } from 'luc
 import { Link } from 'react-router-dom';
 import teamService from '../../services/teamService';
 import * as evaluationService from '../../services/evaluationService';
-import eventService from '../../services/eventService';
+import { eventsService } from '../../services/events';
 import onboardingService from '../../services/onboardingService';
 import supervisorAssessmentService from '../../services/supervisorAssessmentService';
 
@@ -101,11 +101,24 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
         setPendingEvaluations(pending);
 
         // Fetch events (filter for team events, future dates, limit 3)
-        const events: Event[] = await eventService.getEvents();
-        const now = new Date();
+        const events: Event[] = await eventsService.getAllEvents();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Start of today
         const upcoming: Event[] = events
-          .filter((e) => new Date(e.startDate ?? e.date ?? '') > now)
-          .sort((a, b) => new Date(a.startDate ?? a.date ?? '').getTime() - new Date(b.startDate ?? b.date ?? '').getTime())
+          .filter((e) => {
+            if (!e.startDate) return false;
+            const eventDate = new Date(e.startDate);
+            eventDate.setHours(0, 0, 0, 0); // Normalize event date to start of day
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Normalize current date to start of day
+            
+            return eventDate > today; // Strictly future days
+          })
+          .sort((a, b) => {
+            if (!a.startDate || !b.startDate) return 0;
+            return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+          })
           .slice(0, 3);
         setUpcomingEvents(upcoming);
 

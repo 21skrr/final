@@ -76,7 +76,7 @@ const checklistService = {
 
   // Delete checklist item (HR only)
   deleteChecklistItem: async (itemId: string): Promise<void> => {
-    await api.delete(`/checklist-items/${itemId}`);
+    await api.delete(`/checklists/items/${itemId}`);
   },
 
   // Get all checklist items

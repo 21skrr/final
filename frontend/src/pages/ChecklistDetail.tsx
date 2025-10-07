@@ -45,10 +45,14 @@ const ChecklistDetail: React.FC = () => {
         setLoading(true);
         // Try to get all assignments to find the current one
         const assignments = await checklistAssignmentService.getMyAssignments();
+        console.log('All assignments:', assignments);
+        console.log('Looking for assignment with ID:', id);
+        
         let currentAssignment = assignments.find(a => a.id === id);
         // If not found, try to find an assignment for the current user and checklist
         if (!currentAssignment && assignments.length > 0) {
           const possible = assignments.find(a => a.checklistId === id && a.userId === user?.id);
+          console.log('Found assignment by checklistId:', possible);
           if (possible) currentAssignment = possible;
         }
         console.log('Current assignment:', currentAssignment);
@@ -57,6 +61,7 @@ const ChecklistDetail: React.FC = () => {
           // Fetch progress records for this user and checklist
           const progress = await checklistAssignmentService.getChecklistProgressByUserAndChecklist(currentAssignment.userId, currentAssignment.checklistId);
           console.log('Fetched progress:', progress);
+          console.log('Progress length:', progress.length);
           setProgressItems(progress.map(item => ({ ...item, isCompleted: !!item.isCompleted })));
           // Calculate completion percent
           const completedCount = progress.filter(item => !!item.isCompleted).length;
@@ -66,10 +71,12 @@ const ChecklistDetail: React.FC = () => {
         } else {
           // Fallback: Try to fetch checklist directly by ID
           const checklist = await checklistService.getChecklist(id);
+          console.log('Fallback checklist:', checklist);
           if (checklist) {
             setAssignment(null); // No assignment context
             // Always fetch items using getChecklistItems
             const items = await checklistService.getChecklistItems(id);
+            console.log('Fallback items:', items);
             setProgressItems(items.map(item => ({
               ...item,
               userId: '',
@@ -80,7 +87,7 @@ const ChecklistDetail: React.FC = () => {
             setCompletionPercent(0);
             setError(null);
           } else {
-            setError('Checklist not found');
+            setError('You do not have access to this checklist. Please contact your supervisor or HR to get assigned to a checklist.');
           }
         }
       } catch (err) {
@@ -257,10 +264,47 @@ const ChecklistDetail: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (error) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto py-8">
+          <div className="bg-red-50 border-l-4 border-red-400 p-6 text-red-700">
+            <h3 className="text-lg font-medium mb-2">Access Denied</h3>
+            <p className="mb-4">{error}</p>
+            <button
+              onClick={() => navigate('/checklists')}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+            >
+              Back to My Checklists
+            </button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="max-w-4xl mx-auto py-8">
-        <h1 className="text-2xl font-bold text-center mb-6">Employee's Onboarding Journey</h1>
+        <div className="flex items-center mb-6">
+          <button 
+            onClick={() => navigate('/checklists')}
+            className="mr-4 text-gray-500 hover:text-gray-700"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="text-2xl font-bold">Employee's Onboarding Journey</h1>
+        </div>
         <div className="flex justify-between items-center mb-6">
           <div>
             <div className="text-sm text-gray-500">Overall Progress</div>
@@ -274,7 +318,12 @@ const ChecklistDetail: React.FC = () => {
           </div>
           <div>
             <div className="text-sm text-gray-500">Next Task</div>
-            <div className="font-semibold">{nextTask?.checklistItem?.title || 'All tasks completed'}</div>
+            <div className="font-semibold">
+              {progressItems.length === 0 
+                ? 'No tasks assigned' 
+                : nextTask?.checklistItem?.title || 'All tasks completed'
+              }
+            </div>
           </div>
         </div>
         <div className="flex justify-end mb-4">
@@ -293,44 +342,67 @@ const ChecklistDetail: React.FC = () => {
             style={{ width: `${completionPercent}%` }}
           ></div>
         </div>
-        {Object.entries(groupedByPhase).map(([phase, items]) => (
-          <div key={phase} className="mb-8 border rounded-lg bg-blue-50/30">
-            <div className="flex justify-between items-center px-4 py-2 border-b">
-              <h2 className="font-semibold text-lg">{phase}</h2>
-              <span className="text-xs text-gray-500">{Math.round((items.filter(i => i.isCompleted).length / items.length) * 100)}%</span>
+        {progressItems.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-gray-500 mb-4">
+              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
             </div>
-            <div className="p-4 space-y-4">
-              {items.map(item => (
-                <div key={item.id} className="flex items-center justify-between bg-white rounded shadow-sm px-4 py-3">
-                  {console.log('Render item:', {id: item.id, checklistItemId: item.checklistItemId, isCompleted: item.isCompleted})}
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(item.isCompleted)}
-                      disabled={updatingItemId === item.id || Boolean(item.isCompleted)}
-                      onChange={() => {
-                        setProgressItems(prev =>
-                          prev.map(pi =>
-                            pi.id === item.id ? { ...pi, isCompleted: !pi.isCompleted } : pi
-                          )
-                        );
-                      }}
-                    />
-                    <div>
-                      <div className={`font-medium text-gray-900 ${item.isCompleted ? 'line-through text-gray-400' : ''}`}>{item.checklistItem?.title}</div>
-                      {item.checklistItem?.description && (
-                        <div className={`text-sm ${item.isCompleted ? 'text-gray-400' : 'text-gray-500'}`}>{item.checklistItem?.description}</div>
-                      )}
-                    </div>
-                  </div>
-                  <span className="text-xs px-2 py-1 rounded-full border bg-gray-50">
-                    {item.isCompleted ? 'Completed' : 'Not Started'}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Tasks Assigned</h3>
+            <p className="text-gray-500 mb-4">
+              {assignment 
+                ? "This checklist doesn't have any tasks assigned yet. Please contact your supervisor or HR to add tasks to this checklist."
+                : "You don't have any checklist assignments yet. Please contact your supervisor or HR to get assigned to a checklist."
+              }
+            </p>
+            <button
+              onClick={() => navigate('/checklists')}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+            >
+              Back to Checklists
+            </button>
           </div>
-        ))}
+        ) : (
+          Object.entries(groupedByPhase).map(([phase, items]) => (
+            <div key={phase} className="mb-8 border rounded-lg bg-blue-50/30">
+              <div className="flex justify-between items-center px-4 py-2 border-b">
+                <h2 className="font-semibold text-lg">{phase}</h2>
+                <span className="text-xs text-gray-500">{Math.round((items.filter(i => i.isCompleted).length / items.length) * 100)}%</span>
+              </div>
+              <div className="p-4 space-y-4">
+                {items.map(item => (
+                  <div key={item.id} className="flex items-center justify-between bg-white rounded shadow-sm px-4 py-3">
+                    {console.log('Render item:', {id: item.id, checklistItemId: item.checklistItemId, isCompleted: item.isCompleted})}
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(item.isCompleted)}
+                        disabled={updatingItemId === item.id || Boolean(item.isCompleted)}
+                        onChange={() => {
+                          setProgressItems(prev =>
+                            prev.map(pi =>
+                              pi.id === item.id ? { ...pi, isCompleted: !pi.isCompleted } : pi
+                            )
+                          );
+                        }}
+                      />
+                      <div>
+                        <div className={`font-medium text-gray-900 ${item.isCompleted ? 'line-through text-gray-400' : ''}`}>{item.checklistItem?.title}</div>
+                        {item.checklistItem?.description && (
+                          <div className={`text-sm ${item.isCompleted ? 'text-gray-400' : 'text-gray-500'}`}>{item.checklistItem?.description}</div>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-xs px-2 py-1 rounded-full border bg-gray-50">
+                      {item.isCompleted ? 'Completed' : 'Not Started'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
       </div>
       
       {/* Assignment Modal */}

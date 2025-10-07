@@ -6,9 +6,10 @@ interface FeedbackDetailModalProps {
   feedback: Feedback | null;
   isOpen: boolean;
   onClose: () => void;
+  userRole?: string;
 }
 
-const FeedbackDetailModal: React.FC<FeedbackDetailModalProps> = ({ feedback, isOpen, onClose }) => {
+const FeedbackDetailModal: React.FC<FeedbackDetailModalProps> = ({ feedback, isOpen, onClose, userRole }) => {
   if (!isOpen || !feedback) return null;
 
   return (
@@ -22,7 +23,12 @@ const FeedbackDetailModal: React.FC<FeedbackDetailModalProps> = ({ feedback, isO
         </div>
         <div className="space-y-3">
           <div>
-            <span className="font-semibold">From:</span> {feedback.isAnonymous ? 'Anonymous' : feedback.sender?.name || 'Unknown'}
+            <span className="font-semibold">From:</span> {feedback.isAnonymous && userRole !== 'hr' ? 'Anonymous' : feedback.sender?.name || 'Unknown'}
+            {feedback.isAnonymous && userRole === 'hr' && (
+              <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                Anonymous to others
+              </span>
+            )}
           </div>
           <div>
             <span className="font-semibold">To:</span> {feedback.receiver?.name || 'N/A'}

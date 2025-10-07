@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../../components/layout/Layout';
-import { Bell, Check, Clock, AlertCircle, CheckCircle, Info, Trash2, Filter, Settings, Users, MessageSquare, Calendar, TrendingUp } from 'lucide-react';
+import { Bell, Check, Clock, AlertCircle, CheckCircle, Info, Trash2, Filter, Settings } from 'lucide-react';
 import notificationService from '../../services/notificationService';
 import { Notification } from '../../types/user';
 import { useNavigate } from 'react-router-dom';
@@ -8,59 +8,17 @@ import { useNavigate } from 'react-router-dom';
 const SupervisorNotifications: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('all');
   const [filter, setFilter] = useState('all'); // all, unread, read
   const navigate = useNavigate();
 
-  const tabs = [
-    { id: 'all', label: 'All Notifications', icon: Bell },
-    { id: 'team-progress', label: 'Team Progress', icon: TrendingUp },
-    { id: 'feedback-submissions', label: 'Feedback Submissions', icon: MessageSquare },
-    { id: 'overdue-tasks', label: 'Overdue Tasks', icon: AlertCircle },
-    { id: 'probation-deadlines', label: 'Probation Deadlines', icon: Calendar },
-    { id: 'reminders', label: 'Reminders', icon: Clock },
-    { id: 'documents', label: 'Documents', icon: Info },
-    { id: 'training', label: 'Training', icon: Users },
-  ];
-
   useEffect(() => {
     loadNotifications();
-  }, [activeTab]);
+  }, []);
 
   const loadNotifications = async () => {
     try {
       setLoading(true);
-      let data: Notification[] = [];
-
-      switch (activeTab) {
-        case 'all':
-          data = await notificationService.getNotifications();
-          break;
-        case 'team-progress':
-          data = await notificationService.getTeamProgress();
-          break;
-        case 'feedback-submissions':
-          data = await notificationService.getFeedbackSubmissions();
-          break;
-        case 'overdue-tasks':
-          data = await notificationService.getOverdueTasks();
-          break;
-        case 'probation-deadlines':
-          data = await notificationService.getProbationDeadlines();
-          break;
-        case 'reminders':
-          data = await notificationService.getReminders();
-          break;
-        case 'documents':
-          data = await notificationService.getDocumentNotifications();
-          break;
-        case 'training':
-          data = await notificationService.getTrainingNotifications();
-          break;
-        default:
-          data = await notificationService.getNotifications();
-      }
-
+      const data = await notificationService.getNotifications();
       setNotifications(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading notifications:', error);
@@ -109,20 +67,10 @@ const SupervisorNotifications: React.FC = () => {
         return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'error':
         return <AlertCircle className="h-5 w-5 text-red-500" />;
-      case 'team_progress':
-        return <TrendingUp className="h-5 w-5 text-green-500" />;
-      case 'feedback_submission':
-        return <MessageSquare className="h-5 w-5 text-blue-500" />;
-      case 'overdue_task':
-        return <AlertCircle className="h-5 w-5 text-red-500" />;
-      case 'probation_deadline':
-        return <Calendar className="h-5 w-5 text-orange-500" />;
       case 'reminder':
         return <Clock className="h-5 w-5 text-orange-500" />;
       case 'document':
         return <Info className="h-5 w-5 text-purple-500" />;
-      case 'training':
-        return <Users className="h-5 w-5 text-indigo-500" />;
       default:
         return <Bell className="h-5 w-5 text-gray-500" />;
     }
@@ -164,29 +112,6 @@ const SupervisorNotifications: React.FC = () => {
           <p className="mt-2 text-gray-600">
             Monitor your team's progress, feedback submissions, and important deadlines
           </p>
-        </div>
-
-        {/* Tabs */}
-        <div className="border-b border-gray-200 mb-6">
-          <nav className="-mb-px flex space-x-8 overflow-x-auto">
-            {tabs.map((tab) => {
-              const IconComponent = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
-                    activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <IconComponent className="h-4 w-4" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </nav>
         </div>
 
         {/* Filters and Actions */}

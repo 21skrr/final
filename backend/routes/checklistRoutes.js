@@ -102,6 +102,11 @@ router.put(
   checklistController.updateChecklistItem
 );
 
+// @route   DELETE /api/checklists/items/:id
+// @desc    Delete a checklist item
+// @access  Private (HR/Supervisor)
+router.delete("/items/:id", auth, checklistController.deleteChecklistItem);
+
 // @route   GET /api/checklists/items/:id
 // @desc    Get a specific checklist item
 // @access  Private
@@ -205,5 +210,30 @@ router.get("/all-items", auth, async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
+
+// @route   PUT /api/checklists/assignments/template/:checklistId
+// @desc    Update checklist template (title, description, programType, stage)
+// @access  Private (HR/Manager/Supervisor)
+router.put(
+  "/assignments/template/:checklistId",
+  [
+    auth,
+    check("title", "Title is required").not().isEmpty(),
+    check("programType", "Invalid program type")
+      .optional()
+      .isIn([
+        "inkompass",
+        "earlyTalent", 
+        "apprenticeship",
+        "academicPlacement",
+        "workExperience",
+        "all",
+      ]),
+    check("stage", "Invalid stage")
+      .optional()
+      .isIn(["prepare", "orient", "land", "integrate", "excel", "all"]),
+  ],
+  checklistController.updateChecklistTemplate
+);
 
 module.exports = router;

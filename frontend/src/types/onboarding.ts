@@ -10,12 +10,11 @@ export type ProgramType =
   | "inkompass"
   | "earlyTalent"
   | "apprenticeship"
-  | "academicPlacement"
   | "workExperience";
 export type TaskStatus = "assigned" | "in_progress" | "completed" | "overdue";
 
 // Backend Model Interfaces
-export interface User {
+export interface OnboardingUser {
   id: string;
   name: string;
   email: string;
@@ -36,7 +35,7 @@ export interface OnboardingProgress {
   stageStartDate: string;
   estimatedCompletionDate?: string;
   UserId: string;
-  User?: User;
+  User?: OnboardingUser;
   createdAt: string;
   updatedAt: string;
   overall?: number;
@@ -82,7 +81,7 @@ export interface UserTaskProgress {
   notes?: string;
   supervisorNotes?: string;
   OnboardingTask?: OnboardingTask;
-  User?: User;
+  User?: OnboardingUser;
 }
 
 export interface ChecklistAssignment {
@@ -122,7 +121,7 @@ export interface OnboardingPhase {
 }
 
 export interface OnboardingJourney {
-  user: User;
+  user: OnboardingUser;
   progress: OnboardingProgress;
   stages?: OnboardingPhase[];
   phases?: OnboardingPhase[];
@@ -156,7 +155,7 @@ export interface OnboardingProgressResponse {
   progress: number;
   stageStartDate: string;
   estimatedCompletionDate?: string;
-  User: User;
+  User: OnboardingUser;
   createdAt: string;
   updatedAt: string;
   journeyType: JourneyType;
@@ -239,7 +238,7 @@ export interface Task extends OnboardingTask {
   verifiedBy?: string;
   verifiedAt?: string;
   progressId?: string;
-  User?: User; // For user details who completed the task
+  User?: OnboardingUser; // For user details who completed the task
 }
 
 export interface JourneyTypeOption {

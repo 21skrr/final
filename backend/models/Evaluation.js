@@ -33,7 +33,7 @@ const Evaluation = sequelize.define(
       allowNull: false,
     },
     status: {
-      type: DataTypes.ENUM("pending", "in_progress", "completed"),
+      type: DataTypes.ENUM("pending", "in_progress", "completed", "validated", "draft"),
       allowNull: false,
       defaultValue: "pending",
     },

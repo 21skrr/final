@@ -24,7 +24,6 @@ import AllNotifications from '../pages/AllNotifications';
 import Inkompass from '../pages/programs/Inkompass';
 import EarlyTalent from '../pages/programs/EarlyTalent';
 import Apprenticeship from '../pages/programs/Apprenticeship';
-import AcademicPlacement from '../pages/programs/AcademicPlacement';
 import WorkExperience from '../pages/programs/WorkExperience';
 
 // Admin Pages
@@ -81,6 +80,8 @@ import HREvaluationCriteria from '../pages/admin/HREvaluationCriteria';
 import HREvaluationReports from '../pages/admin/HREvaluationReports';
 import EmployeeEvaluations from '../pages/admin/EmployeeEvaluations';
 import SupervisorEvaluationForm from '../pages/supervisor/SupervisorEvaluationForm';
+import SupervisorEvaluationView from '../pages/supervisor/SupervisorEvaluationView';
+import SupervisorEvaluationReport from '../pages/supervisor/SupervisorEvaluationReport';
 import EvaluationScheduling from '../pages/admin/EvaluationScheduling';
 import ManagerEvaluationDetail from '../pages/manager/ManagerEvaluationDetail';
 import HROnboardingManagement from '../pages/admin/HROnboardingManagement';
@@ -165,14 +166,6 @@ const Router: React.FC = () => {
       element: (
         <ProtectedRoute>
           <Apprenticeship />
-        </ProtectedRoute>
-      ),
-    },
-    {
-      path: '/programs/academic-placement',
-      element: (
-        <ProtectedRoute>
-          <AcademicPlacement />
         </ProtectedRoute>
       ),
     },
@@ -612,6 +605,14 @@ const Router: React.FC = () => {
     {
       path: '/supervisor/evaluations/:evaluationId/form',
       element: <SupervisorEvaluationForm />,
+    },
+    {
+      path: '/supervisor/evaluations/:evaluationId/view',
+      element: <SupervisorEvaluationView />,
+    },
+    {
+      path: '/supervisor/evaluations/:evaluationId/report',
+      element: <SupervisorEvaluationReport />,
     },
     {
       path: '/supervisor/assessments',

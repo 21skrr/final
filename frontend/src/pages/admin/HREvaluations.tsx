@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Layout from '../../components/layout/Layout';
 import { getAllEvaluations, deleteEvaluation, validateEvaluation } from '../../services/evaluationService';
 import { Evaluation } from '../../types/evaluation';
-import { ClipboardCheck, Star, Edit, Trash2, CheckCircle, PlusCircle } from 'lucide-react';
+import { ClipboardCheck, Star, Edit, Trash2, CheckCircle, PlusCircle, TrendingUp, BarChart3, Download, Filter, Search, Users, AlertCircle, Clock, Eye } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Tabs, Tab } from '@mui/material';
 import { toast } from 'react-hot-toast';
@@ -66,6 +66,10 @@ const HREvaluations: React.FC = () => {
   const [scheduleType, setScheduleType] = useState('3-month');
   const [scheduleDue, setScheduleDue] = useState('');
   const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [showAdvancedAnalytics, setShowAdvancedAnalytics] = useState(false);
 
   useEffect(() => {
     const fetchEvaluations = async () => {
@@ -97,6 +101,89 @@ const HREvaluations: React.FC = () => {
   );
   console.log('employeeOptions', employeeOptions);
   console.log('filteredEmployees', filteredEmployees);
+
+  // Enhanced analytics functions
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'in_progress':
+        return 'bg-blue-100 text-blue-800';
+      case 'completed':
+        return 'bg-green-100 text-green-800';
+      case 'validated':
+        return 'bg-emerald-100 text-emerald-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Clock className="h-4 w-4" />;
+      case 'in_progress':
+        return <ClipboardCheck className="h-4 w-4" />;
+      case 'completed':
+        return <CheckCircle className="h-4 w-4" />;
+      case 'validated':
+        return <Star className="h-4 w-4" />;
+      default:
+        return <AlertCircle className="h-4 w-4" />;
+    }
+  };
+
+  const getDaysUntilDue = (dueDate: string) => {
+    const today = new Date();
+    const due = new Date(dueDate);
+    const diffTime = due.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const getOverdueEvaluations = () => {
+    return evaluations.filter(evaluation => {
+      const daysUntil = getDaysUntilDue(evaluation.dueDate);
+      return daysUntil < 0 && evaluation.status !== 'completed' && evaluation.status !== 'validated';
+    });
+  };
+
+  const getPendingValidations = () => {
+    return evaluations.filter(evaluation => evaluation.status === 'completed' && !evaluation.reviewedBy);
+  };
+
+  const getDepartmentStats = () => {
+    const departments = [...new Set(evaluations.map(evaluation => evaluation.employee?.department).filter(Boolean))];
+    return departments.map(dept => ({
+      name: dept,
+      total: evaluations.filter(evaluation => evaluation.employee?.department === dept).length,
+      completed: evaluations.filter(evaluation => evaluation.employee?.department === dept && evaluation.status === 'completed').length,
+      pending: evaluations.filter(evaluation => evaluation.employee?.department === dept && evaluation.status === 'pending').length,
+      overdue: evaluations.filter(evaluation => {
+        const daysUntil = getDaysUntilDue(evaluation.dueDate);
+        return evaluation.employee?.department === dept && daysUntil < 0 && evaluation.status !== 'completed' && evaluation.status !== 'validated';
+      }).length
+    }));
+  };
+
+  const getTypeStats = () => {
+    const types = [...new Set(evaluations.map(evaluation => evaluation.type))];
+    return types.map(type => ({
+      name: type,
+      total: evaluations.filter(evaluation => evaluation.type === type).length,
+      completed: evaluations.filter(evaluation => evaluation.type === type && evaluation.status === 'completed').length,
+      pending: evaluations.filter(evaluation => evaluation.type === type && evaluation.status === 'pending').length
+    }));
+  };
+
+  const filteredEvaluations = evaluations.filter(evaluation => {
+    const matchesSearch = evaluation.employee?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         evaluation.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         evaluation.supervisor?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || evaluation.status === statusFilter;
+    const matchesDepartment = departmentFilter === 'all' || evaluation.employee?.department === departmentFilter;
+    return matchesSearch && matchesStatus && matchesDepartment;
+  });
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this evaluation?')) return;
@@ -159,10 +246,10 @@ const HREvaluations: React.FC = () => {
 
   // Quick stats (placeholder values, replace with real data)
   const quickStats = [
-    { label: 'Pending', value: evaluations.filter(e => e.status === 'pending').length, color: 'bg-yellow-100 text-yellow-800' },
-    { label: 'Overdue', value: evaluations.filter(e => e.status === 'overdue').length, color: 'bg-red-100 text-red-800' },
-    { label: 'Completed', value: evaluations.filter(e => e.status === 'completed').length, color: 'bg-green-100 text-green-800' },
-    { label: 'Scheduled', value: evaluations.filter(e => e.status === 'scheduled').length, color: 'bg-blue-100 text-blue-800' },
+    { label: 'Pending', value: evaluations.filter(evaluation => evaluation.status === 'pending').length, color: 'bg-yellow-100 text-yellow-800' },
+    { label: 'Overdue', value: evaluations.filter(evaluation => evaluation.status === 'overdue').length, color: 'bg-red-100 text-red-800' },
+    { label: 'Completed', value: evaluations.filter(evaluation => evaluation.status === 'completed').length, color: 'bg-green-100 text-green-800' },
+    { label: 'Scheduled', value: evaluations.filter(evaluation => evaluation.status === 'scheduled').length, color: 'bg-blue-100 text-blue-800' },
   ];
 
   if (loading) return <Layout><div>Loading...</div></Layout>;
@@ -219,31 +306,31 @@ const HREvaluations: React.FC = () => {
             {/* Assignments List */}
             <div className="grid grid-cols-1 gap-4">
               {evaluations
-                .filter(a => filterStatus === 'all' || a.status === filterStatus)
-                .filter(a => filterEvaluator === 'all' || a.supervisor?.name === filterEvaluator)
-                .filter(a => !filterDate || (a.dueDate && a.dueDate.split('T')[0] === filterDate))
-                .map(a => (
-                  <div key={a.id} className="bg-white shadow rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between">
+                .filter(assignment => filterStatus === 'all' || assignment.status === filterStatus)
+                .filter(assignment => filterEvaluator === 'all' || assignment.supervisor?.name === filterEvaluator)
+                .filter(assignment => !filterDate || (assignment.dueDate && assignment.dueDate.split('T')[0] === filterDate))
+                .map(assignment => (
+                  <div key={assignment.id} className="bg-white shadow rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between">
                     <div>
-                      <div className="text-lg font-semibold text-gray-900">{a.type} Evaluation</div>
-                      <div className="text-sm text-gray-500">Employee: {a.employee?.name || a.employeeId}</div>
-                      <div className="text-sm text-gray-500">Evaluator: {a.supervisor?.name || a.supervisorId}</div>
-                      <div className="text-sm text-gray-500">Due: {a.dueDate ? new Date(a.dueDate).toLocaleDateString() : ''}</div>
-                      <div className="text-sm text-gray-500">Status: {a.status}</div>
+                      <div className="text-lg font-semibold text-gray-900">{assignment.type} Evaluation</div>
+                      <div className="text-sm text-gray-500">Employee: {assignment.employee?.name || assignment.employeeId}</div>
+                      <div className="text-sm text-gray-500">Evaluator: {assignment.supervisor?.name || assignment.supervisorId}</div>
+                      <div className="text-sm text-gray-500">Due: {assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : ''}</div>
+                      <div className="text-sm text-gray-500">Status: {assignment.status}</div>
                       <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                        <div className={`h-2 rounded-full ${a.progress === 100 ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${a.progress || 0}%` }}></div>
+                        <div className={`h-2 rounded-full ${assignment.progress === 100 ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${assignment.progress || 0}%` }}></div>
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">Progress: {a.progress || 0}%</div>
+                      <div className="text-xs text-gray-500 mt-1">Progress: {assignment.progress || 0}%</div>
                     </div>
                     <div className="mt-3 md:mt-0 flex gap-2 flex-wrap">
                       <button className="inline-flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-                        onClick={() => navigate(`/evaluations/${a.id}`)}>
+                        onClick={() => navigate(`/evaluations/${assignment.id}`)}>
                         View
                       </button>
                       <button className="inline-flex items-center px-3 py-2 bg-green-100 text-green-700 rounded hover:bg-green-200"
                         onClick={async () => {
                           try {
-                            await api.post(`/evaluations/${a.id}/remind`);
+                            await api.post(`/evaluations/${assignment.id}/remind`);
                             toast.success('Reminder sent!');
                           } catch {
                             toast.error('Failed to send reminder');
@@ -254,7 +341,7 @@ const HREvaluations: React.FC = () => {
                       <button className="inline-flex items-center px-3 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
                         onClick={async () => {
                           try {
-                            const res = await fetch(`${API_BASE_URL}/evaluations/${a.id}/export?format=csv`, {
+                            const res = await fetch(`${API_BASE_URL}/evaluations/${assignment.id}/export?format=csv`, {
                               headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                             });
                             if (!res.ok) throw new Error('Export failed');
@@ -262,7 +349,7 @@ const HREvaluations: React.FC = () => {
                             const url = window.URL.createObjectURL(blob);
                             const link = document.createElement('a');
                             link.href = url;
-                            link.download = `evaluation-${a.id}.csv`;
+                            link.download = `evaluation-${assignment.id}.csv`;
                             document.body.appendChild(link);
                             link.click();
                             link.remove();
@@ -469,7 +556,212 @@ const HREvaluations: React.FC = () => {
           </div>
         )}
         {tab === 'analytics' && (
-          <div className="bg-white rounded-lg shadow p-8 text-center text-gray-400">Analytics coming soon...</div>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900">Evaluation Analytics</h2>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => setShowAdvancedAnalytics(!showAdvancedAnalytics)}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  {showAdvancedAnalytics ? 'Hide' : 'Show'} Advanced
+                </button>
+                <button className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export Report
+                </button>
+              </div>
+            </div>
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <Users className="h-5 w-5 text-blue-600" />
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Total Evaluations</p>
+                    <p className="text-2xl font-semibold text-gray-900">{evaluations.length}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Completed</p>
+                    <p className="text-2xl font-semibold text-gray-900">
+                      {evaluations.filter(evaluation => evaluation.status === 'completed' || evaluation.status === 'validated').length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                      <Clock className="h-5 w-5 text-yellow-600" />
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Pending</p>
+                    <p className="text-2xl font-semibold text-gray-900">
+                      {evaluations.filter(evaluation => evaluation.status === 'pending' || evaluation.status === 'in_progress').length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                      <AlertCircle className="h-5 w-5 text-red-600" />
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Overdue</p>
+                    <p className="text-2xl font-semibold text-gray-900">{getOverdueEvaluations().length}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Department Analytics */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Department Performance</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Department Breakdown</h4>
+                  <div className="space-y-2">
+                    {getDepartmentStats().map((dept, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span className="text-sm font-medium text-gray-900">{dept.name}</span>
+                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          <span>{dept.completed}/{dept.total} completed</span>
+                          <span className="text-yellow-600">{dept.pending} pending</span>
+                          {dept.overdue > 0 && <span className="text-red-600">{dept.overdue} overdue</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Evaluation Types</h4>
+                  <div className="space-y-2">
+                    {getTypeStats().map((type, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span className="text-sm font-medium text-gray-900">{type.name}</span>
+                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          <span>{type.completed}/{type.total} completed</span>
+                          <span className="text-yellow-600">{type.pending} pending</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Advanced Analytics */}
+            {showAdvancedAnalytics && (
+              <div className="bg-white shadow rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Advanced Analytics</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Performance Trends</h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span className="text-sm text-gray-600">Average Score</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {evaluations.filter(evaluation => evaluation.score).length > 0 
+                            ? (evaluations.reduce((sum, evaluation) => sum + (evaluation.score || 0), 0) / evaluations.filter(evaluation => evaluation.score).length).toFixed(1)
+                            : 'N/A'
+                          }/5
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span className="text-sm text-gray-600">Completion Rate</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {evaluations.length > 0 ? Math.round((evaluations.filter(evaluation => evaluation.status === 'completed' || evaluation.status === 'validated').length / evaluations.length) * 100) : 0}%
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span className="text-sm text-gray-600">On-Time Rate</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {evaluations.length > 0 ? Math.round(((evaluations.length - getOverdueEvaluations().length) / evaluations.length) * 100) : 0}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">System Health</h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span className="text-sm text-gray-600">Pending Validations</span>
+                        <span className="text-sm font-medium text-gray-900">{getPendingValidations().length}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span className="text-sm text-gray-600">Active Supervisors</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {new Set(evaluations.map(evaluation => evaluation.supervisorId).filter(Boolean)).size}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span className="text-sm text-gray-600">Active Employees</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {new Set(evaluations.map(evaluation => evaluation.employeeId).filter(Boolean)).size}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Alerts */}
+            {getOverdueEvaluations().length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                <div className="flex">
+                  <AlertCircle className="h-5 w-5 text-red-400" />
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-red-800">
+                      {getOverdueEvaluations().length} Overdue Evaluation{getOverdueEvaluations().length > 1 ? 's' : ''}
+                    </h3>
+                    <div className="mt-2 text-sm text-red-700">
+                      <p>There are evaluations that are past their due date. Consider sending reminders to supervisors.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {getPendingValidations().length > 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                <div className="flex">
+                  <CheckCircle className="h-5 w-5 text-yellow-400" />
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-yellow-800">
+                      {getPendingValidations().length} Evaluation{getPendingValidations().length > 1 ? 's' : ''} Awaiting Validation
+                    </h3>
+                    <div className="mt-2 text-sm text-yellow-700">
+                      <p>You have completed evaluations that need manager validation.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
       <Dialog open={!!editEval} onClose={closeEdit}>

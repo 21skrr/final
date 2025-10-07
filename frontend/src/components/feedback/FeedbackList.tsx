@@ -104,8 +104,13 @@ const FeedbackList: React.FC<FeedbackListProps> = ({
                   <div className="flex-1">
                     <div className="flex items-center space-x-2">
                       <h3 className="text-sm font-medium text-gray-900">
-                        {feedback.isAnonymous ? 'Anonymous' : feedback.sender?.name || 'Unknown'}
+                        {feedback.isAnonymous && userRole !== 'hr' ? 'Anonymous' : feedback.sender?.name || 'Unknown'}
                       </h3>
+                      {feedback.isAnonymous && userRole === 'hr' && (
+                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                          Anonymous to others
+                        </span>
+                      )}
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(feedback.status)}`}>
                         {feedback.status}
                       </span>

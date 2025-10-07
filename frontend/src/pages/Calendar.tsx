@@ -5,11 +5,13 @@ import { useAuth } from '../context/AuthContext';
 import { eventsService, Event } from '../services/events';
 import { toast } from 'react-hot-toast';
 import EventForm from '../components/events/EventForm';
+import EventSummary from '../components/events/EventSummary';
 
 const Calendar: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [isEditingEvent, setIsEditingEvent] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
 
@@ -68,6 +70,15 @@ const Calendar: React.FC = () => {
     return days;
   };
 
+  const isToday = (day: number, month: Date) => {
+    const today = new Date();
+    return (
+      day === today.getDate() &&
+      month.getMonth() === today.getMonth() &&
+      month.getFullYear() === today.getFullYear()
+    );
+  };
+
   const getEventTypeColor = (type: string) => {
     switch (type) {
       case 'onboarding':
@@ -124,9 +135,19 @@ const Calendar: React.FC = () => {
                 >
                   <ChevronLeft className="h-5 w-5 text-gray-600" />
                 </button>
-                <h2 className="text-lg font-semibold text-gray-900 mx-4">
-                  {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-                </h2>
+                <div className="mx-4">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+                  </h2>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Today: {new Date().toLocaleDateString('en-US', { 
+                      weekday: 'short', 
+                      month: 'short', 
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </div>
+                </div>
                 <button
                   onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))}
                   className="p-2 hover:bg-gray-100 rounded-full"
@@ -166,14 +187,23 @@ const Calendar: React.FC = () => {
                 >
                   {day && (
                     <>
-                      <div className="text-sm font-medium text-gray-900">{day}</div>
+                      <div className={`text-sm font-medium ${
+                        isToday(day, currentMonth) 
+                          ? 'bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center mx-auto' 
+                          : 'text-gray-900'
+                      }`}>
+                        {day}
+                      </div>
                       <div className="mt-2 space-y-1">
                         {events
                           .filter(event => new Date(event.startDate).getDate() === day)
                           .map(event => (
                             <div
                               key={event.id}
-                              onClick={() => setSelectedEvent(event)}
+                              onClick={() => {
+                                setSelectedEvent(event);
+                                setIsEditingEvent(user?.role === 'hr' || user?.role === 'manager');
+                              }}
                               className={`px-2 py-1 rounded-md text-xs font-medium cursor-pointer ${getEventTypeColor(
                                 event.type
                               )}`}
@@ -223,7 +253,10 @@ const Calendar: React.FC = () => {
                     {canManageEvents && (
                       <>
                         <button
-                          onClick={() => setSelectedEvent(event)}
+                          onClick={() => {
+                            setSelectedEvent(event);
+                            setIsEditingEvent(true);
+                          }}
                           className="p-1 hover:bg-gray-100 rounded-full"
                         >
                           <Edit2 className="h-4 w-4 text-gray-500" />
@@ -244,11 +277,24 @@ const Calendar: React.FC = () => {
         </div>
 
         {selectedEvent && (
-          <EventForm
-            event={selectedEvent}
-            onClose={() => setSelectedEvent(null)}
-            onSuccess={fetchEvents}
-          />
+          isEditingEvent ? (
+            <EventForm
+              event={selectedEvent}
+              onClose={() => {
+                setSelectedEvent(null);
+                setIsEditingEvent(false);
+              }}
+              onSuccess={fetchEvents}
+            />
+          ) : (
+            <EventSummary
+              event={selectedEvent}
+              onClose={() => {
+                setSelectedEvent(null);
+                setIsEditingEvent(false);
+              }}
+            />
+          )
         )}
       </div>
     </Layout>

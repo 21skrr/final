@@ -9,7 +9,7 @@ const WorkExperience: React.FC = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center mb-6">
             <Briefcase className="h-8 w-8 text-red-600 mr-3" />
-            <h1 className="text-3xl font-bold text-gray-900">Work Experience Program</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Special Training</h1>
           </div>
 
           <div className="space-y-6">
@@ -27,7 +27,7 @@ const WorkExperience: React.FC = () => {
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-3">Program Overview</h2>
               <p className="text-gray-600">
-                The Work Experience Program is designed to address short-term resourcing needs while providing students with valuable business experience. This program offers flexible opportunities for hands-on learning in a professional environment.
+                The Special Training Program is designed to address short-term resourcing needs while providing students with valuable business experience. This program offers flexible opportunities for hands-on learning in a professional environment.
               </p>
             </div>
 
