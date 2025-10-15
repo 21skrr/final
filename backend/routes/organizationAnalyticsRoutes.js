@@ -10,7 +10,10 @@ const {
   getEvaluationEffectiveness,
   getUserAnalytics,
   getProgramAnalytics,
-  getOrganizationKPIs
+  getOrganizationKPIs,
+  getOnboardingStageDistribution,
+  getSupervisorAssessmentCompletionRates,
+  getOnboardingCompletionTimeByDepartment
 } = require('../controllers/organizationAnalyticsController');
 
 // HR organization-wide analytics routes
@@ -29,6 +32,11 @@ router.get('/program/:programId', auth, getProgramAnalytics);
 
 // Organization-wide KPIs route (Placeholder)
 router.get('/kpi', auth, getOrganizationKPIs);
+
+// Onboarding analytics routes
+router.get('/onboarding-stage-distribution', auth, getOnboardingStageDistribution);
+router.get('/supervisor-assessment-completion', auth, getSupervisorAssessmentCompletionRates);
+router.get('/onboarding-completion-time', auth, getOnboardingCompletionTimeByDepartment);
 
 module.exports = router;
  

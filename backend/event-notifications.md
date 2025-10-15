@@ -131,3 +131,8 @@ node backend/scripts/testEventNotifications.js
 3. **Customizable Timing**: Allow users to set their preferred notification timing
 4. **Event Reminders**: Add configurable reminder intervals (1 day, 1 hour, 15 minutes before)
 5. **Notification Preferences**: Allow users to opt-out of certain notification types
+
+
+
+
+

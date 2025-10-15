@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import analyticsService from '../../services/analyticsService';
 import { useSupervisorAssessments } from '../../hooks/useSupervisorAssessments';
 import { useHRAssessments } from '../../hooks/useHRAssessments';
-import { Bar, Line } from 'react-chartjs-2';
+import { Bar, Pie } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -16,8 +16,9 @@ import {
   Title,
   Tooltip,
   Legend,
+  ArcElement,
 } from 'chart.js';
-ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend, ArcElement);
 
 interface HRDashboardProps {
   user: User;
@@ -33,6 +34,9 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user }) => {
   const [surveyTrends, setSurveyTrends] = useState<any[]>([]);
   const [trainingCompletion, setTrainingCompletion] = useState<any[]>([]);
   const [evaluationEffectiveness, setEvaluationEffectiveness] = useState<any[]>([]);
+  const [onboardingStageDistribution, setOnboardingStageDistribution] = useState<any[]>([]);
+  const [supervisorAssessmentCompletion, setSupervisorAssessmentCompletion] = useState<any>(null);
+  const [onboardingCompletionTime, setOnboardingCompletionTime] = useState<any[]>([]);
   const [loadingAll, setLoadingAll] = useState(true);
   const [errorAll, setErrorAll] = useState<string | null>(null);
   const { pendingHRApprovals } = useSupervisorAssessments();
@@ -59,13 +63,16 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user }) => {
       setLoadingAll(true);
       setErrorAll(null);
       try {
-        const [org, comp, feed, survey, train, evals] = await Promise.all([
+        const [org, comp, feed, survey, train, evals, onboardingStages, supervisorAssessments, onboardingTime] = await Promise.all([
           analyticsService.getOrganizationDashboard(),
           analyticsService.getCompletionRates(),
           analyticsService.getFeedbackParticipation(),
           analyticsService.getSurveyTrends(),
           analyticsService.getTrainingCompletion(),
           analyticsService.getEvaluationEffectiveness(),
+          analyticsService.getOnboardingStageDistribution(),
+          analyticsService.getSupervisorAssessmentCompletion(),
+          analyticsService.getOnboardingCompletionTime(),
         ]);
         setOrgStats(org);
         setCompletionRates(comp);
@@ -73,6 +80,9 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user }) => {
         setSurveyTrends(survey);
         setTrainingCompletion(train);
         setEvaluationEffectiveness(evals);
+        setOnboardingStageDistribution(onboardingStages);
+        setSupervisorAssessmentCompletion(supervisorAssessments);
+        setOnboardingCompletionTime(onboardingTime);
       } catch (e) {
         setErrorAll('Failed to load analytics data');
       } finally {
@@ -299,56 +309,349 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user }) => {
         )}
       </div>
 
-      {/* Training Completion */}
+      {/* Onboarding Stage Distribution */}
       <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl font-bold mb-4">Training Completion by Role</h2>
-        {trainingCompletion.length === 0 ? <div className="text-gray-500">No data</div> : (
-          <Bar
+        <h2 className="text-xl font-bold mb-4">Onboarding Stage Distribution</h2>
+        {onboardingStageDistribution.length === 0 ? <div className="text-gray-500">No data</div> : (
+          <div className="flex items-center justify-center">
+            <div className="w-64 h-64">
+              <Pie
             data={{
-              labels: trainingCompletion.map((row: any) => row.role),
+                  labels: onboardingStageDistribution.map((item: any) => {
+                    const stageLabels: { [key: string]: string } = {
+                      'pre_onboarding': 'Pre-Onboarding',
+                      'phase_1': 'Phase 1',
+                      'phase_2': 'Phase 2'
+                    };
+                    return stageLabels[item.stage] || item.stage;
+                  }),
               datasets: [
                 {
-                  label: 'Completion Rate (%)',
-                  data: trainingCompletion.map((row: any) => row.completionRate),
-                  backgroundColor: 'rgba(37, 99, 235, 0.7)',
+                      data: onboardingStageDistribution.map((item: any) => item.count),
+                      backgroundColor: [
+                        'rgba(99, 102, 241, 0.8)',
+                        'rgba(34, 197, 94, 0.8)',
+                        'rgba(251, 191, 36, 0.8)',
+                      ],
+                      borderColor: [
+                        'rgba(99, 102, 241, 1)',
+                        'rgba(34, 197, 94, 1)',
+                        'rgba(251, 191, 36, 1)',
+                      ],
+                      borderWidth: 2,
                 },
               ],
             }}
             options={{
               responsive: true,
-              plugins: { legend: { display: false } },
-              scales: { y: { min: 0, max: 100, ticks: { callback: (v: number) => v + '%' } } },
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: 'bottom',
+                    },
+                    tooltip: {
+                      callbacks: {
+                        label: function(context: any) {
+                          const item = onboardingStageDistribution[context.dataIndex];
+                          return `${context.label}: ${item.count} employees (${item.percentage.toFixed(1)}%)`;
+                        }
+                      }
+                    }
+                  }
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Supervisor Assessment Completion Rates */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h2 className="text-xl font-bold mb-4">Supervisor Assessment Completion</h2>
+        {!supervisorAssessmentCompletion ? <div className="text-gray-500">No data</div> : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <div className="text-2xl font-bold text-blue-600">{supervisorAssessmentCompletion.totalAssessments}</div>
+                <div className="text-sm text-gray-600">Total Assessments</div>
+              </div>
+              <div className="text-center p-4 bg-green-50 rounded-lg">
+                <div className="text-2xl font-bold text-green-600">{supervisorAssessmentCompletion.completedAssessments}</div>
+                <div className="text-sm text-gray-600">Completed</div>
+              </div>
+              <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                <div className="text-2xl font-bold text-yellow-600">{supervisorAssessmentCompletion.completionRate.toFixed(1)}%</div>
+                <div className="text-sm text-gray-600">Completion Rate</div>
+              </div>
+            </div>
+            
+            <div className="mt-4">
+              <h3 className="text-lg font-semibold mb-2">Status Breakdown</h3>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Pending Certificate:</span>
+                  <span className="font-medium">{supervisorAssessmentCompletion.statusBreakdown.pendingCertificate}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Certificate Uploaded:</span>
+                  <span className="font-medium">{supervisorAssessmentCompletion.statusBreakdown.certificateUploaded}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Assessment Pending:</span>
+                  <span className="font-medium">{supervisorAssessmentCompletion.statusBreakdown.assessmentPending}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Assessment Completed:</span>
+                  <span className="font-medium">{supervisorAssessmentCompletion.statusBreakdown.assessmentCompleted}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Decision Pending:</span>
+                  <span className="font-medium">{supervisorAssessmentCompletion.statusBreakdown.decisionPending}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Decision Made:</span>
+                  <span className="font-medium">{supervisorAssessmentCompletion.statusBreakdown.decisionMade}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>HR Approval Pending:</span>
+                  <span className="font-medium">{supervisorAssessmentCompletion.statusBreakdown.hrApprovalPending}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>HR Rejected:</span>
+                  <span className="font-medium">{supervisorAssessmentCompletion.statusBreakdown.hrRejected}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Onboarding Completion Time by Department */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h2 className="text-xl font-bold mb-4">Onboarding Completion Time by Department</h2>
+        {onboardingCompletionTime.length === 0 ? <div className="text-gray-500">No data</div> : (
+          <div className="space-y-4">
+            <Bar
+              data={{
+                labels: onboardingCompletionTime.map((item: any) => item.department),
+                datasets: [
+                  {
+                    label: 'Avg Completion Time (Days)',
+                    data: onboardingCompletionTime.map((item: any) => item.avgCompletionTimeDays),
+                    backgroundColor: 'rgba(37, 99, 235, 0.7)',
+                  },
+                  {
+                    label: 'Completion Rate (%)',
+                    data: onboardingCompletionTime.map((item: any) => item.completionRate),
+                    backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                    yAxisID: 'y1',
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                plugins: { 
+                  legend: { display: true },
+                  tooltip: {
+                    callbacks: {
+                      afterLabel: function(context: any) {
+                        const item = onboardingCompletionTime[context.dataIndex];
+                        if (context.datasetIndex === 0) {
+                          return `Completed: ${item.completedEmployees}/${item.totalEmployees}`;
+                        }
+                        return `Total Employees: ${item.totalEmployees}`;
+                      }
+                    }
+                  }
+                },
+                scales: { 
+                  y: { 
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: { display: true, text: 'Days' }
+                  },
+                  y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: { display: true, text: 'Completion Rate (%)' },
+                    grid: { drawOnChartArea: false },
+                    max: 100
+                  }
+                },
             }}
             height={200}
           />
+            
+            <div className="mt-4">
+              <h3 className="text-lg font-semibold mb-2">Department Details</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total Employees</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Completed</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Completion Rate</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Avg Time (Days)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {onboardingCompletionTime.map((item: any, idx: number) => (
+                      <tr key={idx}>
+                        <td className="px-4 py-2 font-medium">{item.department}</td>
+                        <td className="px-4 py-2">{item.totalEmployees}</td>
+                        <td className="px-4 py-2">{item.completedEmployees}</td>
+                        <td className="px-4 py-2">{item.completionRate.toFixed(1)}%</td>
+                        <td className="px-4 py-2">{item.avgCompletionTimeDays.toFixed(1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
       {/* Evaluation Effectiveness */}
       <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl font-bold mb-4">Evaluation & Coaching Effectiveness</h2>
-        {evaluationEffectiveness.length === 0 ? <div className="text-gray-500">No data</div> : (
+        <h2 className="text-xl font-bold mb-4">Evaluation Effectiveness & Trends</h2>
+        {!evaluationEffectiveness || Object.keys(evaluationEffectiveness).length === 0 ? (
+          <div className="text-gray-500">No evaluation data available</div>
+        ) : (
+          <div className="space-y-6">
+            {/* Evaluation Type Distribution */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Evaluation Types Distribution</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {evaluationEffectiveness.typeDistribution?.map((type: any, idx: number) => (
+                  <div key={idx} className="p-4 bg-blue-50 rounded-lg">
+                    <div className="text-sm text-gray-600 capitalize">{type.type.replace('-', ' ')}</div>
+                    <div className="text-2xl font-bold text-blue-600">{type.total}</div>
+                    <div className="text-xs text-gray-500">
+                      {type.completed} completed ({type.completionRate.toFixed(1)}%)
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Evaluation Status Distribution */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Evaluation Status Distribution</h3>
+              {evaluationEffectiveness.typeDistribution && evaluationEffectiveness.typeDistribution.length > 0 ? (
+                <div className="flex items-center justify-center">
+                  <div className="w-64 h-64">
+                    <Pie
+                      data={{
+                        labels: evaluationEffectiveness.typeDistribution.map((type: any) => {
+                          const typeLabels: { [key: string]: string } = {
+                            '3-month': '3-Month Review',
+                            '6-month': '6-Month Review', 
+                            '12-month': '12-Month Review',
+                            'performance': 'Performance Review',
+                            'training': 'Training Evaluation',
+                            'probation': 'Probation Review'
+                          };
+                          return typeLabels[type.type] || type.type;
+                        }),
+                        datasets: [
+                          {
+                            data: evaluationEffectiveness.typeDistribution.map((type: any) => type.total),
+                            backgroundColor: [
+                              'rgba(99, 102, 241, 0.8)',
+                              'rgba(34, 197, 94, 0.8)',
+                              'rgba(251, 191, 36, 0.8)',
+                              'rgba(239, 68, 68, 0.8)',
+                              'rgba(168, 85, 247, 0.8)',
+                              'rgba(6, 182, 212, 0.8)',
+                            ],
+                            borderColor: [
+                              'rgba(99, 102, 241, 1)',
+                              'rgba(34, 197, 94, 1)',
+                              'rgba(251, 191, 36, 1)',
+                              'rgba(239, 68, 68, 1)',
+                              'rgba(168, 85, 247, 1)',
+                              'rgba(6, 182, 212, 1)',
+                            ],
+                            borderWidth: 2,
+                          },
+                        ],
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            position: 'bottom',
+                          },
+                          tooltip: {
+                            callbacks: {
+                              label: function(context: any) {
+                                const type = evaluationEffectiveness.typeDistribution[context.dataIndex];
+                                return `${context.label}: ${type.total} total (${type.completed} completed - ${type.completionRate.toFixed(1)}%)`;
+                              }
+                            }
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No evaluation data available.</p>
+                  <p className="text-sm mt-1">Evaluation distribution will appear as evaluations are created.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Department Statistics */}
+            {evaluationEffectiveness.departmentStats && evaluationEffectiveness.departmentStats.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-3">Department Evaluation Statistics</h3>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Program</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Evaluations Completed</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Coaching Sessions Completed</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Completed</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Completion Rate</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Avg Score</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {evaluationEffectiveness.map((row: any, idx: number) => (
+                      {evaluationEffectiveness.departmentStats.map((row: any, idx: number) => (
                   <tr key={idx}>
-                    <td className="px-4 py-2">{row.department}</td>
+                          <td className="px-4 py-2 font-medium">{row.department}</td>
                     <td className="px-4 py-2">{row.programType}</td>
-                    <td className="px-4 py-2">{row.evaluation.employeesWithCompletedEvaluation}</td>
-                    <td className="px-4 py-2">{row.coaching.employeesWithCompletedCoachingSession}</td>
+                          <td className="px-4 py-2 capitalize">{row.evaluationType.replace('-', ' ')}</td>
+                          <td className="px-4 py-2">{row.totalEvaluations}</td>
+                          <td className="px-4 py-2">{row.completedEvaluations}</td>
+                          <td className="px-4 py-2">
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              row.completionRate >= 80 ? 'bg-green-100 text-green-800' :
+                              row.completionRate >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {row.completionRate.toFixed(1)}%
+                            </span>
+                          </td>
+                          <td className="px-4 py-2">
+                            {row.averageScore > 0 ? row.averageScore.toFixed(1) : 'N/A'}
+                          </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -36,7 +36,7 @@ const Login: React.FC = () => {
               </div>
 
               <h1 className="mt-2 text-2xl font-bold text-[#4ba0da]">
-                PMI Onboarding Portal
+                DayOne
               </h1>
 
               <p className="mt-1 text-gray-600">

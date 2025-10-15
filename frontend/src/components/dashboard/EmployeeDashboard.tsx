@@ -16,7 +16,6 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
   const [surveys, setSurveys] = useState<any[]>([]);
-  const [learning, setLearning] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,14 +97,7 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
           setSurveys([]);
         }
 
-        // Fetch learning progress with error handling
-        try {
-          const learningRes = await analyticsService.getPersonalTraining();
-          setLearning(learningRes);
-        } catch (err) {
-          console.warn('Failed to fetch learning data:', err);
-          setLearning(null);
-        }
+        // Learning data fetching removed - now using static resource links
       } catch (err: any) {
         setError(err?.response?.data?.message || err?.message || 'Failed to load dashboard data.');
         console.error(err);
@@ -279,48 +271,63 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="p-4 bg-green-600 text-white flex items-center">
             <Award className="w-5 h-5 mr-2" />
-            <h2 className="text-lg font-medium">Learning & Development</h2>
+            <h2 className="text-lg font-medium">Help & Resources</h2>
           </div>
           <div className="p-4">
-            {learning ? (
-              <div className="space-y-4">
-                <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
-                  <h3 className="font-medium text-gray-900">{learning.title || 'Learning Module'}</h3>
-                  <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-green-500 h-2 rounded-full" style={{ width: `${learning.progress || 0}%` }}></div>
+            <div className="space-y-3">
+              {/* Quick Resource Links */}
+              <div className="grid grid-cols-1 gap-3">
+                <Link
+                  to="/resources"
+                  className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+                >
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                    <FileText className="w-4 h-4 text-blue-600" />
                   </div>
-                  <div className="flex justify-between mt-1">
-                    <span className="text-xs text-gray-500">Progress: {learning.progress || 0}%</span>
-                    <span className="text-xs text-gray-500">{learning.completedModules || 0}/{learning.totalModules || 0} Modules</span>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-gray-900">Employee Handbook</h3>
+                    <p className="text-xs text-gray-500">Company policies and procedures</p>
                   </div>
-                  <div className="mt-3">
-                    <Link
-                      to="/training"
-                      className="text-sm font-medium text-green-600 hover:text-green-500"
-                    >
-                      Continue Learning →
-                    </Link>
+                </Link>
+                
+                <Link
+                  to="/training"
+                  className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+                >
+                  <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                    <Award className="w-4 h-4 text-green-600" />
                   </div>
-                </div>
-                {/* Add more learning recommendations if available */}
-                {learning.recommendations && learning.recommendations.length > 0 && (
-                  <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
-                    <h3 className="font-medium text-gray-900">Recommended for You</h3>
-                    <p className="text-sm text-gray-600 mt-1">{learning.recommendations[0].description}</p>
-                    <div className="mt-3">
-                      <Link
-                        to={learning.recommendations[0].link || '/training'}
-                        className="text-sm font-medium text-green-600 hover:text-green-500"
-                      >
-                        Start Course →
-                      </Link>
-                    </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-gray-900">Training Materials</h3>
+                    <p className="text-xs text-gray-500">Learning resources and courses</p>
                   </div>
-                )}
+                </Link>
+                
+                <Link
+                  to="/support"
+                  className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+                >
+                  <div className="flex-shrink-0 w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mr-3">
+                    <Clock className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-gray-900">IT Support</h3>
+                    <p className="text-xs text-gray-500">Technical help and assistance</p>
+                  </div>
+                </Link>
               </div>
-            ) : (
-              <p className="text-gray-500 text-center py-4">No learning data available</p>
-            )}
+              
+              {/* View All Resources Link */}
+              <div className="pt-3 border-t border-gray-200">
+                <Link
+                  to="/help-resources"
+                  className="flex items-center justify-center w-full py-2 px-4 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors duration-200"
+                >
+                  <span className="text-sm font-medium">View All Resources</span>
+                  <span className="ml-2">→</span>
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </div>

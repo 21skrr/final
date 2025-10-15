@@ -130,6 +130,22 @@ const analyticsService = {
     return response.data;
   },
 
+  // New Onboarding Analytics
+  getOnboardingStageDistribution: async (): Promise<DashboardData> => {
+    const response = await api.get('/analytics/organization/onboarding-stage-distribution');
+    return response.data;
+  },
+
+  getSupervisorAssessmentCompletion: async (): Promise<DashboardData> => {
+    const response = await api.get('/analytics/organization/supervisor-assessment-completion');
+    return response.data;
+  },
+
+  getOnboardingCompletionTime: async (): Promise<DashboardData> => {
+    const response = await api.get('/analytics/organization/onboarding-completion-time');
+    return response.data;
+  },
+
   // Reports
   getReportTemplates: async (): Promise<ReportTemplate[]> => {
     const response = await api.get('/reports/templates');
