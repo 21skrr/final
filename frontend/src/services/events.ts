@@ -8,7 +8,7 @@ export interface Event {
   startDate: string;
   endDate?: string;
   location: string;
-  type: string;
+  type?: string;
   createdBy?: string;
 }
 

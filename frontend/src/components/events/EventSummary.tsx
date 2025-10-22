@@ -27,7 +27,9 @@ const EventSummary: React.FC<EventSummaryProps> = ({ event, onClose }) => {
     });
   };
 
-  const getEventTypeColor = (type: string) => {
+  const getEventTypeColor = (type: string | undefined) => {
+    if (!type) return 'bg-gray-100 text-gray-800';
+    
     switch (type) {
       case 'meeting':
         return 'bg-blue-100 text-blue-800';
@@ -60,7 +62,7 @@ const EventSummary: React.FC<EventSummaryProps> = ({ event, onClose }) => {
           <div>
             <h3 className="text-2xl font-bold text-gray-900 mb-2">{event.title}</h3>
             <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${getEventTypeColor(event.type)}`}>
-              {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
+              {event.type ? event.type.charAt(0).toUpperCase() + event.type.slice(1) : 'Event'}
             </span>
           </div>
 
