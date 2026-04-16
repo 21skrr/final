@@ -92,7 +92,7 @@ const ManagerFeedback: React.FC = () => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Department Feedback</h1>
+            <h1 className="text-2xl font-bold !text-gray-900">Department Feedback</h1>
             <p className="mt-1 text-sm text-gray-500">
               Monitor feedback trends and department insights
             </p>
@@ -241,7 +241,7 @@ const ManagerFeedback: React.FC = () => {
         {/* Feedback List */}
         <div className="bg-white shadow rounded-lg overflow-hidden">
           <div className="p-4 bg-blue-600 text-white">
-            <h2 className="text-lg font-medium flex items-center">
+            <h2 className="text-lg font-medium flex items-center !text-white">
               <BarChart3 className="h-5 w-5 mr-2" />
               Department Feedback
             </h2>

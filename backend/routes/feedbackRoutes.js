@@ -120,7 +120,7 @@ router.get(
       .withMessage("Invalid date range"),
     check("category")
       .optional()
-      .isIn(["all", "onboarding", "training", "support", "general"])
+      .isIn(["all", "onboarding", "training", "support", "general", "holiday_request", "administrative_paper"])
       .withMessage("Invalid category")
   ],
   feedbackController.exportFeedback
@@ -207,12 +207,66 @@ router.post(
   [
     auth,
     check("content", "Content is required").not().isEmpty(),
-    check("type", "Type must be onboarding, training, support, or general")
-      .isIn(["onboarding", "training", "support", "general"]),
+    check("type", "Type must be a valid request type")
+      .isIn(["onboarding", "training", "support", "general", "holiday_request", "administrative_paper"]),
     check("isAnonymous", "isAnonymous must be a boolean").isBoolean(),
     check("shareWithSupervisor", "shareWithSupervisor must be a boolean").isBoolean()
   ],
   feedbackController.createFeedback
+);
+
+// PUT /api/feedback/:feedbackId/supervisor-approve  (Supervisor approves holiday request)
+router.put(
+  "/:feedbackId/supervisor-approve",
+  auth,
+  checkRole("supervisor"),
+  feedbackController.supervisorApproveRequest
+);
+
+// PUT /api/feedback/:feedbackId/supervisor-reject  (Supervisor rejects holiday request)
+router.put(
+  "/:feedbackId/supervisor-reject",
+  [
+    auth,
+    checkRole("supervisor"),
+    check("reason", "A rejection reason is required").not().isEmpty()
+  ],
+  feedbackController.supervisorRejectRequest
+);
+
+// PUT /api/feedback/:feedbackId/hr-approve  (HR approves holiday request / admin paper)
+router.put(
+  "/:feedbackId/hr-approve",
+  auth,
+  checkRole("hr"),
+  feedbackController.hrApproveRequest
+);
+
+// PUT /api/feedback/:feedbackId/hr-reject  (HR rejects holiday request / admin paper)
+router.put(
+  "/:feedbackId/hr-reject",
+  [
+    auth,
+    checkRole("hr"),
+    check("reason", "A rejection reason is required").not().isEmpty()
+  ],
+  feedbackController.hrRejectRequest
+);
+
+// GET /api/feedback/holiday-requests  (supervisor sees pending holiday requests)
+router.get(
+  "/holiday-requests",
+  auth,
+  checkRole("supervisor", "hr"),
+  feedbackController.getHolidayRequests
+);
+
+// GET /api/feedback/admin-paper-requests  (HR sees pending administrative paper requests)
+router.get(
+  "/admin-paper-requests",
+  auth,
+  checkRole("hr"),
+  feedbackController.getAdminPaperRequests
 );
 
 // POST /api/feedback/{feedbackId}/response

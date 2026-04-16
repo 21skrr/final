@@ -1,13 +1,13 @@
 import api from './api';
-import { 
-  Feedback, 
-  CreateFeedbackRequest, 
-  FeedbackResponse, 
-  FeedbackCategorization, 
-  FeedbackEscalation, 
-  FeedbackAnalytics, 
-  FeedbackFilters, 
-  FeedbackExportOptions 
+import {
+  Feedback,
+  CreateFeedbackRequest,
+  FeedbackResponse,
+  FeedbackCategorization,
+  FeedbackEscalation,
+  FeedbackAnalytics,
+  FeedbackFilters,
+  FeedbackExportOptions
 } from '../types/feedback';
 
 const feedbackService = {
@@ -33,13 +33,45 @@ const feedbackService = {
     return response.data;
   },
 
+  // --- NEW: Holiday Request Approval ---
+  getHolidayRequests: async (): Promise<Feedback[]> => {
+    const response = await api.get('/feedback/holiday-requests');
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  supervisorApproveRequest: async (feedbackId: string): Promise<any> => {
+    const response = await api.put(`/feedback/${feedbackId}/supervisor-approve`);
+    return response.data;
+  },
+
+  supervisorRejectRequest: async (feedbackId: string, reason: string): Promise<any> => {
+    const response = await api.put(`/feedback/${feedbackId}/supervisor-reject`, { reason });
+    return response.data;
+  },
+
+  // --- NEW: HR Approval (holiday + admin paper) ---
+  getAdminPaperRequests: async (): Promise<Feedback[]> => {
+    const response = await api.get('/feedback/admin-paper-requests');
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  hrApproveRequest: async (feedbackId: string): Promise<any> => {
+    const response = await api.put(`/feedback/${feedbackId}/hr-approve`);
+    return response.data;
+  },
+
+  hrRejectRequest: async (feedbackId: string, reason: string): Promise<any> => {
+    const response = await api.put(`/feedback/${feedbackId}/hr-reject`, { reason });
+    return response.data;
+  },
+
   // Manager endpoints
   getDepartmentFeedback: async (filters?: FeedbackFilters): Promise<Feedback[]> => {
     const params = new URLSearchParams();
     if (filters?.startDate) params.append('startDate', filters.startDate);
     if (filters?.endDate) params.append('endDate', filters.endDate);
     if (filters?.category) params.append('category', filters.category);
-    
+
     const response = await api.get(`/feedback/department?${params.toString()}`);
     return Array.isArray(response.data) ? response.data : [];
   },
@@ -48,7 +80,7 @@ const feedbackService = {
     const params = new URLSearchParams();
     if (filters?.startDate) params.append('startDate', filters.startDate);
     if (filters?.endDate) params.append('endDate', filters.endDate);
-    
+
     const response = await api.get(`/feedback/analytics?${params.toString()}`);
     return response.data;
   },
@@ -60,7 +92,7 @@ const feedbackService = {
     if (filters?.endDate) params.append('endDate', filters.endDate);
     if (filters?.type) params.append('type', filters.type);
     if (filters?.status) params.append('status', filters.status);
-    
+
     const response = await api.get(`/feedback/all?${params.toString()}`);
     return Array.isArray(response.data) ? response.data : [];
   },
@@ -80,7 +112,7 @@ const feedbackService = {
     params.append('format', options.format);
     if (options.dateRange) params.append('dateRange', options.dateRange);
     if (options.category) params.append('category', options.category);
-    
+
     const response = await api.get(`/feedback/export?${params.toString()}`, {
       responseType: 'blob'
     });

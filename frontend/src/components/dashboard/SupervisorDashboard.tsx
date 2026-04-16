@@ -157,7 +157,7 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
   
   const formatTime = (dateString: string | undefined) => {
     if (!dateString) return '';
-    const options: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
+    const options: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit', hour12: false };
     const date = new Date(dateString);
     return isNaN(date.getTime()) ? '' : date.toLocaleTimeString('en-US', options);
   };

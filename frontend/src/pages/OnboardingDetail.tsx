@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Spin, Alert, Typography, Button, message } from "antd";
+import { Spin, Alert, Button, message } from "antd";
 import { SaveOutlined, RollbackOutlined } from "@ant-design/icons";
 import { useAuth } from "../context/AuthContext";
+import Layout from "../components/layout/Layout";
 import OnboardingPhase from "../components/onboarding/OnboardingPhase";
 import OnboardingSummary from "../components/onboarding/OnboardingSummary";
 import { OnboardingJourney, Task, OnboardingStage } from "../types/onboarding";
 import onboardingService from "../services/onboardingService";
-
-const { Title } = Typography;
 
 const OnboardingDetail: React.FC = () => {
   const { userId } = useParams<{ userId?: string }>();
@@ -408,33 +407,39 @@ const OnboardingDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <Spin size="large" />
-      </div>
+      <Layout>
+        <div className="flex justify-center items-center h-64">
+          <Spin size="large" />
+        </div>
+      </Layout>
     );
   }
 
   if (error) {
     return (
-      <Alert
-        message="Error"
-        description={error}
-        type="error"
-        showIcon
-        className="max-w-3xl mx-auto mt-8"
-      />
+      <Layout>
+        <Alert
+          message="Error"
+          description={error}
+          type="error"
+          showIcon
+          className="max-w-3xl mx-auto mt-8"
+        />
+      </Layout>
     );
   }
 
   if (!journey) {
     return (
-      <Alert
-        message="No Onboarding Journey"
-        description="No onboarding journey found for this user."
-        type="info"
-        showIcon
-        className="max-w-3xl mx-auto mt-8"
-      />
+      <Layout>
+        <Alert
+          message="No Onboarding Journey"
+          description="No onboarding journey found for this user."
+          type="info"
+          showIcon
+          className="max-w-3xl mx-auto mt-8"
+        />
+      </Layout>
     );
   }
 
@@ -450,13 +455,15 @@ const OnboardingDetail: React.FC = () => {
 
   if (!Array.isArray(journeyPhases) || journeyPhases.length === 0) {
     return (
-      <Alert
-        message="No Onboarding Phases"
-        description="No onboarding phases found for this user."
-        type="info"
-        showIcon
-        className="max-w-3xl mx-auto mt-8"
-      />
+      <Layout>
+        <Alert
+          message="No Onboarding Phases"
+          description="No onboarding phases found for this user."
+          type="info"
+          showIcon
+          className="max-w-3xl mx-auto mt-8"
+        />
+      </Layout>
     );
   }
 
@@ -466,17 +473,18 @@ const OnboardingDetail: React.FC = () => {
   );
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4">
-      <div className="flex justify-between items-center mb-6">
-        <Title level={2}>
-          {isViewingOwnJourney
+    <Layout>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold !text-gray-900">
+            {isViewingOwnJourney
             ? "My Onboarding Journey"
             : `${
                 journey.user && journey.user.name
                   ? journey.user.name
                   : "Employee"
               }'s Onboarding Journey`}
-        </Title>
+          </h1>
 
         {/* Show role-specific information */}
         <div className="flex items-center gap-4">
@@ -518,35 +526,36 @@ const OnboardingDetail: React.FC = () => {
               Exit
             </Button>
           )}
+          </div>
+        </div>
+
+        <OnboardingSummary journey={journey} />
+
+        <div className="space-y-6">
+          {journeyPhases.map((phase, index) => (
+            <OnboardingPhase
+              key={index}
+              title={phase.title}
+              description={phase.description}
+              progress={Math.round(
+                (phase.tasks.filter((t) => t.completed).length /
+                  phase.tasks.length) *
+                  100
+              )}
+              tasks={phase.tasks}
+              isCurrentPhase={index === currentPhaseIndex}
+              onTaskComplete={(taskId, completed) =>
+                handleTaskComplete(index, taskId, completed)
+              }
+              canEditTasks={canEditTasks}
+              userRole={user?.role || "employee"}
+              onTaskVerify={handleTaskVerify}
+              refreshJourney={refreshJourney}
+            />
+          ))}
         </div>
       </div>
-
-      <OnboardingSummary journey={journey} />
-
-      <div className="space-y-6">
-        {journeyPhases.map((phase, index) => (
-          <OnboardingPhase
-            key={index}
-            title={phase.title}
-            description={phase.description}
-            progress={Math.round(
-              (phase.tasks.filter((t) => t.completed).length /
-                phase.tasks.length) *
-                100
-            )}
-            tasks={phase.tasks}
-            isCurrentPhase={index === currentPhaseIndex}
-            onTaskComplete={(taskId, completed) =>
-              handleTaskComplete(index, taskId, completed)
-            }
-            canEditTasks={canEditTasks}
-            userRole={user?.role || "employee"}
-            onTaskVerify={handleTaskVerify}
-            refreshJourney={refreshJourney}
-          />
-        ))}
-      </div>
-    </div>
+    </Layout>
   );
 };
 

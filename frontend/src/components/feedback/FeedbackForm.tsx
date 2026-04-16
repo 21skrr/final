@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
-import { MessageSquare, Send, Eye, EyeOff } from 'lucide-react';
-import { FeedbackType, CreateFeedbackRequest } from '../../types/feedback';
-import feedbackService from '../../services/feedbackService';
+import { Send, Calendar, FileText } from 'lucide-react';
+import { FeedbackType, CreateFeedbackRequest, SPECIAL_REQUEST_TYPES } from '../../types/feedback';
 
 interface FeedbackFormProps {
   onSubmit?: (feedback: CreateFeedbackRequest) => void;
   onCancel?: () => void;
 }
+
+const requestTypes: { value: FeedbackType; label: string; icon?: React.ReactNode; description: string }[] = [
+  { value: 'general', label: 'General Feedback', description: 'Share general thoughts or suggestions', icon: <FileText className="w-4 h-4" /> },
+  { value: 'onboarding', label: 'Onboarding Process', description: 'Feedback about your onboarding experience', icon: <FileText className="w-4 h-4" /> },
+  { value: 'training', label: 'Training & Development', description: 'Feedback related to training programs', icon: <FileText className="w-4 h-4" /> },
+  { value: 'support', label: 'Support & Resources', description: 'Issues with resources or support received', icon: <FileText className="w-4 h-4" /> },
+  { value: 'holiday_request', label: 'Holiday Request', description: 'Submit a Request for time off — sent to your supervisor then HR', icon: <Calendar className="w-4 h-4 text-orange-500" /> },
+  { value: 'administrative_paper', label: 'Administrative Paper Request', description: 'Request administrative documents — sent directly to HR', icon: <FileText className="w-4 h-4 text-blue-500" /> },
+];
 
 const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
   const [formData, setFormData] = useState<CreateFeedbackRequest>({
@@ -19,12 +27,17 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const feedbackTypes: { value: FeedbackType; label: string }[] = [
-    { value: 'onboarding', label: 'Onboarding Process' },
-    { value: 'training', label: 'Training & Development' },
-    { value: 'support', label: 'Support & Resources' },
-    { value: 'general', label: 'General Feedback' },
-  ];
+  // Determine if the current type is a special request (no anonymous allowed)
+  const isSpecialRequest = SPECIAL_REQUEST_TYPES.includes(formData.type);
+
+  const handleTypeChange = (type: FeedbackType) => {
+    setFormData(prev => ({
+      ...prev,
+      type,
+      // Force non-anonymous for special request types
+      isAnonymous: SPECIAL_REQUEST_TYPES.includes(type) ? false : prev.isAnonymous,
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +45,6 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
     setError(null);
     try {
       await onSubmit?.(formData);
-      // Reset form
       setFormData({
         content: '',
         type: 'general',
@@ -41,28 +53,27 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
         priority: 'medium',
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit feedback');
+      setError(err instanceof Error ? err.message : 'Failed to submit request');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (field: keyof CreateFeedbackRequest, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
 
   return (
-    <div className="bg-white shadow rounded-lg overflow-hidden">
-      <div className="p-4 bg-blue-600 text-white">
-        <h2 className="text-lg font-medium flex items-center">
-          <MessageSquare className="h-5 w-5 mr-2" />
-          Submit Feedback
-        </h2>
+    <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-100">
+      {/* Header */}
+      <div className={`p-4 text-white flex items-center gap-2 ${
+        formData.type === 'holiday_request'
+          ? 'bg-orange-500'
+          : formData.type === 'administrative_paper'
+          ? 'bg-blue-600'
+          : 'bg-blue-600'
+      }`}>
+        <Send className="h-5 w-5" />
+        <h2 className="text-lg font-medium !text-white">New Request</h2>
       </div>
-      
+
       <form onSubmit={handleSubmit} className="p-6 space-y-6">
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-md p-4">
@@ -70,70 +81,118 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
           </div>
         )}
 
+        {/* Request Type Selection - Card Style */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Feedback Type
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            Request Type
           </label>
-          <select
-            value={formData.type}
-            onChange={(e) => handleInputChange('type', e.target.value as FeedbackType)}
-            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            required
-          >
-            {feedbackTypes.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {requestTypes.map((type) => (
+              <button
+                key={type.value}
+                type="button"
+                onClick={() => handleTypeChange(type.value)}
+                className={`flex items-start gap-3 p-3 rounded-lg border-2 text-left transition-all duration-150 ${
+                  formData.type === type.value
+                    ? type.value === 'holiday_request'
+                      ? 'border-orange-400 bg-orange-50'
+                      : type.value === 'administrative_paper'
+                      ? 'border-blue-400 bg-blue-50'
+                      : 'border-blue-400 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <span className="mt-0.5 flex-shrink-0">{type.icon}</span>
+                <div>
+                  <p className={`text-sm font-medium ${
+                    formData.type === type.value ? 'text-gray-900' : 'text-gray-700'
+                  }`}>{type.label}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{type.description}</p>
+                </div>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Priority
-          </label>
-          <select
-            value={formData.priority}
-            onChange={(e) => handleInputChange('priority', e.target.value)}
-            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            required
-          >
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
-        </div>
+        {/* Workflow indicator for special types */}
+        {formData.type === 'holiday_request' && (
+          <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
+            <Calendar className="w-4 h-4 flex-shrink-0" />
+            <span>
+              This request will be sent to your <strong>Supervisor</strong> first. If approved, it is forwarded to <strong>HR</strong> for final decision.
+            </span>
+          </div>
+        )}
+        {formData.type === 'administrative_paper' && (
+          <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+            <FileText className="w-4 h-4 flex-shrink-0" />
+            <span>
+              This request will be sent <strong>directly to HR</strong> for processing.
+            </span>
+          </div>
+        )}
 
+        {/* Priority (hidden for special request types) */}
+        {!isSpecialRequest && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Priority
+            </label>
+            <select
+              value={formData.priority}
+              onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value as any }))}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        )}
+
+        {/* Message */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Message
+            {formData.type === 'holiday_request'
+              ? 'Holiday Request Details'
+              : formData.type === 'administrative_paper'
+              ? 'Describe the document(s) you need'
+              : 'Message'}
           </label>
           <textarea
             value={formData.content}
-            onChange={(e) => handleInputChange('content', e.target.value)}
+            onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
             rows={4}
             className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            placeholder="Share your feedback, suggestions, or concerns..."
+            placeholder={
+              formData.type === 'holiday_request'
+                ? 'Describe your leave request (dates, reason, coverage plan)...'
+                : formData.type === 'administrative_paper'
+                ? 'Specify the document(s) you need and any relevant details...'
+                : 'Share your feedback, suggestions, or concerns...'
+            }
             required
           />
         </div>
 
-        <div className="space-y-4">
+        {/* Anonymous — only shown for standard feedback types */}
+        {!isSpecialRequest && (
           <div className="flex items-center">
             <input
               type="checkbox"
               id="isAnonymous"
               checked={formData.isAnonymous}
-              onChange={(e) => handleInputChange('isAnonymous', e.target.checked)}
+              onChange={(e) => setFormData(prev => ({ ...prev, isAnonymous: e.target.checked }))}
               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
             />
             <label htmlFor="isAnonymous" className="ml-2 block text-sm text-gray-700">
               Submit anonymously
             </label>
           </div>
-        </div>
+        )}
 
-        <div className="flex justify-end space-x-3">
+        {/* Actions */}
+        <div className="flex justify-end space-x-3 pt-2">
           {onCancel && (
             <button
               type="button"
@@ -146,7 +205,11 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
           <button
             type="submit"
             disabled={loading || !formData.content.trim()}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed ${
+              formData.type === 'holiday_request'
+                ? 'bg-orange-500 hover:bg-orange-600'
+                : 'bg-blue-600 hover:bg-blue-700'
+            }`}
           >
             {loading ? (
               <>
@@ -156,7 +219,7 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
             ) : (
               <>
                 <Send className="h-4 w-4 mr-2" />
-                Submit Feedback
+                Submit Request
               </>
             )}
           </button>
@@ -166,4 +229,4 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
   );
 };
 
-export default FeedbackForm; 
+export default FeedbackForm;

@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { Event, eventsService } from '../../services/events';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
+import TimePicker from './TimePicker';
 
 interface EventFormProps {
   event?: Event | null;
@@ -21,14 +22,28 @@ const EventForm: React.FC<EventFormProps> = ({ event, onClose, onSuccess }) => {
     type: 'meeting',
   });
 
+  const [startDate, setStartDate] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [endTime, setEndTime] = useState('');
+
   useEffect(() => {
     if (event) {
-      // When editing, convert ISO strings back to 'YYYY-MM-DDTHH:mm' for datetime-local input
       setFormData({
         ...event,
-        startDate: event.startDate ? new Date(event.startDate).toISOString().substring(0, 16) : '',
-        endDate: event.endDate ? new Date(event.endDate).toISOString().substring(0, 16) : '',
       });
+      
+      if (event.startDate) {
+        const start = new Date(event.startDate);
+        setStartDate(start.toISOString().split('T')[0]);
+        setStartTime(start.toTimeString().slice(0, 5));
+      }
+      
+      if (event.endDate) {
+        const end = new Date(event.endDate);
+        setEndDate(end.toISOString().split('T')[0]);
+        setEndTime(end.toTimeString().slice(0, 5));
+      }
     }
   }, [event]);
 
@@ -40,8 +55,8 @@ const EventForm: React.FC<EventFormProps> = ({ event, onClose, onSuccess }) => {
         description: formData.description || '',
         location: formData.location || '',
         type: formData.type || 'meeting',
-        startDate: formData.startDate ? new Date(formData.startDate).toISOString() : '',
-        endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
+        startDate: startDate && startTime ? new Date(`${startDate}T${startTime}`).toISOString() : '',
+        endDate: endDate && endTime ? new Date(`${endDate}T${endTime}`).toISOString() : undefined,
         createdBy: user?.id || '',
       };
 
@@ -92,29 +107,43 @@ const EventForm: React.FC<EventFormProps> = ({ event, onClose, onSuccess }) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700">
                 Start Date & Time
               </label>
-              <input
-                type="datetime-local"
-                id="startDate"
-                required
-                value={formData.startDate}
-                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                <input
+                  type="date"
+                  required
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+                <TimePicker
+                  value={startTime}
+                  onChange={setStartTime}
+                  placeholder="Select time"
+                  className="w-full"
+                />
+              </div>
             </div>
             <div>
-              <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700">
                 End Date & Time (optional)
               </label>
-              <input
-                type="datetime-local"
-                id="endDate"
-                value={formData.endDate}
-                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+                <TimePicker
+                  value={endTime}
+                  onChange={setEndTime}
+                  placeholder="Select time"
+                  className="w-full"
+                />
+              </div>
             </div>
           </div>
 
@@ -184,4 +213,4 @@ const EventForm: React.FC<EventFormProps> = ({ event, onClose, onSuccess }) => {
   );
 };
 
-export default EventForm; 
+export default EventForm;

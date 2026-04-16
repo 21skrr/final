@@ -147,10 +147,26 @@ const createFeedback = async (req, res) => {
 
     const { type, content, isAnonymous, shareWithSupervisor, priority } = req.body;
 
-    // Always send feedback to the user's supervisor
-    const user = await User.findByPk(req.user.id, { attributes: ['supervisorId'] });
-    const toUserId = user.supervisorId;
-    const toDepartment = null;
+    let toUserId = null;
+    let toDepartment = null;
+    let supervisorApprovalStatus = null;
+
+    if (type === 'holiday_request') {
+      // Holiday Request: goes to supervisor first
+      const user = await User.findByPk(req.user.id, { attributes: ['supervisorId'] });
+      toUserId = user.supervisorId;
+      supervisorApprovalStatus = 'pending';
+    } else if (type === 'administrative_paper') {
+      // Administrative Paper: goes directly to HR (no specific user, use department flag)
+      toDepartment = 'hr';
+    } else {
+      // Standard feedback: always send to supervisor
+      const user = await User.findByPk(req.user.id, { attributes: ['supervisorId'] });
+      toUserId = user.supervisorId;
+    }
+
+    // Enforce: no anonymous for special request types
+    const finalIsAnonymous = (type === 'holiday_request' || type === 'administrative_paper') ? false : (isAnonymous ? 1 : 0);
 
    // Get feedback notification template from system settings
 const notificationTemplate = await getSystemSetting("feedbackNotificationTemplate");
@@ -161,16 +177,24 @@ const finalMessage = notificationTemplate
   ?.replace("{{message}}", content)
   || content; // Fallback to original content if template is missing
 
-const feedback = await Feedback.create({
+const feedbackData = {
   fromUserId: req.user.id,
   toUserId,
   toDepartment,
   type,
   message: finalMessage,
-  isAnonymous: isAnonymous ? 1 : 0,
+  isAnonymous: finalIsAnonymous,
   categories: [],
-  priority: priority || 'medium'
-});
+  priority: priority || 'medium',
+  status: type === 'holiday_request' ? 'pending_supervisor' :
+          type === 'administrative_paper' ? 'pending_hr' : 'pending',
+};
+
+if (supervisorApprovalStatus) {
+  feedbackData.supervisorApprovalStatus = supervisorApprovalStatus;
+}
+
+const feedback = await Feedback.create(feedbackData);
 
     await logActivity({
       userId: req.user.id,
@@ -1523,6 +1547,208 @@ const getAnonymousFeedbackSummary = async (req, res) => {
     }
 };
 
+// =====================================================================
+// NEW: Request Approval Controllers
+// =====================================================================
+
+// GET holiday requests for supervisor (pending_supervisor) or HR (pending_hr)
+const getHolidayRequests = async (req, res) => {
+  try {
+    const whereClause = { type: 'holiday_request' };
+
+    if (req.user.role === 'supervisor') {
+      // Supervisor sees requests directed to them awaiting their approval
+      whereClause.toUserId = req.user.id;
+      whereClause.status = 'pending_supervisor';
+    } else if (req.user.role === 'hr') {
+      // HR sees requests that passed supervisor approval
+      whereClause.status = 'pending_hr';
+    }
+
+    const requests = await Feedback.findAll({
+      where: whereClause,
+      include: [
+        { model: User, as: 'sender', attributes: ['id', 'name', 'email', 'department'] },
+        { model: User, as: 'receiver', attributes: ['id', 'name', 'email'] }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json(requests);
+  } catch (error) {
+    console.error('Error fetching holiday requests:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// GET administrative paper requests for HR
+const getAdminPaperRequests = async (req, res) => {
+  try {
+    const requests = await Feedback.findAll({
+      where: {
+        type: 'administrative_paper',
+        status: 'pending_hr'
+      },
+      include: [
+        { model: User, as: 'sender', attributes: ['id', 'name', 'email', 'department'] }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json(requests);
+  } catch (error) {
+    console.error('Error fetching admin paper requests:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Supervisor approves a holiday request → escalates to HR
+const supervisorApproveRequest = async (req, res) => {
+  try {
+    const { feedbackId } = req.params;
+
+    const feedback = await Feedback.findByPk(feedbackId);
+    if (!feedback) return res.status(404).json({ message: 'Request not found' });
+    if (feedback.type !== 'holiday_request') return res.status(400).json({ message: 'Only holiday requests can be approved this way' });
+    if (feedback.toUserId !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
+    if (feedback.status !== 'pending_supervisor') return res.status(400).json({ message: 'Request is not awaiting supervisor approval' });
+
+    await feedback.update({
+      supervisorApprovalStatus: 'approved',
+      hrApprovalStatus: 'pending',
+      status: 'pending_hr'
+    });
+
+    await logActivity({
+      userId: req.user.id,
+      action: 'holiday_request_supervisor_approved',
+      entityType: 'feedback',
+      entityId: feedbackId,
+      details: { action: 'supervisor_approved' },
+      req
+    });
+
+    res.json({ message: 'Holiday request approved and forwarded to HR', feedback });
+  } catch (error) {
+    console.error('Error approving holiday request:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Supervisor rejects a holiday request
+const supervisorRejectRequest = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const { feedbackId } = req.params;
+    const { reason } = req.body;
+
+    const feedback = await Feedback.findByPk(feedbackId);
+    if (!feedback) return res.status(404).json({ message: 'Request not found' });
+    if (feedback.type !== 'holiday_request') return res.status(400).json({ message: 'Only holiday requests can be rejected this way' });
+    if (feedback.toUserId !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
+    if (feedback.status !== 'pending_supervisor') return res.status(400).json({ message: 'Request is not awaiting supervisor approval' });
+
+    await feedback.update({
+      supervisorApprovalStatus: 'rejected',
+      supervisorRejectionReason: reason,
+      status: 'supervisor_rejected'
+    });
+
+    await logActivity({
+      userId: req.user.id,
+      action: 'holiday_request_supervisor_rejected',
+      entityType: 'feedback',
+      entityId: feedbackId,
+      details: { reason },
+      req
+    });
+
+    res.json({ message: 'Holiday request rejected', feedback });
+  } catch (error) {
+    console.error('Error rejecting holiday request:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// HR approves a holiday request or administrative paper request
+const hrApproveRequest = async (req, res) => {
+  try {
+    const { feedbackId } = req.params;
+
+    const feedback = await Feedback.findByPk(feedbackId);
+    if (!feedback) return res.status(404).json({ message: 'Request not found' });
+    if (!['holiday_request', 'administrative_paper'].includes(feedback.type)) {
+      return res.status(400).json({ message: 'Only special requests can be approved this way' });
+    }
+
+    const expectedStatus = feedback.type === 'holiday_request' ? 'pending_hr' : 'pending_hr';
+    if (feedback.status !== expectedStatus) {
+      return res.status(400).json({ message: 'Request is not awaiting HR approval' });
+    }
+
+    await feedback.update({
+      hrApprovalStatus: 'approved',
+      status: 'approved'
+    });
+
+    await logActivity({
+      userId: req.user.id,
+      action: 'request_hr_approved',
+      entityType: 'feedback',
+      entityId: feedbackId,
+      details: { type: feedback.type },
+      req
+    });
+
+    res.json({ message: 'Request approved by HR', feedback });
+  } catch (error) {
+    console.error('Error HR approving request:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// HR rejects a holiday request or administrative paper request
+const hrRejectRequest = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const { feedbackId } = req.params;
+    const { reason } = req.body;
+
+    const feedback = await Feedback.findByPk(feedbackId);
+    if (!feedback) return res.status(404).json({ message: 'Request not found' });
+    if (!['holiday_request', 'administrative_paper'].includes(feedback.type)) {
+      return res.status(400).json({ message: 'Only special requests can be rejected this way' });
+    }
+    if (feedback.status !== 'pending_hr') {
+      return res.status(400).json({ message: 'Request is not awaiting HR approval' });
+    }
+
+    await feedback.update({
+      hrApprovalStatus: 'rejected',
+      hrRejectionReason: reason,
+      status: 'hr_rejected'
+    });
+
+    await logActivity({
+      userId: req.user.id,
+      action: 'request_hr_rejected',
+      entityType: 'feedback',
+      entityId: feedbackId,
+      details: { reason, type: feedback.type },
+      req
+    });
+
+    res.json({ message: 'Request rejected by HR', feedback });
+  } catch (error) {
+    console.error('Error HR rejecting request:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
     getSentFeedback,
     getReceivedFeedback,
@@ -1548,5 +1774,12 @@ module.exports = {
     getEscalatedFeedback,
     getFeedbackPatterns,
     autoTagFeedback,
-    getAnonymousFeedbackSummary
+    getAnonymousFeedbackSummary,
+    // New request approval handlers
+    supervisorApproveRequest,
+    supervisorRejectRequest,
+    hrApproveRequest,
+    hrRejectRequest,
+    getHolidayRequests,
+    getAdminPaperRequests
 };

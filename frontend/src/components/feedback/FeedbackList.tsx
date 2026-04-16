@@ -19,31 +19,51 @@ const FeedbackList: React.FC<FeedbackListProps> = ({
   onCategorize,
   onEscalate,
 }) => {
-  const getStatusColor = (status: FeedbackStatus) => {
+  const getStatusColor = (status: FeedbackStatus | string) => {
     switch (status) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'in-progress':
-        return 'bg-blue-100 text-blue-800';
-      case 'addressed':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'pending_supervisor': return 'bg-amber-100 text-amber-800';
+      case 'pending_hr': return 'bg-blue-100 text-blue-800';
+      case 'in-progress': return 'bg-blue-100 text-blue-800';
+      case 'addressed': return 'bg-green-100 text-green-800';
+      case 'approved': return 'bg-green-100 text-green-800';
+      case 'supervisor_rejected': return 'bg-red-100 text-red-800';
+      case 'hr_rejected': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusLabel = (status: FeedbackStatus | string) => {
+    switch (status) {
+      case 'pending': return 'Pending';
+      case 'pending_supervisor': return 'Awaiting Supervisor';
+      case 'pending_hr': return 'Awaiting HR';
+      case 'in-progress': return 'In Progress';
+      case 'addressed': return 'Addressed';
+      case 'approved': return 'Approved ✓';
+      case 'supervisor_rejected': return 'Rejected by Supervisor';
+      case 'hr_rejected': return 'Rejected by HR';
+      default: return status;
     }
   };
 
   const getTypeColor = (type: FeedbackType) => {
     switch (type) {
-      case 'onboarding':
-        return 'bg-purple-100 text-purple-800';
-      case 'training':
-        return 'bg-indigo-100 text-indigo-800';
-      case 'support':
-        return 'bg-orange-100 text-orange-800';
-      case 'general':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'onboarding': return 'bg-purple-100 text-purple-800';
+      case 'training': return 'bg-indigo-100 text-indigo-800';
+      case 'support': return 'bg-orange-100 text-orange-800';
+      case 'general': return 'bg-gray-100 text-gray-800';
+      case 'holiday_request': return 'bg-orange-100 text-orange-700';
+      case 'administrative_paper': return 'bg-blue-100 text-blue-700';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getTypeLabel = (type: FeedbackType) => {
+    switch (type) {
+      case 'holiday_request': return 'Holiday Request';
+      case 'administrative_paper': return 'Admin Paper Request';
+      default: return type.charAt(0).toUpperCase() + type.slice(1);
     }
   };
 
@@ -61,13 +81,8 @@ const FeedbackList: React.FC<FeedbackListProps> = ({
     return userRole === 'supervisor' && feedback.status !== 'addressed';
   };
 
-  const canCategorize = (feedback: Feedback) => {
-    return userRole === 'hr';
-  };
-
-  const canEscalate = (feedback: Feedback) => {
-    return userRole === 'hr';
-  };
+  const canCategorize = () => userRole === 'hr';
+  const canEscalate = () => userRole === 'hr';
 
   if (feedbacks.length === 0) {
     return (
@@ -112,10 +127,10 @@ const FeedbackList: React.FC<FeedbackListProps> = ({
                         </span>
                       )}
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(feedback.status)}`}>
-                        {feedback.status}
+                        {getStatusLabel(feedback.status)}
                       </span>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(feedback.type)}`}>
-                        {feedback.type}
+                        {getTypeLabel(feedback.type)}
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 flex items-center">
@@ -127,7 +142,20 @@ const FeedbackList: React.FC<FeedbackListProps> = ({
 
                 <div className="ml-11">
                   <p className="text-sm text-gray-700 mb-3">{feedback.message}</p>
-                  
+
+                  {/* Show rejection reason when applicable */}
+                  {feedback.status === 'supervisor_rejected' && feedback.supervisorRejectionReason && (
+                    <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-xs font-medium text-red-700 mb-0.5">Rejected by Supervisor:</p>
+                      <p className="text-sm text-red-600">{feedback.supervisorRejectionReason}</p>
+                    </div>
+                  )}
+                  {feedback.status === 'hr_rejected' && feedback.hrRejectionReason && (
+                    <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-xs font-medium text-red-700 mb-0.5">Rejected by HR:</p>
+                      <p className="text-sm text-red-600">{feedback.hrRejectionReason}</p>
+                    </div>
+                  )}
                   {Array.isArray(feedback.categories) && feedback.categories.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-3">
                       {feedback.categories.map((category) => (
@@ -185,7 +213,7 @@ const FeedbackList: React.FC<FeedbackListProps> = ({
                   </button>
                 )}
 
-                {canCategorize(feedback) && (
+                {canCategorize() && (
                   <button
                     onClick={() => onCategorize?.(feedback.id)}
                     className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-purple-700 bg-purple-100 hover:bg-purple-200"
@@ -195,7 +223,7 @@ const FeedbackList: React.FC<FeedbackListProps> = ({
                   </button>
                 )}
 
-                {canEscalate(feedback) && (
+                {canEscalate() && (
                   <button
                     onClick={() => onEscalate?.(feedback.id)}
                     className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200"

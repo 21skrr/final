@@ -114,7 +114,7 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
   };
   
   const formatTime = (dateString: string) => {
-    const options: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
+    const options: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit', hour12: false };
     return new Date(dateString).toLocaleTimeString('en-US', options);
   };
   
@@ -151,7 +151,7 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="p-4 bg-blue-600 text-white flex items-center">
               <Calendar className="w-5 h-5 mr-2" />
-              <h2 className="text-lg font-medium">Upcoming Events</h2>
+              <h2 className="text-lg font-medium !text-white">Upcoming Events</h2>
             </div>
             <div className="p-4">
               {upcomingEvents.length === 0 ? (
@@ -192,7 +192,7 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="p-4 bg-orange-500 text-white flex items-center">
               <CheckSquare className="w-5 h-5 mr-2" />
-              <h2 className="text-lg font-medium">Tasks</h2>
+              <h2 className="text-lg font-medium !text-white">Tasks</h2>
             </div>
             <div className="p-4">
               {tasks.length === 0 ? (
@@ -244,7 +244,7 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="p-4 bg-purple-600 text-white flex items-center">
             <FileText className="w-5 h-5 mr-2" />
-            <h2 className="text-lg font-medium">Upcoming Surveys</h2>
+            <h2 className="text-lg font-medium !text-white">Upcoming Surveys</h2>
           </div>
           <div className="p-4">
             {!surveys || surveys.length === 0 || !surveys[0] ? (
@@ -271,7 +271,7 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="p-4 bg-green-600 text-white flex items-center">
             <Award className="w-5 h-5 mr-2" />
-            <h2 className="text-lg font-medium">Help & Resources</h2>
+            <h2 className="text-lg font-medium !text-white">Help & Resources</h2>
           </div>
           <div className="p-4">
             <div className="space-y-3">
@@ -291,7 +291,7 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
                 </Link>
                 
                 <Link
-                  to="/training"
+                  to="/resources"
                   className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
                 >
                   <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
@@ -304,7 +304,7 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
                 </Link>
                 
                 <Link
-                  to="/support"
+                  to="/resources"
                   className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
                 >
                   <div className="flex-shrink-0 w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mr-3">
@@ -320,7 +320,7 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
               {/* View All Resources Link */}
               <div className="pt-3 border-t border-gray-200">
                 <Link
-                  to="/help-resources"
+                  to="/resources"
                   className="flex items-center justify-center w-full py-2 px-4 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors duration-200"
                 >
                   <span className="text-sm font-medium">View All Resources</span>

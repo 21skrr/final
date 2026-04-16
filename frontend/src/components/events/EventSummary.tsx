@@ -9,7 +9,9 @@ interface EventSummaryProps {
 
 const EventSummary: React.FC<EventSummaryProps> = ({ event, onClose }) => {
   const formatDate = (dateString: string) => {
+    if (!dateString) return 'No date set';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid date';
     return date.toLocaleDateString('en-US', { 
       weekday: 'long', 
       year: 'numeric', 
@@ -19,11 +21,13 @@ const EventSummary: React.FC<EventSummaryProps> = ({ event, onClose }) => {
   };
 
   const formatTime = (dateString: string) => {
+    if (!dateString) return 'No time set';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid time';
     return date.toLocaleTimeString('en-US', { 
       hour: '2-digit', 
       minute: '2-digit',
-      hour12: true 
+      hour12: false 
     });
   };
 

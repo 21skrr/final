@@ -1,7 +1,25 @@
-export type FeedbackType = 'onboarding' | 'training' | 'support' | 'general';
-export type FeedbackStatus = 'pending' | 'in-progress' | 'addressed';
+export type FeedbackType =
+  | 'onboarding'
+  | 'training'
+  | 'support'
+  | 'general'
+  | 'holiday_request'
+  | 'administrative_paper';
+
+export type FeedbackStatus =
+  | 'pending'
+  | 'pending_supervisor'
+  | 'pending_hr'
+  | 'supervisor_rejected'
+  | 'hr_rejected'
+  | 'approved'
+  | 'in-progress'
+  | 'addressed';
+
 export type FeedbackPriority = 'low' | 'medium' | 'high';
 export type FeedbackCategory = 'training' | 'supervisor' | 'process';
+
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Feedback {
   id: string;
@@ -16,6 +34,11 @@ export interface Feedback {
   priority?: FeedbackPriority;
   createdAt: string;
   updatedAt: string;
+  // Approval workflow fields
+  supervisorApprovalStatus?: ApprovalStatus | null;
+  supervisorRejectionReason?: string | null;
+  hrApprovalStatus?: ApprovalStatus | null;
+  hrRejectionReason?: string | null;
   sender?: {
     id: string;
     name: string;
@@ -108,4 +131,17 @@ export interface FeedbackExportOptions {
   format: 'csv' | 'excel' | 'pdf' | 'json';
   dateRange?: 'daily' | 'weekly' | 'monthly' | 'yearly';
   category?: 'all' | FeedbackType;
-} 
+}
+
+// Human-readable labels for request types
+export const REQUEST_TYPE_LABELS: Record<FeedbackType, string> = {
+  onboarding: 'Onboarding Process',
+  training: 'Training & Development',
+  support: 'Support & Resources',
+  general: 'General Feedback',
+  holiday_request: 'Holiday Request',
+  administrative_paper: 'Administrative Paper Request',
+};
+
+// Types that go through special approval workflows (no anonymous)
+export const SPECIAL_REQUEST_TYPES: FeedbackType[] = ['holiday_request', 'administrative_paper'];

@@ -58,7 +58,7 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ user }) => {
   };
   
   const formatTime = (dateString: string | undefined) => {
-    const options: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
+    const options: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit', hour12: false };
     return new Date(dateString || '').toLocaleTimeString('en-US', options);
   };
   
@@ -198,7 +198,7 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ user }) => {
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="bg-purple-600 p-4 text-white flex items-center">
               <Calendar className="h-5 w-5 mr-2" />
-              <h2 className="text-lg font-medium">Upcoming Events</h2>
+              <h2 className="text-lg font-medium !text-white">Upcoming Events</h2>
             </div>
             <div className="p-4">
               {events.length === 0 ? (

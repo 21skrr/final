@@ -30,7 +30,14 @@ const Feedback = sequelize.define(
       allowNull: true
     },
     type: {
-      type: DataTypes.ENUM("onboarding", "training", "support", "general"),
+      type: DataTypes.ENUM(
+        "onboarding",
+        "training",
+        "support",
+        "general",
+        "holiday_request",
+        "administrative_paper"
+      ),
       allowNull: false,
       defaultValue: "general"
     },
@@ -45,7 +52,8 @@ const Feedback = sequelize.define(
     },
     status: {
       type: DataTypes.STRING(255),
-      allowNull: true
+      allowNull: true,
+      defaultValue: "pending"
     },
     categories: {
       type: DataTypes.TEXT,
@@ -62,6 +70,31 @@ const Feedback = sequelize.define(
     priority: {
       type: DataTypes.ENUM('low', 'medium', 'high'),
       allowNull: true
+    },
+    // Two-step approval fields for holiday_request
+    supervisorApprovalStatus: {
+      type: DataTypes.ENUM('pending', 'approved', 'rejected'),
+      allowNull: true,
+      defaultValue: null,
+      field: 'supervisor_approval_status'
+    },
+    supervisorRejectionReason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: null,
+      field: 'supervisor_rejection_reason'
+    },
+    hrApprovalStatus: {
+      type: DataTypes.ENUM('pending', 'approved', 'rejected'),
+      allowNull: true,
+      defaultValue: null,
+      field: 'hr_approval_status'
+    },
+    hrRejectionReason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: null,
+      field: 'hr_rejection_reason'
     }
   },
   {

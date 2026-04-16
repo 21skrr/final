@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Filter, Download, Flag, Tag, BarChart3 } from 'lucide-react';
+import { Users, Filter, Download, Flag, Tag, BarChart3, Calendar, FileText, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import Layout from '../../components/layout/Layout';
 import FeedbackList from '../../components/feedback/FeedbackList';
 import { Feedback, FeedbackFilters, FeedbackCategorization, FeedbackEscalation } from '../../types/feedback';
@@ -9,6 +9,8 @@ import { useAuth } from '../../context/AuthContext';
 const HRFeedback: React.FC = () => {
   const { user } = useAuth();
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [holidayRequests, setHolidayRequests] = useState<Feedback[]>([]);
+  const [adminPaperRequests, setAdminPaperRequests] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FeedbackFilters>({});
@@ -16,6 +18,12 @@ const HRFeedback: React.FC = () => {
   const [selectedFeedbackId, setSelectedFeedbackId] = useState<string | null>(null);
   const [showCategorizeModal, setShowCategorizeModal] = useState(false);
   const [showEscalateModal, setShowEscalateModal] = useState(false);
+  // Approval state
+  const [showHRRejectModal, setShowHRRejectModal] = useState(false);
+  const [hrRejectTargetId, setHRRejectTargetId] = useState<string | null>(null);
+  const [hrRejectReason, setHRRejectReason] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     loadAllFeedback();
@@ -24,8 +32,14 @@ const HRFeedback: React.FC = () => {
   const loadAllFeedback = async () => {
     try {
       setLoading(true);
-      const data = await feedbackService.getAllFeedback(filters);
-      setFeedbacks(data);
+      const [feedbackData, holidayData, adminData] = await Promise.all([
+        feedbackService.getAllFeedback(filters),
+        feedbackService.getHolidayRequests(),
+        feedbackService.getAdminPaperRequests(),
+      ]);
+      setFeedbacks(feedbackData);
+      setHolidayRequests(holidayData);
+      setAdminPaperRequests(adminData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load feedback');
     } finally {
@@ -95,15 +109,50 @@ const HRFeedback: React.FC = () => {
 
   const handleEscalateSubmit = async (escalation: FeedbackEscalation) => {
     if (!selectedFeedbackId) return;
-    
     try {
       await feedbackService.escalateFeedback(selectedFeedbackId, escalation);
       setShowEscalateModal(false);
       setSelectedFeedbackId(null);
-      // Reload feedback
       await loadAllFeedback();
     } catch (err) {
       setError('Failed to escalate feedback');
+    }
+  };
+
+  const handleHRApprove = async (feedbackId: string) => {
+    setActionLoading(true);
+    try {
+      await feedbackService.hrApproveRequest(feedbackId);
+      setActionSuccess('Request approved.');
+      await loadAllFeedback();
+    } catch {
+      setError('Failed to approve request.');
+    } finally {
+      setActionLoading(false);
+      setTimeout(() => setActionSuccess(null), 4000);
+    }
+  };
+
+  const openHRRejectModal = (feedbackId: string) => {
+    setHRRejectTargetId(feedbackId);
+    setHRRejectReason('');
+    setShowHRRejectModal(true);
+  };
+
+  const handleConfirmHRReject = async () => {
+    if (!hrRejectTargetId || !hrRejectReason.trim()) return;
+    setActionLoading(true);
+    try {
+      await feedbackService.hrRejectRequest(hrRejectTargetId, hrRejectReason);
+      setShowHRRejectModal(false);
+      setHRRejectTargetId(null);
+      setActionSuccess('Request rejected.');
+      await loadAllFeedback();
+    } catch {
+      setError('Failed to reject request.');
+    } finally {
+      setActionLoading(false);
+      setTimeout(() => setActionSuccess(null), 4000);
     }
   };
 
@@ -122,7 +171,7 @@ const HRFeedback: React.FC = () => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">All Feedback</h1>
+            <h1 className="text-2xl font-bold !text-gray-900">All Feedback</h1>
             <p className="mt-1 text-sm text-gray-500">
               Manage and analyze all feedback across the organization
             </p>
@@ -150,6 +199,110 @@ const HRFeedback: React.FC = () => {
             <p className="text-sm text-red-600">{error}</p>
           </div>
         )}
+
+        {actionSuccess && (
+          <div className="bg-green-50 border border-green-200 rounded-md p-4 flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-green-600" />
+            <p className="text-sm text-green-700">{actionSuccess}</p>
+          </div>
+        )}
+
+        {/* ── HOLIDAY REQUESTS ── */}
+        <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-orange-100">
+          <div className="p-4 bg-orange-500 text-white flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              <h2 className="text-lg font-medium !text-white">Holiday Requests — Pending HR Approval</h2>
+            </div>
+            {holidayRequests.length > 0 && (
+              <span className="bg-white text-orange-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                {holidayRequests.length}
+              </span>
+            )}
+          </div>
+          <div className="p-4">
+            {holidayRequests.length === 0 ? (
+              <div className="text-center py-6 text-gray-500">
+                <Calendar className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                <p className="text-sm">No holiday requests pending your approval</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {holidayRequests.map((req) => (
+                  <div key={req.id} className="border border-orange-100 rounded-lg p-4 bg-orange-50 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-gray-900">{req.sender?.name || 'Employee'}</span>
+                        {req.sender?.department && <span className="text-xs text-gray-500">· {req.sender.department}</span>}
+                        <span className="text-xs text-gray-400">· {new Date(req.createdAt).toLocaleDateString()}</span>
+                        <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">Supervisor Approved ✓</span>
+                      </div>
+                      <p className="text-sm text-gray-700">{req.message}</p>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button onClick={() => handleHRApprove(req.id)} disabled={actionLoading}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg disabled:opacity-50">
+                        <CheckCircle className="h-4 w-4" /> Approve
+                      </button>
+                      <button onClick={() => openHRRejectModal(req.id)} disabled={actionLoading}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg disabled:opacity-50">
+                        <XCircle className="h-4 w-4" /> Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── ADMINISTRATIVE PAPER REQUESTS ── */}
+        <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-blue-100">
+          <div className="p-4 bg-blue-600 text-white flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              <h2 className="text-lg font-medium !text-white">Administrative Paper Requests</h2>
+            </div>
+            {adminPaperRequests.length > 0 && (
+              <span className="bg-white text-blue-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                {adminPaperRequests.length}
+              </span>
+            )}
+          </div>
+          <div className="p-4">
+            {adminPaperRequests.length === 0 ? (
+              <div className="text-center py-6 text-gray-500">
+                <FileText className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                <p className="text-sm">No pending administrative paper requests</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {adminPaperRequests.map((req) => (
+                  <div key={req.id} className="border border-blue-100 rounded-lg p-4 bg-blue-50 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-gray-900">{req.sender?.name || 'Employee'}</span>
+                        {req.sender?.department && <span className="text-xs text-gray-500">· {req.sender.department}</span>}
+                        <span className="text-xs text-gray-400">· {new Date(req.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <p className="text-sm text-gray-700">{req.message}</p>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button onClick={() => handleHRApprove(req.id)} disabled={actionLoading}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg disabled:opacity-50">
+                        <CheckCircle className="h-4 w-4" /> Process
+                      </button>
+                      <button onClick={() => openHRRejectModal(req.id)} disabled={actionLoading}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg disabled:opacity-50">
+                        <XCircle className="h-4 w-4" /> Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Filters */}
         {showFilters && (
@@ -192,6 +345,8 @@ const HRFeedback: React.FC = () => {
                   <option value="training">Training</option>
                   <option value="support">Support</option>
                   <option value="general">General</option>
+                  <option value="holiday_request">Holiday Request</option>
+                  <option value="administrative_paper">Administrative Paper</option>
                 </select>
               </div>
               <div>
@@ -281,7 +436,7 @@ const HRFeedback: React.FC = () => {
         {/* Feedback List */}
         <div className="bg-white shadow rounded-lg overflow-hidden">
           <div className="p-4 bg-blue-600 text-white">
-            <h2 className="text-lg font-medium flex items-center">
+            <h2 className="text-lg font-medium flex items-center !text-white">
               <Users className="h-5 w-5 mr-2" />
               All Feedback
             </h2>
@@ -321,6 +476,39 @@ const HRFeedback: React.FC = () => {
             }}
             onSubmit={handleEscalateSubmit}
           />
+        )}
+
+        {/* HR Reject Modal */}
+        {showHRRejectModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertCircle className="h-5 w-5 text-red-500" />
+                <h3 className="text-lg font-semibold text-gray-900">Reject Request</h3>
+              </div>
+              <p className="text-sm text-gray-600 mb-3">
+                Please provide a reason for rejection. This will be visible to the employee.
+              </p>
+              <textarea
+                value={hrRejectReason}
+                onChange={(e) => setHRRejectReason(e.target.value)}
+                rows={3}
+                placeholder="Enter rejection reason..."
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-red-400 focus:ring-red-400 text-sm"
+              />
+              <div className="flex justify-end gap-3 mt-4">
+                <button onClick={() => setShowHRRejectModal(false)}
+                  className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+                  Cancel
+                </button>
+                <button onClick={handleConfirmHRReject}
+                  disabled={!hrRejectReason.trim() || actionLoading}
+                  className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50">
+                  {actionLoading ? 'Rejecting...' : 'Confirm Rejection'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </Layout>

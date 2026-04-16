@@ -1,10 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-html, body {
-  height: 100%;
-  margin: 0;
+@layer base {
+  html, body {
+    height: 100%;
+    margin: 0;
+    @apply font-sans text-gray-800 antialiased bg-slate-50;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', sans-serif;
+    @apply tracking-tight text-pmi-900;
+  }
+}
+
+@layer components {
+  /* Glass Cards */
+  .glass-panel {
+    @apply bg-white/80 backdrop-blur-md border border-white/40 shadow-glass rounded-xl;
+  }
+  
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-lg border border-white/50 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-lg rounded-xl overflow-hidden;
+  }
+
+  .pmi-gradient {
+    @apply bg-gradient-to-br from-pmi-800 to-pmi-950 text-white;
+  }
 }
 
 #root {

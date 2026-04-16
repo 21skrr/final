@@ -36,6 +36,8 @@ interface OnboardingPhaseProps {
   onTaskComplete: (taskId: string, completed: boolean) => void;
   canEditTasks: boolean;
   userRole: string;
+  onTaskVerify?: (progressId: string, status: 'approved' | 'rejected', notes?: string) => void;
+  refreshJourney?: () => void;
 }
 
 const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({

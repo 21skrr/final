@@ -51,7 +51,7 @@ const Header: React.FC = () => {
 
   return (
     <header
-      className={`bg-white border-b border-gray-200 fixed top-0 w-full z-20 transition-transform duration-300 ${
+      className={`bg-white/80 backdrop-blur-md border-b border-white/50 shadow-sm fixed top-0 w-full z-30 transition-transform duration-300 ${
         visible ? "translate-y-0" : "-translate-y-full"
       }`}
     >
@@ -72,19 +72,19 @@ const Header: React.FC = () => {
           <nav className="hidden md:flex space-x-8 ml-10">
             <Link
               to="/dashboard"
-              className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+              className="text-slate-600 hover:text-pmi-800 font-semibold transition-colors"
             >
               Dashboard
             </Link>
             <Link
               to="/programs"
-              className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+              className="text-slate-600 hover:text-pmi-800 font-semibold transition-colors"
             >
               Programs
             </Link>
             <Link
               to="/resources"
-              className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+              className="text-slate-600 hover:text-pmi-800 font-semibold transition-colors"
             >
               Resources
             </Link>
@@ -92,7 +92,7 @@ const Header: React.FC = () => {
               <>
                 <Link
                   to="/admin"
-                  className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                  className="text-slate-600 hover:text-pmi-800 font-semibold transition-colors"
                 >
                   Admin
                 </Link>
@@ -124,7 +124,7 @@ const Header: React.FC = () => {
               <>
                 <Link
                   to="/supervisor/evaluations"
-                  className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                  className="text-slate-600 hover:text-pmi-800 font-semibold transition-colors"
                 >
                   My Team Evaluations
                 </Link>
@@ -144,7 +144,7 @@ const Header: React.FC = () => {
             {user?.role === "manager" && (
               <Link
                 to="/manager/evaluations"
-                className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                className="text-slate-600 hover:text-pmi-800 font-semibold transition-colors"
               >
                 Team Evaluations
               </Link>
@@ -152,7 +152,7 @@ const Header: React.FC = () => {
             {user?.role === "employee" && (
               <Link
                 to="/evaluations"
-                className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                className="text-slate-600 hover:text-pmi-800 font-semibold transition-colors"
               >
                 My Evaluations
               </Link>
@@ -164,7 +164,7 @@ const Header: React.FC = () => {
             {/* Notifications */}
             <div className="relative">
               <button
-                className="text-gray-500 hover:text-blue-600 relative focus:outline-none"
+                className="text-slate-500 hover:text-pmi-800 hover:scale-110 transition-all relative focus:outline-none"
                 onClick={() => setShowNotifications(!showNotifications)}
               >
                 <Bell size={20} />
@@ -185,7 +185,7 @@ const Header: React.FC = () => {
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="flex text-sm rounded-full focus:outline-none"
               >
-                <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-pmi-600 to-pmi-800 shadow-md border border-white flex items-center justify-center text-white font-semibold">
                   {user?.name?.charAt(0) || "U"}
                 </div>
               </button>

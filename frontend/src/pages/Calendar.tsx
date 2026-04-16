@@ -116,7 +116,10 @@ const Calendar: React.FC = () => {
           </div>
           {canManageEvents && (
             <button 
-              onClick={() => setSelectedEvent({} as Event)}
+              onClick={() => {
+                setSelectedEvent({} as Event);
+                setIsEditingEvent(true);
+              }}
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
             >
               <Plus className="h-5 w-5 mr-2" />
@@ -235,11 +238,11 @@ const Calendar: React.FC = () => {
                         <CalendarIcon className="h-4 w-4 mr-2" />
                         {new Date(event.startDate).toLocaleDateString()}
                       </div>
-                      <div className="flex items-center text-sm text-gray-500">
-                        <Clock className="h-4 w-4 mr-2" />
-                        {new Date(event.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}
-                        {event.endDate && ` - ${new Date(event.endDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}`}
-                      </div>
+                       <div className="flex items-center text-sm text-gray-500">
+                         <Clock className="h-4 w-4 mr-2" />
+                         {new Date(event.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false})}
+                         {event.endDate && ` - ${new Date(event.endDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false})}`}
+                       </div>
                       <div className="flex items-center text-sm text-gray-500">
                         <MapPin className="h-4 w-4 mr-2" />
                         {event.location}

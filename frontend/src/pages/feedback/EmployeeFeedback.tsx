@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Plus, History } from 'lucide-react';
+import { Plus, History } from 'lucide-react';
 import Layout from '../../components/layout/Layout';
 import FeedbackForm from '../../components/feedback/FeedbackForm';
 import FeedbackList from '../../components/feedback/FeedbackList';
@@ -64,9 +64,9 @@ const EmployeeFeedback: React.FC = () => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Feedback</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Requests</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Share your feedback and track your submissions
+              Submit requests and track your submissions
             </p>
           </div>
           <button
@@ -81,7 +81,7 @@ const EmployeeFeedback: React.FC = () => {
             ) : (
               <>
                 <Plus className="h-5 w-5 mr-2" />
-                Give Feedback
+                New Request
               </>
             )}
           </button>
@@ -102,9 +102,9 @@ const EmployeeFeedback: React.FC = () => {
           <div className="space-y-6">
             <div className="bg-white shadow rounded-lg overflow-hidden">
               <div className="p-4 bg-gray-800 text-white">
-                <h2 className="text-lg font-medium flex items-center">
+                <h2 className="text-lg font-medium flex items-center !text-white">
                   <History className="h-5 w-5 mr-2" />
-                  My Feedback History
+                  My Request History
                 </h2>
               </div>
               <div className="p-6">

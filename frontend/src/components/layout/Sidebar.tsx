@@ -13,7 +13,7 @@ const navSections = [
             { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['employee', 'hr', 'manager', 'supervisor'] },
             { name: 'Programs', path: '/programs', icon: Briefcase, roles: ['employee', 'hr', 'manager', 'supervisor'] },
             { name: 'Calendar', path: '/calendar', icon: Calendar, roles: ['employee', 'hr', 'manager', 'supervisor'] },
-            { name: 'Feedback', path: '/feedback', icon: MessageSquare, roles: ['employee', 'hr', 'manager', 'supervisor'] },
+            { name: 'Requests', path: '/feedback', icon: MessageSquare, roles: ['employee', 'hr', 'manager', 'supervisor'] },
             { name: 'Help & Resources', path: '/resources', icon: BookOpen, roles: ['employee', 'hr', 'manager', 'supervisor'] },
         ]
     },
@@ -94,10 +94,10 @@ const Sidebar: React.FC = () => {
     })).filter(section => section.items.length > 0) : [];
 
     return (
-        <aside className="w-64 flex-shrink-0 bg-white shadow-md flex flex-col h-full">
+        <aside className="w-64 flex-shrink-0 bg-white/80 backdrop-blur-md shadow-glass border-r border-white/50 flex flex-col h-full">
             <div className="p-4 border-b">
                 <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold">
+                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-pmi-600 to-pmi-800 shadow-md border border-white text-white flex items-center justify-center font-bold">
                         {user?.name.charAt(0).toUpperCase()}
                     </div>
                     <div>
@@ -134,8 +134,8 @@ const Sidebar: React.FC = () => {
                                             }}
                                             className={`flex items-center justify-between px-4 py-2.5 text-sm font-medium rounded-md mx-2 transition-colors ${
                                                 location.pathname.startsWith(item.path)
-                                                    ? 'bg-blue-100 text-blue-700'
-                                                    : 'text-gray-600 hover:bg-gray-100'
+                                                    ? 'bg-pmi-50 text-pmi-800 shadow-sm border border-pmi-100'
+                                                    : 'text-slate-600 hover:bg-slate-50'
                                             }`}
                                         >
                                             <div className="flex items-center">
@@ -164,8 +164,8 @@ const Sidebar: React.FC = () => {
                                                         to={child.path}
                                                         className={`flex items-center px-4 py-2 text-sm rounded-md transition-colors ${
                                                             location.pathname === child.path
-                                                                ? 'text-blue-700 font-semibold'
-                                                                : 'text-gray-500 hover:text-gray-700'
+                                                                ? 'text-pmi-800 font-semibold bg-pmi-50/50'
+                                                                : 'text-slate-500 hover:text-pmi-700 hover:bg-slate-50'
                                                         }`}
                                                     >
                                                         {child.name}
