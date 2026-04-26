@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Send, Calendar, FileText } from 'lucide-react';
 import { FeedbackType, CreateFeedbackRequest, SPECIAL_REQUEST_TYPES } from '../../types/feedback';
+import { Calendar as CalendarComponent } from '../ui/calendar';
+import { DateRange } from 'react-day-picker';
 
 interface FeedbackFormProps {
-  onSubmit?: (feedback: CreateFeedbackRequest) => void;
+  onSubmit?: (feedback: CreateFeedbackRequest) => Promise<void> | void;
   onCancel?: () => void;
 }
 
@@ -12,7 +14,7 @@ const requestTypes: { value: FeedbackType; label: string; icon?: React.ReactNode
   { value: 'onboarding', label: 'Onboarding Process', description: 'Feedback about your onboarding experience', icon: <FileText className="w-4 h-4" /> },
   { value: 'training', label: 'Training & Development', description: 'Feedback related to training programs', icon: <FileText className="w-4 h-4" /> },
   { value: 'support', label: 'Support & Resources', description: 'Issues with resources or support received', icon: <FileText className="w-4 h-4" /> },
-  { value: 'holiday_request', label: 'Holiday Request', description: 'Submit a Request for time off — sent to your supervisor then HR', icon: <Calendar className="w-4 h-4 text-orange-500" /> },
+  { value: 'holiday_request', label: 'Holiday Request', description: 'Submit a request for time off — sent to your supervisor then HR', icon: <Calendar className="w-4 h-4 text-orange-500" /> },
   { value: 'administrative_paper', label: 'Administrative Paper Request', description: 'Request administrative documents — sent directly to HR', icon: <FileText className="w-4 h-4 text-blue-500" /> },
 ];
 
@@ -26,15 +28,14 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
-  // Determine if the current type is a special request (no anonymous allowed)
   const isSpecialRequest = SPECIAL_REQUEST_TYPES.includes(formData.type);
 
   const handleTypeChange = (type: FeedbackType) => {
     setFormData(prev => ({
       ...prev,
       type,
-      // Force non-anonymous for special request types
       isAnonymous: SPECIAL_REQUEST_TYPES.includes(type) ? false : prev.isAnonymous,
     }));
   };
@@ -44,14 +45,13 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
     setLoading(true);
     setError(null);
     try {
-      await onSubmit?.(formData);
-      setFormData({
-        content: '',
-        type: 'general',
-        isAnonymous: false,
-        shareWithSupervisor: false,
-        priority: 'medium',
-      });
+      let finalContent = formData.content;
+      if (formData.type === 'holiday_request' && dateRange?.from) {
+        const fromStr = dateRange.from.toLocaleDateString('en-GB');
+        const toStr = dateRange.to ? dateRange.to.toLocaleDateString('en-GB') : fromStr;
+        finalContent = `Requested Dates: ${fromStr} – ${toStr}\n\n${finalContent}`;
+      }
+      await onSubmit?.({ ...formData, content: finalContent });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit request');
     } finally {
@@ -59,16 +59,11 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
     }
   };
 
-
   return (
     <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-100">
       {/* Header */}
       <div className={`p-4 text-white flex items-center gap-2 ${
-        formData.type === 'holiday_request'
-          ? 'bg-orange-500'
-          : formData.type === 'administrative_paper'
-          ? 'bg-blue-600'
-          : 'bg-blue-600'
+        formData.type === 'holiday_request' ? 'bg-orange-500' : 'bg-blue-600'
       }`}>
         <Send className="h-5 w-5" />
         <h2 className="text-lg font-medium !text-white">New Request</h2>
@@ -81,11 +76,9 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
           </div>
         )}
 
-        {/* Request Type Selection - Card Style */}
+        {/* Request Type Selection */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Request Type
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-3">Request Type</label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {requestTypes.map((type) => (
               <button
@@ -96,17 +89,15 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
                   formData.type === type.value
                     ? type.value === 'holiday_request'
                       ? 'border-orange-400 bg-orange-50'
-                      : type.value === 'administrative_paper'
-                      ? 'border-blue-400 bg-blue-50'
                       : 'border-blue-400 bg-blue-50'
                     : 'border-gray-200 hover:border-gray-300 bg-white'
                 }`}
               >
                 <span className="mt-0.5 flex-shrink-0">{type.icon}</span>
                 <div>
-                  <p className={`text-sm font-medium ${
-                    formData.type === type.value ? 'text-gray-900' : 'text-gray-700'
-                  }`}>{type.label}</p>
+                  <p className={`text-sm font-medium ${formData.type === type.value ? 'text-gray-900' : 'text-gray-700'}`}>
+                    {type.label}
+                  </p>
                   <p className="text-xs text-gray-500 mt-0.5">{type.description}</p>
                 </div>
               </button>
@@ -114,7 +105,7 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
           </div>
         </div>
 
-        {/* Workflow indicator for special types */}
+        {/* Workflow indicator */}
         {formData.type === 'holiday_request' && (
           <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
             <Calendar className="w-4 h-4 flex-shrink-0" />
@@ -126,18 +117,14 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
         {formData.type === 'administrative_paper' && (
           <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
             <FileText className="w-4 h-4 flex-shrink-0" />
-            <span>
-              This request will be sent <strong>directly to HR</strong> for processing.
-            </span>
+            <span>This request will be sent <strong>directly to HR</strong> for processing.</span>
           </div>
         )}
 
         {/* Priority (hidden for special request types) */}
         {!isSpecialRequest && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Priority
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
             <select
               value={formData.priority}
               onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value as any }))}
@@ -150,11 +137,37 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
           </div>
         )}
 
+        {/* Calendar for Holiday Request */}
+        {formData.type === 'holiday_request' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Select Dates</label>
+            <div className="flex justify-center bg-white p-2 border rounded-lg shadow-sm overflow-x-auto">
+              <CalendarComponent
+                mode="range"
+                defaultMonth={dateRange?.from || new Date()}
+                selected={dateRange}
+                onSelect={setDateRange}
+                numberOfMonths={2}
+                className="rounded-lg"
+                disabled={{ before: new Date() }}
+              />
+            </div>
+            {dateRange?.from && (
+              <p className="mt-2 text-xs text-orange-700 font-medium text-center">
+                Selected: {dateRange.from.toLocaleDateString('en-GB')}
+                {dateRange.to && dateRange.to.getTime() !== dateRange.from.getTime()
+                  ? ` – ${dateRange.to.toLocaleDateString('en-GB')}`
+                  : ''}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Message */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             {formData.type === 'holiday_request'
-              ? 'Holiday Request Details'
+              ? 'Additional Notes (optional)'
               : formData.type === 'administrative_paper'
               ? 'Describe the document(s) you need'
               : 'Message'}
@@ -162,16 +175,16 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
           <textarea
             value={formData.content}
             onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-            rows={4}
+            rows={3}
             className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             placeholder={
               formData.type === 'holiday_request'
-                ? 'Describe your leave request (dates, reason, coverage plan)...'
+                ? 'Add a reason, coverage plan, or any notes for your supervisor...'
                 : formData.type === 'administrative_paper'
                 ? 'Specify the document(s) you need and any relevant details...'
                 : 'Share your feedback, suggestions, or concerns...'
             }
-            required
+            required={formData.type !== 'holiday_request'}
           />
         </div>
 
@@ -204,16 +217,14 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, onCancel }) => {
           )}
           <button
             type="submit"
-            disabled={loading || !formData.content.trim()}
+            disabled={loading || (formData.type !== 'holiday_request' && !formData.content.trim())}
             className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed ${
-              formData.type === 'holiday_request'
-                ? 'bg-orange-500 hover:bg-orange-600'
-                : 'bg-blue-600 hover:bg-blue-700'
+              formData.type === 'holiday_request' ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
             {loading ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
                 Submitting...
               </>
             ) : (
