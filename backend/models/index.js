@@ -56,6 +56,11 @@ if (ActivityLog.associate) {
   ActivityLog.associate({ User, Resource });
 }
 
+// Resource associations
+Resource.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+User.hasMany(Resource, { foreignKey: 'createdBy', as: 'createdResources' });
+Resource.hasMany(ResourceAssignment, { foreignKey: 'resourceId', as: 'assignments' });
+
 
 // Initialize notification models
 const NotificationTemplate = require('./notificationTemplate')(sequelize, Sequelize.DataTypes);

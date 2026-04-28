@@ -79,6 +79,7 @@ app.get('/test-query', (req, res) => {
 
 // Static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads/resources", express.static(path.join(__dirname, "uploads", "resources")));
 
 // Simple test route
 app.get("/api/test", (req, res) => {

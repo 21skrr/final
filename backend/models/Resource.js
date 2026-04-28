@@ -16,8 +16,9 @@ const Resource = sequelize.define("Resource", {
     allowNull: true,
   },
   type: {
-    type: DataTypes.ENUM('document', 'link', 'video', 'other'),
+    type: DataTypes.ENUM('document', 'link', 'video', 'pdf', 'other'),
     allowNull: false,
+    defaultValue: 'pdf',
   },
   url: {
     type: DataTypes.TEXT,
@@ -32,6 +33,26 @@ const Resource = sequelize.define("Resource", {
     type: DataTypes.ENUM('inkompass', 'earlyTalent', 'apprenticeship', 'academicPlacement', 'workExperience', 'all'),
     allowNull: true,
     defaultValue: 'all'
+  },
+  category: {
+    type: DataTypes.ENUM('handbook', 'policy', 'process', 'legal', 'training', 'other'),
+    allowNull: false,
+    defaultValue: 'other',
+  },
+  isPublic: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
+  scope: {
+    type: DataTypes.ENUM('global', 'department', 'team'),
+    allowNull: false,
+    defaultValue: 'global',
+  },
+  scopeId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: null,
   },
   createdBy: {
     type: DataTypes.CHAR(36),
