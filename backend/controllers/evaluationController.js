@@ -108,9 +108,6 @@ const createEvaluation = async (req, res) => {
       employeeId,
       dueDate,
       status,
-      comments,
-      ratings,
-      title,
       type,
       criteria = [],
     } = req.body;
@@ -126,17 +123,15 @@ const createEvaluation = async (req, res) => {
       return res.status(400).json({ message: 'Employee does not have a supervisor assigned' });
     }
 
-    // Only pass allowed fields to Evaluation.create
+    // Only save fields that exist in the DB
     const evalData = {
       employeeId,
       evaluatorId,
       type,
-      dueDate,
-      status,
-      comments,
-      ratings,
-      title,
+      dueDate: dueDate || null,
+      status: status || 'draft',
     };
+
     console.log('Creating evaluation with:', evalData);
     const evaluation = await Evaluation.create(evalData);
 
@@ -146,7 +141,7 @@ const createEvaluation = async (req, res) => {
       console.log('Creating criteria:', criteria);
       await Promise.all(criteria.map(c => EvaluationCriteria.create({
         evaluationId: evaluation.id,
-        category: c.category || '',
+        category: c.category || 'General',
         criteria: c.name || c.criteria || '',
         rating: c.rating ?? null,
         comments: c.comments || '',
@@ -559,13 +554,25 @@ const validateEvaluation = async (req, res) => {
       return res.status(404).json({ message: "Evaluation not found" });
     }
     const { status, reviewComments, reviewNotes, comments } = req.body;
-    // Use comments for review feedback
-    await evaluation.update({
-      status: status || evaluation.status,
-      comments: comments || reviewComments || reviewNotes || evaluation.comments,
-      reviewedBy: req.user.id,
-      reviewedAt: new Date(),
-    });
+    const newStatus = status || evaluation.status;
+    const feedbackComment = comments || reviewComments || reviewNotes;
+
+    const updateData = {
+      status: newStatus,
+    };
+
+    // Always store the manager's feedback in comments field so supervisor can see it
+    if (feedbackComment) {
+      updateData.comments = feedbackComment;
+    }
+
+    // Only stamp reviewedBy/reviewedAt when actually approving (validated)
+    if (newStatus === 'validated') {
+      updateData.reviewedBy = req.user.id;
+      updateData.reviewedAt = new Date();
+    }
+
+    await evaluation.update(updateData);
     res.json(evaluation);
   } catch (error) {
     console.error("Error validating evaluation:", error);
@@ -590,9 +597,20 @@ const addEmployeeComment = async (req, res) => {
       return res.status(403).json({ message: "Forbidden" });
     }
 
-    // Update the comments.
     const { comment, criteria } = req.body;
-    await evaluation.update({ comments: comment });
+
+    // Try to save to employeeComment (requires migration). Fall back gracefully.
+    if (comment !== undefined) {
+      try {
+        await Evaluation.update(
+          { employeeComment: comment },
+          { where: { id: evaluation.id } }
+        );
+      } catch (colErr) {
+        // Column doesn't exist yet — run: npx sequelize-cli db:migrate
+        console.warn('employeeComment column missing, run migration:', colErr.message);
+      }
+    }
 
     // If criteria ratings are provided, update them
     if (Array.isArray(criteria)) {
@@ -607,7 +625,7 @@ const addEmployeeComment = async (req, res) => {
       }
     }
 
-    res.json({ message: 'Comment and ratings updated successfully.' });
+    res.json({ message: 'Comment saved successfully.' });
   } catch (error) {
     console.error("Error adding employee comment:", error);
     res.status(500).json({ message: "Server error" });

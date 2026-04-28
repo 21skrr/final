@@ -22,7 +22,10 @@ import {
   User,
   Building,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  MessageSquare,
+  ShieldCheck,
+  X,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -39,6 +42,9 @@ const ManagerEvaluations: React.FC = () => {
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [analytics, setAnalytics] = useState<any>(null);
+  // Changes modal state
+  const [changesModal, setChangesModal] = useState<{ open: boolean; evaluationId: string | null }>({ open: false, evaluationId: null });
+  const [changesComment, setChangesComment] = useState('');
   const { user } = useAuth();
 
   useEffect(() => {
@@ -131,26 +137,35 @@ const ManagerEvaluations: React.FC = () => {
   const handleValidate = async (id: string) => {
     setValidating(id);
     try {
-      await validateEvaluation(id, { reviewNotes: 'Approved by manager', status: 'completed' });
+      // status:'validated' so the supervisor sees it as Manager Approved
+      await validateEvaluation(id, { reviewNotes: 'Approved by manager', status: 'validated' });
       const response = await getManagerEvaluations();
       setEvaluations(response.data || []);
-      toast.success('Evaluation validated successfully');
+      toast.success('Evaluation approved successfully');
     } catch (err) {
-      toast.error('Failed to validate evaluation');
+      toast.error('Failed to approve evaluation');
     } finally {
       setValidating(null);
     }
   };
 
-  const handleRequestChanges = async (id: string) => {
-    const comment = window.prompt('Enter your requested changes or feedback:');
-    if (!comment) return;
+  // Open the changes modal instead of window.prompt
+  const openChangesModal = (id: string) => {
+    setChangesComment('');
+    setChangesModal({ open: true, evaluationId: id });
+  };
+
+  const handleRequestChanges = async () => {
+    const id = changesModal.evaluationId;
+    if (!id || !changesComment.trim()) return;
+    setChangesModal({ open: false, evaluationId: null });
     setRequestingChange(id);
     try {
-      await validateEvaluation(id, { status: 'pending', reviewComments: comment });
+      // Send back to pending with the manager's comment stored in comments field
+      await validateEvaluation(id, { status: 'pending', comments: changesComment.trim() });
       const response = await getManagerEvaluations();
       setEvaluations(response.data || []);
-      toast.success('Requested changes successfully');
+      toast.success('Changes requested — supervisor has been notified');
     } catch (err) {
       toast.error('Failed to request changes');
     } finally {
@@ -191,6 +206,55 @@ const ManagerEvaluations: React.FC = () => {
   return (
     <Layout>
       <div className="max-w-7xl mx-auto p-6 space-y-6">
+
+        {/* ── Request Changes Modal ── */}
+        {changesModal.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-amber-500" />
+                  <h3 className="text-base font-semibold text-gray-900">Request Changes</h3>
+                </div>
+                <button
+                  onClick={() => setChangesModal({ open: false, evaluationId: null })}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="px-6 py-5">
+                <p className="text-sm text-gray-500 mb-3">
+                  Describe what the supervisor needs to correct or improve. Your feedback will be visible to them on their evaluations page.
+                </p>
+                <textarea
+                  autoFocus
+                  rows={4}
+                  value={changesComment}
+                  onChange={e => setChangesComment(e.target.value)}
+                  placeholder="e.g. Please re-evaluate the Communication criteria — the rating doesn't reflect the employee's recent progress…"
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none transition-colors"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-100">
+                <button
+                  onClick={() => setChangesModal({ open: false, evaluationId: null })}
+                  className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRequestChanges}
+                  disabled={!changesComment.trim()}
+                  className="px-5 py-2 text-sm font-semibold text-white bg-amber-500 rounded-xl hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Send Feedback
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="bg-white shadow rounded-lg p-6">
           <div className="flex items-center justify-between">
@@ -373,16 +437,16 @@ const ManagerEvaluations: React.FC = () => {
                           onClick={() => handleValidate(evaluation.id)}
                           disabled={validating === evaluation.id}
                         >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          {validating === evaluation.id ? 'Validating...' : 'Validate'}
+                          <ShieldCheck className="h-4 w-4 mr-1" />
+                          {validating === evaluation.id ? 'Approving...' : 'Approve'}
                         </button>
                         <button
-                          className="inline-flex items-center px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors disabled:opacity-50"
-                          onClick={() => handleRequestChanges(evaluation.id)}
+                          className="inline-flex items-center px-3 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50"
+                          onClick={() => openChangesModal(evaluation.id)}
                           disabled={requestingChange === evaluation.id}
                         >
-                          <RefreshCw className="h-4 w-4 mr-1" />
-                          {requestingChange === evaluation.id ? 'Requesting...' : 'Request Changes'}
+                          <MessageSquare className="h-4 w-4 mr-1" />
+                          {requestingChange === evaluation.id ? 'Sending...' : 'Request Changes'}
                         </button>
                       </>
                     )}

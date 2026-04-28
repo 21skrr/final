@@ -17,6 +17,14 @@ const Evaluation = sequelize.define(
         key: "id",
       },
     },
+    evaluatorId: {
+      type: DataTypes.CHAR(36),
+      allowNull: true,
+      references: {
+        model: "Users",
+        key: "id",
+      },
+    },
     type: {
       type: DataTypes.ENUM(
         "3-month",
@@ -24,24 +32,29 @@ const Evaluation = sequelize.define(
         "12-month",
         "performance",
         "training",
-        "probation"
+        "probation",
+        "general"
       ),
       allowNull: false,
     },
     dueDate: {
       type: DataTypes.DATE,
-      allowNull: false,
+      allowNull: true,
     },
     status: {
-      type: DataTypes.ENUM("pending", "in_progress", "completed", "validated", "draft"),
+      type: DataTypes.ENUM("draft", "pending", "in_progress", "completed", "validated"),
       allowNull: false,
-      defaultValue: "pending",
+      defaultValue: "draft",
     },
     overallScore: {
       type: DataTypes.INTEGER,
       allowNull: true,
     },
     comments: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    employeeComment: {
       type: DataTypes.TEXT,
       allowNull: true,
     },

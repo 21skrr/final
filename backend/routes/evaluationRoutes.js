@@ -7,26 +7,16 @@ const router = express.Router();
 
 // Validation middleware
 const evaluationValidation = [
-  check("title", "Title is required").not().isEmpty(),
   check("type", "Evaluation type is required").isIn([
     "3-month",
     "6-month",
     "12-month",
+    "performance",
     "training",
-    "general",
-    "performance"
+    "probation",
+    "general"
   ]),
-  check("criteria", "Criteria must be an array").isArray(),
-  check("criteria.*.name", "Criteria name is required").not().isEmpty(),
-  // Removed validation for weight as it's not in the DB schema
-  // check("criteria.*.weight", "Criteria weight is required").isFloat({
-  //   min: 0,
-  //   max: 1,
-  // }),
-  // Removed validation for description as it's not in the DB schema
-  // check("criteria.*.description", "Criteria description is required")
-  //   .not()
-  //   .isEmpty(),
+  check("criteria", "Criteria must be an array").optional().isArray(),
 ];
 
 // GET /api/evaluations/user

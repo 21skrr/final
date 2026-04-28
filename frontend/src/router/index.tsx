@@ -16,7 +16,8 @@ import Feedback from '../pages/Feedback';
 import Team from '../pages/Team';
 import NotFound from '../pages/NotFound';
 import Profile from '../pages/Profile';
-import Settings from '../pages/Settings';
+// Settings page removed
+
 import Reports from '../pages/Reports';
 import AllNotifications from '../pages/AllNotifications';
 
@@ -193,14 +194,7 @@ const Router: React.FC = () => {
         </ProtectedRoute>
       ),
     },
-    {
-      path: '/settings',
-      element: (
-        <ProtectedRoute>
-          <Settings />
-        </ProtectedRoute>
-      ),
-    },
+
     {
       path: '/notifications',
       element: (

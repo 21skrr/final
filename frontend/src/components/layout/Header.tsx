@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Bell, Menu, X, LogOut, User, Settings } from 'lucide-react';
+import { Bell, Menu, X, LogOut, User } from 'lucide-react';
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import NotificationsPanel from "../features/NotificationsPanel";
@@ -199,13 +199,7 @@ const Header: React.FC = () => {
                     <User size={16} className="mr-2" />
                     Profile
                   </Link>
-                  <Link
-                    to="/settings"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                  >
-                    <Settings size={16} className="mr-2" />
-                    Settings
-                  </Link>
+
                   <button
                     onClick={handleLogout}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"

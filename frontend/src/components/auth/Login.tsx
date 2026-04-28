@@ -24,7 +24,7 @@ const AppInput = (props: InputProps) => {
 
   return (
     <div className="w-full relative text-left">
-      { label && 
+      {label &&
         <label className='block mb-1.5 text-sm font-semibold text-gray-700'>
           {label}
         </label>
@@ -111,7 +111,7 @@ const Login: React.FC = () => {
       <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1497215728101-856f4ea42174?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center blur-sm scale-105 opacity-20"></div>
 
       <div className='glass-card w-full max-w-6xl flex xl:w-[85%] h-full max-h-[750px] shadow-[0_20px_50px_rgba(0,0,0,0.15)] relative z-10 bg-white/95 rounded-2xl overflow-hidden'>
-        
+
         {/* Left Side: Form */}
         <div
           className='w-full lg:w-[45%] xl:w-[40%] px-8 sm:px-12 lg:px-16 py-12 flex flex-col justify-center h-full relative overflow-hidden bg-white/70 backdrop-blur-md'
@@ -121,9 +121,8 @@ const Login: React.FC = () => {
         >
           {/* Subtle cursor tracking gradient */}
           <div
-            className={`absolute pointer-events-none w-[400px] h-[400px] bg-gradient-to-r from-pmi-300/20 via-pmi-500/10 to-transparent rounded-full blur-3xl transition-opacity duration-300 ${
-              isHovering ? 'opacity-100' : 'opacity-0'
-            }`}
+            className={`absolute pointer-events-none w-[400px] h-[400px] bg-gradient-to-r from-pmi-300/20 via-pmi-500/10 to-transparent rounded-full blur-3xl transition-opacity duration-300 ${isHovering ? 'opacity-100' : 'opacity-0'
+              }`}
             style={{
               transform: `translate(${mousePosition.x - 200}px, ${mousePosition.y - 200}px)`,
               transition: 'transform 0.1s ease-out'
@@ -154,19 +153,19 @@ const Login: React.FC = () => {
 
             <form className='grid gap-5 w-full' onSubmit={handleSubmit}>
               <div className='grid gap-4'>
-                <AppInput 
+                <AppInput
                   label="Email Address"
-                  placeholder="you@pmi.com" 
-                  type="email" 
+                  placeholder="you@pmi.com"
+                  type="email"
                   icon={<Mail className="w-5 h-5" />}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
-                <AppInput 
+                <AppInput
                   label="Password"
-                  placeholder="••••••••" 
-                  type="password" 
+                  placeholder="••••••••"
+                  type="password"
                   icon={<Lock className="w-5 h-5" />}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -183,7 +182,7 @@ const Login: React.FC = () => {
               </div>
 
               <div className='flex justify-center mt-2'>
-                <button 
+                <button
                   disabled={loading}
                   className={`group/button relative inline-flex w-full justify-center items-center overflow-hidden rounded-xl bg-pmi-800 px-4 py-3.5 text-sm font-bold text-white transition-all duration-300 ease-in-out hover:scale-[1.02] hover:shadow-[0_8px_20px_rgba(0,46,109,0.3)] shadow-[0_4px_10px_rgba(0,46,109,0.2)] cursor-pointer ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
                 >
@@ -197,19 +196,19 @@ const Login: React.FC = () => {
 
             {/* Demo Accounts */}
             <div className="mt-8 pt-6 border-t border-gray-200">
-               <p className="text-xs text-center text-gray-400 font-semibold uppercase mb-4 tracking-wider">Demo Accounts</p>
-               <div className="grid grid-cols-2 gap-2.5">
-                 {['employee', 'supervisor', 'hr', 'manager'].map((role) => (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => { setEmail(`${role}@pmi.com`); setPassword("password"); }}
-                      className="py-2 px-3 border border-gray-200 bg-white/50 rounded-lg text-xs font-semibold text-gray-600 hover:bg-pmi-50 hover:border-pmi-200 hover:text-pmi-800 transition-colors capitalize shadow-sm"
-                    >
-                      {role}
-                    </button>
-                 ))}
-               </div>
+              <p className="text-xs text-center text-gray-400 font-semibold uppercase mb-4 tracking-wider">Demo Accounts</p>
+              <div className="grid grid-cols-2 gap-2.5">
+                {['employee', 'supervisor', 'hr', 'manager'].map((role) => (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => { setEmail(`${role}@pmi.com`); setPassword("password"); }}
+                    className="py-2 px-3 border border-gray-200 bg-white/50 rounded-lg text-xs font-semibold text-gray-600 hover:bg-pmi-50 hover:border-pmi-200 hover:text-pmi-800 transition-colors capitalize shadow-sm"
+                  >
+                    {role}
+                  </button>
+                ))}
+              </div>
             </div>
 
           </div>
@@ -224,7 +223,9 @@ const Login: React.FC = () => {
             className="absolute inset-0 w-full h-full object-cover scale-105"
           />
           <div className="relative z-20 text-white max-w-lg px-12 text-center lg:text-left mx-auto">
-            <h2 className="text-4xl xl:text-5xl font-display font-extrabold mb-6 leading-tight">Empowering your future.</h2>
+            <h2 className="text-4xl xl:text-5xl font-display font-extrabold mb-6 leading-tight text-[#A3ABC9] drop-shadow-md">
+              Empowering your future.
+            </h2>
             <div className="w-16 h-1 bg-white mb-6 opacity-80 rounded-full"></div>
             <p className="text-white/90 font-medium text-lg leading-relaxed">Join us on an interactive journey designed to set you up for success from DayOne at Philip Morris International.</p>
           </div>
