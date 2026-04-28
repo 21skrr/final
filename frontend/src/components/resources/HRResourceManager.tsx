@@ -34,6 +34,8 @@ const HRResourceManager: React.FC = () => {
   const [editCat, setEditCat] = useState('');
   const [editPublic, setEditPublic] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Delete confirm
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string|null>(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -63,10 +65,15 @@ const HRResourceManager: React.FC = () => {
     finally { setUploading(false); }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this document?')) return;
-    try { await resourceService.deleteResource(id); toast.success('Deleted.'); loadAll(); }
-    catch { toast.error('Delete failed.'); }
+  const confirmDelete = async () => {
+    if (!deleteConfirmId) return;
+    try { 
+      await resourceService.deleteResource(deleteConfirmId); 
+      toast.success('Document deleted.'); 
+      setDeleteConfirmId(null);
+      loadAll(); 
+    }
+    catch { toast.error('Delete failed.'); setDeleteConfirmId(null); }
   };
 
   const openEdit = (r: any) => { setEditDoc(r); setEditTitle(r.title); setEditDesc(r.description||''); setEditCat(r.category||'other'); setEditPublic(!!r.isPublic); };
@@ -203,7 +210,7 @@ const HRResourceManager: React.FC = () => {
                     <button onClick={()=>openEdit(r)} className="p-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800/50 transition-colors">
                       <Edit2 size={14}/>
                     </button>
-                    <button onClick={()=>handleDelete(r.id)} className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50 transition-colors">
+                    <button onClick={()=>setDeleteConfirmId(r.id)} className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50 transition-colors">
                       <Trash2 size={14}/>
                     </button>
                   </div>
@@ -265,7 +272,10 @@ const HRResourceManager: React.FC = () => {
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Stage</label>
                   <select value={stage} onChange={e=>setStage(e.target.value)} className={`${inputClass} cursor-pointer`}>
-                    {['all','prepare','orient','land','integrate','excel'].map(s=><option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+                    <option value="all">All</option>
+                    <option value="pre_onboarding">Pre-Onboarding</option>
+                    <option value="phase_1">Phase 1</option>
+                    <option value="phase_2">Phase 2</option>
                   </select>
                 </div>
                 <div>
@@ -412,6 +422,25 @@ const HRResourceManager: React.FC = () => {
               <button onClick={handleSave} disabled={saving} className="flex-1 px-4 py-2 rounded-lg font-medium text-white bg-pmi-800 hover:bg-pmi-700 disabled:opacity-50 transition-colors shadow-md shadow-pmi-800/20">
                 {saving?'Saving...':'Save Changes'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirm Modal */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[110] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 text-center p-6">
+            <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={28} className="text-red-600 dark:text-red-400" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">Delete Document?</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+              This action cannot be undone. The document and its views will be permanently removed.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={()=>setDeleteConfirmId(null)} className="flex-1 px-4 py-2 rounded-lg font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors">Cancel</button>
+              <button onClick={confirmDelete} className="flex-1 px-4 py-2 rounded-lg font-medium text-white bg-red-600 hover:bg-red-700 transition-colors shadow-md shadow-red-600/20">Delete</button>
             </div>
           </div>
         </div>

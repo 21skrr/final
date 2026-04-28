@@ -25,7 +25,7 @@ const Resource = sequelize.define("Resource", {
     allowNull: false,
   },
   stage: {
-    type: DataTypes.ENUM('prepare', 'orient', 'land', 'integrate', 'excel', 'all'),
+    type: DataTypes.ENUM('pre_onboarding', 'phase_1', 'phase_2', 'all'),
     allowNull: true,
     defaultValue: 'all'
   },

@@ -152,8 +152,24 @@ const getResourceById = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const getPublicResources = async (req, res) => {
   try {
+    const userId = req.user.id;
+    
+    // Fetch user's current onboarding stage
+    const progress = await models.OnboardingProgress.findOne({
+      where: { UserId: userId },
+      attributes: ["stage"]
+    });
+
+    const userStage = progress?.stage || "all";
+
     const resources = await models.Resource.findAll({
-      where: { isPublic: true },
+      where: { 
+        isPublic: true,
+        [Op.or]: [
+          { stage: "all" },
+          { stage: userStage }
+        ]
+      },
       attributes: [
         "id", "title", "description", "type", "url",
         "category", "stage", "programType", "createdAt",

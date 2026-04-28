@@ -22,6 +22,7 @@ const ManagerResourceView: React.FC = () => {
   const [file, setFile] = useState<File|null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string|null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -53,10 +54,15 @@ const ManagerResourceView: React.FC = () => {
     finally { setUploading(false); }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this document?')) return;
-    try { await resourceService.deleteResource(id); toast.success('Deleted.'); loadData(); }
-    catch { toast.error('Delete failed.'); }
+  const confirmDelete = async () => {
+    if (!deleteConfirmId) return;
+    try { 
+      await resourceService.deleteResource(deleteConfirmId); 
+      toast.success('Document deleted.'); 
+      setDeleteConfirmId(null);
+      loadData(); 
+    }
+    catch { toast.error('Delete failed.'); setDeleteConfirmId(null); }
   };
 
   const filtered = resources.filter(r => {
@@ -145,7 +151,7 @@ const ManagerResourceView: React.FC = () => {
                     <button onClick={()=>setViewerDoc(r)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-pmi-800 hover:bg-pmi-700 text-white text-xs font-semibold transition-colors">
                       <Eye size={14}/> View
                     </button>
-                    <button onClick={()=>handleDelete(r.id)} className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50 transition-colors">
+                    <button onClick={()=>setDeleteConfirmId(r.id)} className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50 transition-colors">
                       <Trash2 size={14}/>
                     </button>
                   </div>
@@ -220,6 +226,25 @@ const ManagerResourceView: React.FC = () => {
               >
                 {uploading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/> Uploading...</> : <><Upload size={18}/> Upload Document</>}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirm Modal */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[110] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 text-center p-6">
+            <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={28} className="text-red-600 dark:text-red-400" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">Delete Document?</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+              This action cannot be undone. The document and its views will be permanently removed.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={()=>setDeleteConfirmId(null)} className="flex-1 px-4 py-2 rounded-lg font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors">Cancel</button>
+              <button onClick={confirmDelete} className="flex-1 px-4 py-2 rounded-lg font-medium text-white bg-red-600 hover:bg-red-700 transition-colors shadow-md shadow-red-600/20">Delete</button>
             </div>
           </div>
         </div>
