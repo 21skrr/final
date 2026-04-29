@@ -32,9 +32,20 @@ export interface Notification {
   userId: string;
   title: string;
   message: string;
-  type: 'info' | 'warning' | 'success' | 'error';
+  type:
+    | 'info' | 'warning' | 'success' | 'error'
+    | 'reminder' | 'document' | 'training' | 'coaching_session'
+    | 'team_progress' | 'overdue_task' | 'feedback_availability'
+    | 'feedback_submission' | 'weekly_report' | 'compliance'
+    | 'leave_request' | 'evaluation_reminder' | 'evaluation_overdue'
+    | 'task' | 'event' | 'evaluation' | 'feedback' | 'system'
+    | 'team_followup' | 'probation_deadline' | 'system_alert'
+    | 'new_employee' | 'compliance_alert' | 'feedback_available'
+    | 'assessment_pending'
+    | string; // fallback for any future types
   isRead: boolean;
   createdAt: string;
+  metadata?: Record<string, any>;
   link?: string;
 }
 

@@ -70,7 +70,7 @@ const Sidebar: React.FC = () => {
     const location = useLocation();
     const [expandedItem, setExpandedItem] = useState<string | null>(null);
     const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['Main'])); // Main section expanded by default
-    const { pendingAssessments, pendingHRAssessments } = useSupervisorAssessments();
+    const { pendingAssessments, pendingHRAssessments, pendingHRApprovals } = useSupervisorAssessments();
 
 
     const toggleExpand = (itemName: string) => {
@@ -95,18 +95,6 @@ const Sidebar: React.FC = () => {
 
     return (
         <aside className="w-64 flex-shrink-0 bg-white/80 backdrop-blur-md shadow-glass border-r border-white/50 flex flex-col h-full">
-            <div className="p-4 border-b">
-                <div className="flex items-center space-x-3">
-                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-pmi-600 to-pmi-800 shadow-md border border-white text-white flex items-center justify-center font-bold">
-                        {user?.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                        <p className="font-semibold text-gray-800">{user?.name}</p>
-                        <p className="text-sm text-gray-500 capitalize">{user?.role}</p>
-                    </div>
-                </div>
-            </div>
-
             <nav className="mt-4 pb-4 space-y-2 overflow-y-auto flex-1">
                 {filteredNavSections.map((section) => (
                     <div key={section.name} className="space-y-1">
@@ -147,8 +135,13 @@ const Sidebar: React.FC = () => {
                                                     </span>
                                                 )}
                                                 {item.name === 'HR Assessment Queue' && pendingHRAssessments > 0 && (
-                                                    <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                                                    <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center shadow-sm">
                                                         {pendingHRAssessments}
+                                                    </span>
+                                                )}
+                                                {item.name === 'HR Validation Queue' && pendingHRApprovals > 0 && (
+                                                    <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center shadow-sm">
+                                                        {pendingHRApprovals}
                                                     </span>
                                                 )}
                                             </div>

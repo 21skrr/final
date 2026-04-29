@@ -102,7 +102,7 @@ const onboardingPermissions = {
 
     // For supervisors, check if they're editing their direct report's tasks
     if (req.user.role === 'supervisor') {
-      const targetUserId = req.params.userId || req.params.id;
+      const targetUserId = req.body.userId || req.params.userId || req.params.id;
       if (targetUserId && targetUserId !== req.user.id) {
         try {
           const targetUser = await User.findByPk(targetUserId);

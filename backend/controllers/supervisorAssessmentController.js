@@ -1,6 +1,7 @@
 // controllers/supervisorAssessmentController.js
 const { SupervisorAssessment, OnboardingProgress, User, OnboardingTask, UserTaskProgress } = require("../models");
 const { Op } = require("sequelize");
+const { sendNotification } = require('../utils/notificationHelper');
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
@@ -104,6 +105,14 @@ const initializeAssessment = async (req, res) => {
       SupervisorId: supervisorId,
       status: "pending_certificate",
       phase1CompletedDate: new Date(),
+    });
+
+    const userObj = await User.findByPk(userId);
+    await sendNotification({
+      userId: supervisorId,
+      type: "system_alert",
+      title: "New Supervisor Assessment",
+      message: `Phase 1 completed for ${userObj ? userObj.name : 'an employee'}. Action required.`
     });
 
     res.status(201).json({
@@ -220,6 +229,19 @@ const makeDecision = async (req, res) => {
       return res.status(404).json({ message: "Assessment not found" });
     }
 
+    // Idempotent: if decision was already made, return success instead of 400
+    if (assessment.status === "hr_approval_pending" || assessment.status === "hr_approved" || assessment.status === "hr_rejected" || assessment.status === "completed") {
+      return res.json({
+        message: "Decision already recorded",
+        decision: {
+          supervisorDecision: assessment.supervisorDecision,
+          supervisorComments: assessment.supervisorComments,
+          decisionDate: assessment.decisionDate,
+          status: assessment.status,
+        },
+      });
+    }
+
     if (assessment.status !== "assessment_completed") {
       return res.status(400).json({ 
         message: "Assessment must be completed before making a decision" 
@@ -232,6 +254,18 @@ const makeDecision = async (req, res) => {
       decisionDate: new Date(),
       status: "hr_approval_pending",
     });
+
+    // Notify HR
+    const hrUsers = await User.findAll({ where: { role: 'hr' } });
+    const userObj = await User.findByPk(assessment.UserId);
+    for (const hr of hrUsers) {
+      await sendNotification({
+        userId: hr.id,
+        type: "system_alert",
+        title: "HR Validation Required",
+        message: `Supervisor assessment completed for ${userObj ? userObj.name : 'an employee'}. Pending HR validation.`
+      });
+    }
 
     // If decision is to proceed to Phase 2, update onboarding progress
     if (decision === "proceed_to_phase_2") {
@@ -299,6 +333,14 @@ const hrApprove = async (req, res) => {
       hrDecisionDate: new Date(),
       hrValidatorId: req.user.id,
       status: newStatus,
+    });
+
+    // Notify Supervisor
+    await sendNotification({
+      userId: assessment.SupervisorId,
+      type: "system_alert",
+      title: `HR Decision: ${decision}`,
+      message: `HR has reviewed your assessment and decided to ${decision}.`
     });
 
     // If approved and supervisor decision was to proceed, advance to Phase 2
@@ -437,6 +479,89 @@ const getPendingHRApproval = async (req, res) => {
   }
 };
 
+// Sync pending assessment notifications — called on login/polling
+// Ensures supervisors and HR always have a live notification for pending work
+const syncPendingNotifications = async (req, res) => {
+  try {
+    const { Notification } = require('../models');
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    let created = 0;
+
+    if (userRole === 'supervisor' || userRole === 'manager') {
+      const pending = await SupervisorAssessment.findAll({
+        where: {
+          SupervisorId: userId,
+          status: { [Op.in]: ['pending_certificate', 'certificate_uploaded', 'assessment_completed'] },
+        },
+        include: [{ model: User, as: 'employee', attributes: ['id', 'name'] }],
+      });
+
+      for (const assessment of pending) {
+        const actionLabel =
+          assessment.status === 'pending_certificate' ? 'upload the certificate' :
+          assessment.status === 'certificate_uploaded' ? 'conduct the assessment' :
+          'make a decision';
+
+        // Check for recent (last 24h) duplicate to avoid spam
+        const recentDupe = await Notification.findOne({
+          where: {
+            userId,
+            type: 'system_alert',
+            title: 'Assessment Action Required',
+            createdAt: { [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+          },
+        });
+
+        if (!recentDupe) {
+          await sendNotification({
+            userId,
+            type: 'system_alert',
+            title: 'Assessment Action Required',
+            message: `${assessment.employee?.name || 'An employee'} is waiting for you to ${actionLabel}.`,
+            metadata: { assessmentId: assessment.id },
+          });
+          created++;
+        }
+      }
+    }
+
+    if (userRole === 'hr') {
+      const hrPending = await SupervisorAssessment.findAll({
+        where: { status: 'hr_approval_pending' },
+        include: [{ model: User, as: 'employee', attributes: ['id', 'name'] }],
+      });
+
+      for (const assessment of hrPending) {
+        const recentDupe = await Notification.findOne({
+          where: {
+            userId,
+            type: 'system_alert',
+            title: 'HR Approval Required',
+            createdAt: { [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+          },
+        });
+
+        if (!recentDupe) {
+          await sendNotification({
+            userId,
+            type: 'system_alert',
+            title: 'HR Approval Required',
+            message: `Supervisor assessment for ${assessment.employee?.name || 'an employee'} is waiting for your approval.`,
+            metadata: { assessmentId: assessment.id },
+          });
+          created++;
+        }
+      }
+    }
+
+    return res.json({ message: `Synced ${created} new notification(s)`, created });
+  } catch (error) {
+    console.error('Error syncing pending notifications:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 module.exports = {
   initializeAssessment,
   uploadCertificate,
@@ -447,4 +572,5 @@ module.exports = {
   getSupervisorAssessments,
   getPendingHRApproval,
   upload, // Export multer upload for use in routes
+  syncPendingNotifications,
 }; 

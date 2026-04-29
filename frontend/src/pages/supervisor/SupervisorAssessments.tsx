@@ -58,13 +58,17 @@ const SupervisorAssessments: React.FC = () => {
     setDetailModalVisible(true);
   };
 
-  const handleAssessmentUpdate = () => {
-    fetchAssessments();
+  const handleAssessmentUpdate = async () => {
+    // Re-fetch the full list from the server
+    await fetchAssessments();
+    // Also fetch the fresh individual assessment so the modal reflects the real DB status
     if (selectedAssessment) {
-      // Refresh the selected assessment
-      const updatedAssessment = assessments.find(a => a.id === selectedAssessment.id);
-      if (updatedAssessment) {
-        setSelectedAssessment(updatedAssessment);
+      try {
+        const fresh = await supervisorAssessmentService.getAssessment(selectedAssessment.id);
+        setSelectedAssessment(fresh.assessment);
+      } catch {
+        // fallback: just close the modal to prevent acting on stale data
+        setDetailModalVisible(false);
       }
     }
   };

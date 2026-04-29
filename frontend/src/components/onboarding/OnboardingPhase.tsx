@@ -37,6 +37,7 @@ interface OnboardingPhaseProps {
   canEditTasks: boolean;
   userRole: string;
   onTaskVerify?: (progressId: string, status: 'approved' | 'rejected', notes?: string) => void;
+  onMarkAllComplete?: () => void;
   refreshJourney?: () => void;
 }
 
@@ -47,6 +48,7 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
   tasks,
   isCurrentPhase,
   onTaskComplete,
+  onMarkAllComplete,
   canEditTasks,
   userRole,
 }) => {
@@ -196,7 +198,23 @@ const OnboardingPhase: React.FC<OnboardingPhaseProps> = ({
       }`}
     >
       <div className="flex justify-between items-center mb-2">
-        <h3 className="text-lg font-semibold">{title}</h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-semibold">{title}</h3>
+          {canEditTasks && onMarkAllComplete && progress < 100 && tasks.some(t => !t.completed) && (
+            <Button 
+              size="small" 
+              type="primary" 
+              ghost 
+              icon={<CheckCircleOutlined />} 
+              onClick={(e) => {
+                e.stopPropagation();
+                onMarkAllComplete();
+              }}
+            >
+              Mark All Complete
+            </Button>
+          )}
+        </div>
         <Tag
           color={
             progress === 100 ? "green" : isCurrentPhase ? "blue" : "default"

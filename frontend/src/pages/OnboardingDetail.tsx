@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Spin, Alert, Button, message } from "antd";
+import { Spin, Alert, Button, message, Typography } from "antd";
 import { SaveOutlined, RollbackOutlined } from "@ant-design/icons";
 import { useAuth } from "../context/AuthContext";
 import Layout from "../components/layout/Layout";
@@ -8,6 +8,9 @@ import OnboardingPhase from "../components/onboarding/OnboardingPhase";
 import OnboardingSummary from "../components/onboarding/OnboardingSummary";
 import { OnboardingJourney, Task, OnboardingStage } from "../types/onboarding";
 import onboardingService from "../services/onboardingService";
+import { useNotifications } from "../context/NotificationContext";
+
+const { Title, Text } = Typography;
 
 const OnboardingDetail: React.FC = () => {
   const { userId } = useParams<{ userId?: string }>();
@@ -18,6 +21,7 @@ const OnboardingDetail: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const { fetchNotifications } = useNotifications();
 
   // Determine permissions and endpoints based on user role
   const isHR = user?.role === "hr";
@@ -70,20 +74,20 @@ const OnboardingDetail: React.FC = () => {
             ? (rawData as { progress: Record<string, number> }).progress
             : {};
         const mappedJourney = {
-          user: data.User,
+          user: data.User || data.user,
           progress: {
-            id: data.id,
-            stage: data.stage,
+            id: data.id || data.progress?.id,
+            stage: data.currentStage,
             progress: data.progress?.overall ?? 0,
             stageStartDate: data.stageStartDate,
             estimatedCompletionDate: data.estimatedCompletionDate,
-            UserId: data.User?.id,
-            User: data.User,
+            UserId: data.user?.id || data.User?.id,
+            User: data.User || data.user,
             createdAt: data.createdAt,
             updatedAt: data.updatedAt,
           },
           overallProgress: data.progress?.overall ?? 0,
-          currentStage: data.stage,
+          currentStage: data.currentStage,
           tasksCompleted: Object.values(tasksByPhase)
             .flat()
             .filter((task: unknown) => {
@@ -120,7 +124,7 @@ const OnboardingDetail: React.FC = () => {
               typeof perPhaseProgress[phaseKey] === "number"
                 ? perPhaseProgress[phaseKey]
                 : 0,
-            isActive: data.stage === phaseKey,
+            isActive: data.currentStage === phaseKey,
             isCompleted:
               typeof perPhaseProgress[phaseKey] === "number" &&
               perPhaseProgress[phaseKey] === 100,
@@ -194,6 +198,55 @@ const OnboardingDetail: React.FC = () => {
     } catch (err) {
       console.error("Failed to complete task:", err);
       message.error("Failed to update task. Please try again.");
+    }
+  };
+
+  const handleMarkAllComplete = async (phaseIndex: number) => {
+    if (!canEditTasks || !journey || !Array.isArray(journey.phases)) return;
+    
+    try {
+      const targetUserId = userId || user?.id;
+      if (!targetUserId) return;
+
+      const phase = journey.phases[phaseIndex];
+      if (!phase) return;
+
+      const incompleteTasks = phase.tasks.filter((t) => !t.completed);
+      if (incompleteTasks.length === 0) return;
+
+      message.loading({ content: 'Marking all tasks as complete...', key: 'markAll' });
+      
+      // Update locally
+      const updatedJourney = { ...journey };
+      updatedJourney.phases[phaseIndex].tasks = updatedJourney.phases[phaseIndex].tasks.map((task) => {
+        if (!task.completed) {
+          return { ...task, completed: true, completedAt: new Date().toISOString() };
+        }
+        return task;
+      });
+      setJourney(updatedJourney);
+      setHasChanges(true);
+
+      // Save sequentially to avoid race condition
+      for (const task of incompleteTasks) {
+        if (isHR) {
+          await onboardingService.updateTaskCompletion(task.id, true, targetUserId);
+        } else if (isSupervisor || isManager) {
+          await onboardingService.updateTaskCompletion(task.id, true, targetUserId);
+        }
+      }
+      
+      message.success({ content: 'All tasks in phase marked as complete!', key: 'markAll', duration: 2 });
+      
+      // Instantly trigger global notification fetch so the bell updates immediately
+      fetchNotifications();
+      
+      if (refreshJourney) {
+        refreshJourney();
+      }
+    } catch (err) {
+      console.error("Failed to bulk complete tasks:", err);
+      message.error({ content: 'Failed to update tasks. Please try again.', key: 'markAll', duration: 3 });
     }
   };
 
@@ -272,17 +325,14 @@ const OnboardingDetail: React.FC = () => {
       const targetUserId = userId || user.id;
       if (!targetUserId) throw new Error("User ID not available");
 
-      // For each task, update its completion status with the user ID
-      const updatePromises = completedTasks.map((task) => {
-        return onboardingService.updateTaskCompletion(
+      // For each task, update its completion status with the user ID sequentially to avoid race conditions
+      for (const task of completedTasks) {
+        await onboardingService.updateTaskCompletion(
           task.id,
           task.completed,
           targetUserId
         );
-      });
-
-      // Wait for all updates to complete
-      await Promise.all(updatePromises);
+      }
 
       // Also update the overall progress using the existing endpoints
       if (isHR) {
@@ -304,6 +354,9 @@ const OnboardingDetail: React.FC = () => {
 
       message.success("Progress saved successfully");
       setHasChanges(false);
+      
+      // Instantly trigger global notification fetch so the bell updates immediately
+      fetchNotifications();
     } catch (err) {
       console.error("Failed to save progress:", err);
       message.error("Failed to save progress. Please try again.");
@@ -340,20 +393,20 @@ const OnboardingDetail: React.FC = () => {
           ? (rawData as { progress: Record<string, number> }).progress
           : {};
       const mappedJourney = {
-        user: data.User,
+        user: data.User || data.user,
         progress: {
-          id: data.id,
-          stage: data.stage,
+          id: data.id || data.progress?.id,
+          stage: data.currentStage,
           progress: data.progress?.overall ?? 0,
           stageStartDate: data.stageStartDate,
           estimatedCompletionDate: data.estimatedCompletionDate,
-          UserId: data.User?.id,
-          User: data.User,
+          UserId: data.user?.id || data.User?.id,
+          User: data.User || data.user,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         },
         overallProgress: data.progress?.overall ?? 0,
-        currentStage: data.stage,
+        currentStage: data.currentStage,
         tasksCompleted: Object.values(tasksByPhase)
           .flat()
           .filter((task: unknown) => {
@@ -390,7 +443,7 @@ const OnboardingDetail: React.FC = () => {
             typeof perPhaseProgress[phaseKey] === "number"
               ? perPhaseProgress[phaseKey]
               : 0,
-          isActive: data.stage === phaseKey,
+          isActive: data.currentStage === phaseKey,
           isCompleted:
             typeof perPhaseProgress[phaseKey] === "number" &&
             perPhaseProgress[phaseKey] === 100,
@@ -446,11 +499,15 @@ const OnboardingDetail: React.FC = () => {
   // Use phases if available, otherwise fallback to stages
   let journeyPhases = journey.phases || journey.stages || [];
 
-  // Only show current phase for employees viewing their own journey
-  if (isEmployee && isViewingOwnJourney && Array.isArray(journeyPhases)) {
-    journeyPhases = journeyPhases.filter(
-      (phase) => phase.stage === journey.currentStage
-    );
+  // Filter out phases that are ahead of the current stage for ALL users
+  if (Array.isArray(journeyPhases)) {
+    const stageOrder = ["pre_onboarding", "phase_1", "phase_2", "all"];
+    const currentStageIndex = stageOrder.indexOf(journey.currentStage as string);
+    
+    journeyPhases = journeyPhases.filter((phase) => {
+      const phaseStageIndex = stageOrder.indexOf(phase.stage as string);
+      return phaseStageIndex <= currentStageIndex;
+    });
   }
 
   if (!Array.isArray(journeyPhases) || journeyPhases.length === 0) {
@@ -547,6 +604,7 @@ const OnboardingDetail: React.FC = () => {
               onTaskComplete={(taskId, completed) =>
                 handleTaskComplete(index, taskId, completed)
               }
+              onMarkAllComplete={() => handleMarkAllComplete(index)}
               canEditTasks={canEditTasks}
               userRole={user?.role || "employee"}
               onTaskVerify={handleTaskVerify}

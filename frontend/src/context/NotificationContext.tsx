@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import notificationService from '../services/notificationService';
+import supervisorAssessmentService from '../services/supervisorAssessmentService';
 import { Notification } from '../types/user';
 import { useAuth } from './AuthContext';
 
@@ -135,13 +136,35 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    const syncAndFetch = async () => {
+      // Sync pending assessment notifications for supervisor/manager/HR
+      if (user && ['supervisor', 'manager', 'hr'].includes(user.role)) {
+        supervisorAssessmentService.syncPendingNotifications().catch(() => {});
+      }
+      // Fetch latest notifications (silently, no loading spinner)
+      notificationService.getNotifications()
+        .then(data => setNotifications(Array.isArray(data) ? data : []))
+        .catch(err => console.error('Error polling notifications:', err));
+    };
+
     if (user) {
       fetchNotifications();
+      // Sync assessment notifications on first load
+      if (['supervisor', 'manager', 'hr'].includes(user.role)) {
+        supervisorAssessmentService.syncPendingNotifications().catch(() => {});
+      }
+      // Poll every 30 seconds
+      intervalId = setInterval(syncAndFetch, 30000);
     } else {
-      // If no user, clear notifications and stop loading
       setNotifications([]);
       setLoading(false);
     }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [user]);
 
   const markAsRead = async (id: string) => {

@@ -63,9 +63,9 @@ export const useSupervisorAssessments = () => {
       // Filter for pending HR assessments (for notifications)
       const pending = response.assessments.filter(
         (assessment: any) => 
-          assessment.status === 'assessment_pending' || 
-          assessment.status === 'decision_pending' ||
-          assessment.status === 'hr_approval_pending'
+          assessment.status === 'pending_assessment' || 
+          assessment.status === 'assessment_completed' ||
+          assessment.status === 'assessment_pending' // keeping just in case legacy
       ).length;
       setPendingHRAssessments(pending);
     } catch (error) {

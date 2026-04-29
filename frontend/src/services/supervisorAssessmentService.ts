@@ -83,6 +83,16 @@ class SupervisorAssessmentService {
     return response.data;
   }
 
+  // Sync pending notifications for current user (call on login + polling)
+  async syncPendingNotifications(): Promise<{ created: number }> {
+    try {
+      const response = await api.post("/supervisor-assessments/sync-notifications");
+      return response.data;
+    } catch {
+      return { created: 0 };
+    }
+  }
+
   // Helper methods for status checks
   isCertificateUploaded(status: string): boolean {
     return status === "certificate_uploaded" || 

@@ -1696,34 +1696,22 @@ const updateTaskCompletion = async (req, res) => {
     }
 
     // For supervisors, check if they're editing their direct report's task
-    if (req.user.role === "supervisor") {
-      const userTaskProgress = await UserTaskProgress.findOne({
-        where: { OnboardingTaskId: taskId },
-      });
-
-      if (userTaskProgress) {
-        const targetUser = await User.findByPk(userTaskProgress.UserId);
-        if (!targetUser || targetUser.supervisorId !== req.user.id) {
-          return res.status(403).json({ 
-            error: "Supervisors can only edit their direct reports' tasks" 
-          });
-        }
+    if (req.user.role === "supervisor" && userId) {
+      const targetUser = await User.findByPk(userId);
+      if (!targetUser || targetUser.supervisorId !== req.user.id) {
+        return res.status(403).json({ 
+          error: "Supervisors can only edit their direct reports' tasks" 
+        });
       }
     }
 
     // For managers, check if they're editing tasks for users in their department
-    if (req.user.role === "manager") {
-      const userTaskProgress = await UserTaskProgress.findOne({
-        where: { OnboardingTaskId: taskId },
-      });
-
-      if (userTaskProgress) {
-        const targetUser = await User.findByPk(userTaskProgress.UserId);
-        if (!targetUser || targetUser.department !== req.user.department) {
-          return res.status(403).json({ 
-            error: "Managers can only edit tasks for users in their department" 
-          });
-        }
+    if (req.user.role === "manager" && userId) {
+      const targetUser = await User.findByPk(userId);
+      if (!targetUser || targetUser.department !== req.user.department) {
+        return res.status(403).json({ 
+          error: "Managers can only edit tasks for users in their department" 
+        });
       }
     }
 

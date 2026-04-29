@@ -1,6 +1,7 @@
 // controllers/hrAssessmentController.js
 const { HRAssessment, OnboardingProgress, User, OnboardingTask, UserTaskProgress } = require("../models");
 const { Op } = require("sequelize");
+const { sendNotification } = require('../utils/notificationHelper');
 
 // Initialize HR assessment when Phase 2 is completed
 const initializeHRAssessment = async (req, res) => {
@@ -65,6 +66,14 @@ const initializeHRAssessment = async (req, res) => {
       status: "pending_assessment",
       phase2CompletedDate: new Date(),
       assessmentRequestedDate: new Date(),
+    });
+
+    const userObj = await User.findByPk(userId);
+    await sendNotification({
+      userId: hrId,
+      type: "system_alert",
+      title: "New HR Assessment",
+      message: `Phase 2 completed for ${userObj ? userObj.name : 'an employee'}. Action required.`
     });
 
     res.status(201).json({

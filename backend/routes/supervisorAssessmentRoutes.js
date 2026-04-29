@@ -69,4 +69,12 @@ router.get(
   supervisorAssessmentController.getAssessment
 );
 
+// Sync pending assessment notifications for the logged-in user
+router.post(
+  "/sync-notifications",
+  auth,
+  roleCheck(["supervisor", "manager", "hr"]),
+  supervisorAssessmentController.syncPendingNotifications
+);
+
 module.exports = router; 
