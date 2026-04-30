@@ -112,23 +112,23 @@ const createChecklist = async (req, res) => {
       const defaultItems = [
         {
           title: "Remise de l'uniforme",
-          description: "Distribution de l'uniforme à l'employé",
+          description: "Distribution de l'uniforme Ã  l'employÃ©",
           isRequired: true,
         },
         {
           title: "Formation initiale",
-          description: "Formation de base pour les nouveaux employés",
+          description: "Formation de base pour les nouveaux employÃ©s",
           isRequired: true,
         },
         {
-          title: "Intégration sur le terrain",
+          title: "IntÃ©gration sur le terrain",
           description:
-            "Période d'adaptation et d'intégration au poste de travail",
+            "PÃ©riode d'adaptation et d'intÃ©gration au poste de travail",
           isRequired: true,
         },
         {
           title: "Suivi des formations obligatoires et facultatives",
-          description: "Vérification de la participation aux formations",
+          description: "VÃ©rification de la participation aux formations",
           isRequired: true,
         },
       ];
@@ -389,7 +389,7 @@ const assignChecklistToUser = async (req, res) => {
     // Send notification to user
     await notificationService.sendNotification(
       userId,
-      `Une nouvelle checklist "${checklist.title}" vous a été assignée`,
+      `Une nouvelle checklist "${checklist.title}" vous a Ã©tÃ© assignÃ©e`,
       "checklist_assigned"
     );
 
@@ -406,7 +406,7 @@ const getUserAssignments = async (req, res) => {
   try {
     const userId = req.params.userId || req.user.id;
     if (req.params.userId && req.params.userId !== req.user.id) {
-      if (!["hr", "manager"].includes(req.user.role)) {
+      if (!["hr", "manager", "supervisor"].includes(req.user.role)) {
         return res.status(403).json({
           message: "Access denied. You can only view your own assignments.",
         });
@@ -436,7 +436,8 @@ const getUserAssignments = async (req, res) => {
         "checklistUpdatedAt",
         "autoAssign",
         "requiresVerification",
-        "dueInDays"
+        "dueInDays",
+        "frequency"
       ]
     });
     // For each assignment, calculate completionPercentage
@@ -513,10 +514,10 @@ const verifyChecklistItem = async (req, res) => {
 
     // Send notification to the user
     const statusText =
-      verificationStatus === "approved" ? "approuvée" : "rejetée";
+      verificationStatus === "approved" ? "approuvÃ©e" : "rejetÃ©e";
     await notificationService.sendNotification(
       progress.userId,
-      `Votre étape "${progress.ChecklistItem.title}" a été ${statusText} par ${req.user.name}`,
+      `Votre Ã©tape "${progress.ChecklistItem.title}" a Ã©tÃ© ${statusText} par ${req.user.name}`,
       "checklist_verification"
     );
 
@@ -1586,6 +1587,272 @@ const deleteChecklistByChecklistId = async (req, res) => {
   }
 };
 
+// â”€â”€â”€ Helper: compute current periodKey based on checklist frequency â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function computePeriodKey(frequency) {
+  const now = new Date();
+  if (frequency === 'daily') return now.toISOString().slice(0, 10);
+  if (frequency === 'weekly') {
+    const jan1 = new Date(now.getFullYear(), 0, 1);
+    const week = Math.ceil(((now - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+    return `${now.getFullYear()}-W${String(week).padStart(2, '0')}`;
+  }
+  if (frequency === 'monthly') return now.toISOString().slice(0, 7);
+  return null;
+}
+
+// â”€â”€â”€ GET /api/checklists/my-tasks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const getMyTasks = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const assignments = await ChecklistCombined.findAll({ where: { userId } });
+    const result = await Promise.all(assignments.map(async (a) => {
+      const template = await Checklist.findOne({ where: { id: a.checklistId } });
+      const frequency = template?.frequency || 'none';
+      const periodKey = computePeriodKey(frequency);
+      const items = await ChecklistItem.findAll({ where: { checklistId: a.checklistId }, order: [['orderIndex', 'ASC']] });
+      const progressWhere = { userId, checklistItemId: items.map(i => i.id) };
+      if (periodKey) progressWhere.periodKey = periodKey;
+      else progressWhere.periodKey = null;
+      const progresses = await ChecklistProgress.findAll({ where: progressWhere });
+      const completedIds = new Set(progresses.filter(p => p.isCompleted).map(p => p.checklistItemId));
+      return {
+        ...a.toJSON(), frequency, periodKey,
+        items: items.map(item => ({ ...item.toJSON(), isCompleted: completedIds.has(item.id), progressId: progresses.find(p => p.checklistItemId === item.id)?.id || null })),
+        completionPercentage: items.length > 0 ? Math.round((completedIds.size / items.length) * 100) : 0,
+      };
+    }));
+    res.json(result);
+  } catch (error) {
+    console.error('Error in getMyTasks:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// â”€â”€â”€ POST /api/checklists/items/:itemId/toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const toggleTaskItem = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { itemId } = req.params;
+    const { checklistId, isCompleted } = req.body;
+    const template = await Checklist.findOne({ where: { id: checklistId } });
+    const frequency = template?.frequency || 'none';
+    const periodKey = computePeriodKey(frequency);
+    const where = { userId, checklistItemId: itemId };
+    if (periodKey) where.periodKey = periodKey;
+    else where.periodKey = null;
+    let progress = await ChecklistProgress.findOne({ where });
+    if (progress) {
+      await progress.update({ isCompleted: !!isCompleted, completedAt: isCompleted ? new Date() : null });
+    } else {
+      progress = await ChecklistProgress.create({ userId, checklistItemId: itemId, isCompleted: !!isCompleted, completedAt: isCompleted ? new Date() : null, periodKey, verificationStatus: 'pending' });
+    }
+    res.json({ success: true, progress });
+  } catch (error) {
+    console.error('Error in toggleTaskItem:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// â”€â”€â”€ GET /api/checklists/hr-analytics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const getHRAnalytics = async (req, res) => {
+  try {
+    if (!['hr', 'manager'].includes(req.user.role)) return res.status(403).json({ message: 'Access denied' });
+    const totalChecklists = await Checklist.count({ where: { isActive: true } });
+    const totalAssignments = await ChecklistCombined.count({ where: { userId: { [Op.ne]: null } } });
+    const completed = await ChecklistCombined.count({ where: { userId: { [Op.ne]: null }, status: 'completed' } });
+    const overdue = await ChecklistCombined.count({ where: { userId: { [Op.ne]: null }, status: 'overdue' } });
+    const completionRate = totalAssignments > 0 ? Math.round((completed / totalAssignments) * 100) : 0;
+    const [freqRows] = await sequelize.query(`SELECT c.frequency, COUNT(cc.id) as count FROM checklist_combined cc JOIN Checklists c ON cc.checklistId = c.id WHERE cc.userId IS NOT NULL GROUP BY c.frequency`);
+    const [deptRows] = await sequelize.query(`SELECT u.department, COUNT(cc.id) as total, SUM(CASE WHEN cc.status='completed' THEN 1 ELSE 0 END) as completed FROM checklist_combined cc JOIN users u ON cc.userId = u.id WHERE cc.userId IS NOT NULL AND u.department IS NOT NULL GROUP BY u.department`);
+    res.json({ totalChecklists, totalAssignments, completed, overdue, completionRate, byFrequency: freqRows, byDepartment: deptRows });
+  } catch (error) {
+    console.error('Error in getHRAnalytics:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// â”€â”€â”€ POST /api/checklists/full â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const createChecklistFull = async (req, res) => {
+  try {
+    const { role, id: creatorId, department: creatorDept } = req.user;
+    if (!['hr', 'manager', 'supervisor'].includes(role)) return res.status(403).json({ message: 'Access denied' });
+    const { title, description, frequency, items = [] } = req.body;
+    if (!title) return res.status(400).json({ message: 'Title is required' });
+    const checklistId = uuidv4();
+    // stage must be a valid ENUM ('prepare','orient','land','integrate','excel') — use 'prepare' as default
+    await Checklist.create({
+      id: checklistId,
+      title,
+      description: description || null,
+      frequency: frequency || 'none',
+      createdBy: creatorId,
+      department: role === 'manager' ? creatorDept : null,
+      targetRole: role === 'supervisor' ? 'team' : role === 'manager' ? 'department' : 'all',
+      isActive: true,
+      programType: 'all',
+      stage: 'prepare',
+    });
+    await ChecklistCombined.create({
+      id: uuidv4(),
+      checklistId,
+      userId: null,
+      title,
+      description: description || null,
+      frequency: frequency || 'none',
+      programType: 'all',
+      stage: 'prepare',
+      status: 'assigned',
+      assignmentCreatedAt: new Date(),
+      assignmentUpdatedAt: new Date(),
+    });
+    let createdItems = [];
+    if (items.length > 0) {
+      createdItems = await ChecklistItem.bulkCreate(
+        items.map((item, idx) => ({
+          checklistId,
+          title: item.title,
+          description: item.description || null,
+          isRequired: item.isRequired !== false,
+          orderIndex: idx,
+          controlledBy: 'hr',
+          phase: 'prepare',
+        }))
+      );
+    }
+    res.status(201).json({ checklistId, title, frequency, items: createdItems });
+  } catch (error) {
+    console.error('Error in createChecklistFull:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+
+// â”€â”€â”€ POST /api/checklists/:id/assign-team â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const assignChecklistToTeam = async (req, res) => {
+  try {
+    const { role, id: assignerId } = req.user;
+    const { id: checklistId } = req.params;
+    const { userIds } = req.body;
+    if (!['hr', 'manager', 'supervisor'].includes(role)) return res.status(403).json({ message: 'Access denied' });
+    const template = await Checklist.findByPk(checklistId);
+    if (!template) return res.status(404).json({ message: 'Checklist not found' });
+    let targets = [];
+    if (userIds && userIds.length > 0) targets = await User.findAll({ where: { id: userIds } });
+    else if (role === 'supervisor') targets = await User.findAll({ where: { supervisorId: assignerId } });
+    else if (role === 'manager') targets = await User.findAll({ where: { department: req.user.department } });
+    else targets = await User.findAll({ where: { role: 'employee' } });
+    const items = await ChecklistItem.findAll({ where: { checklistId } });
+    const created = [];
+    for (const target of targets) {
+      const existing = await ChecklistCombined.findOne({ where: { checklistId, userId: target.id } });
+      if (existing) continue;
+      await ChecklistCombined.create({ id: uuidv4(), checklistId, userId: target.id, assignedBy: assignerId, title: template.title, description: template.description, frequency: template.frequency, programType: template.programType || 'all', stage: template.stage || 'all', status: 'assigned', assignmentCreatedAt: new Date(), assignmentUpdatedAt: new Date() });
+      if (items.length > 0) await ChecklistProgress.bulkCreate(items.map(item => ({ userId: target.id, checklistItemId: item.id, isCompleted: false, verificationStatus: 'pending', periodKey: null })));
+      created.push(target.id);
+    }
+    res.json({ assigned: created.length, userIds: created });
+  } catch (error) {
+    console.error('Error in assignChecklistToTeam:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ─── GET /api/checklists/user-tasks?userId=xxx ─────────────────────────────
+// Returns same structure as getMyTasks but for any userId (supervisor/manager/hr)
+const getTasksForUser = async (req, res) => {
+  try {
+    const { role } = req.user;
+    const targetUserId = req.query.userId;
+    if (!targetUserId) return res.status(400).json({ message: 'userId query param required' });
+    // Only allow viewing others if supervisor/manager/hr
+    if (targetUserId !== req.user.id && !['hr', 'manager', 'supervisor'].includes(role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const assignments = await ChecklistCombined.findAll({ where: { userId: targetUserId } });
+    const result = await Promise.all(assignments.map(async (a) => {
+      const template = await Checklist.findOne({ where: { id: a.checklistId } });
+      const frequency = template?.frequency || 'none';
+      const periodKey = computePeriodKey(frequency);
+      const items = await ChecklistItem.findAll({ where: { checklistId: a.checklistId }, order: [['orderIndex', 'ASC']] });
+      const progressWhere = { userId: targetUserId, checklistItemId: items.map(i => i.id) };
+      if (periodKey) progressWhere.periodKey = periodKey;
+      else progressWhere.periodKey = null;
+      const progresses = await ChecklistProgress.findAll({ where: progressWhere });
+      const completedIds = new Set(progresses.filter(p => p.isCompleted).map(p => p.checklistItemId));
+      return {
+        id: a.id, checklistId: a.checklistId, userId: a.userId,
+        title: a.title || template?.title || '(Untitled)',
+        description: a.description || template?.description,
+        frequency, periodKey, status: a.status,
+        completionPercentage: items.length > 0 ? Math.round((completedIds.size / items.length) * 100) : 0,
+        items: items.map(item => ({ ...item.toJSON(), isCompleted: completedIds.has(item.id) })),
+      };
+    }));
+    res.json(result);
+  } catch (error) {
+    console.error('Error in getTasksForUser:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// ─── POST /api/checklists/smart-assign ─────────────────────────────────────
+const smartAssignChecklist = async (req, res) => {
+  try {
+    const { role, id: assignerId, department: assignerDept } = req.user;
+    if (!['hr', 'manager', 'supervisor'].includes(role))
+      return res.status(403).json({ message: 'Access denied' });
+    const { checklistId, scope, userId, supervisorId, department, dueDate } = req.body;
+    if (!checklistId || !scope) return res.status(400).json({ message: 'checklistId and scope required' });
+
+    let targetUserIds = [];
+    if (scope === 'employee') {
+      if (!userId) return res.status(400).json({ message: 'userId required' });
+      if (role === 'supervisor') {
+        const ok = await User.findOne({ where: { id: userId, supervisorId: assignerId } });
+        if (!ok) return res.status(403).json({ message: 'Can only assign to your own team' });
+      }
+      targetUserIds = [userId];
+    } else if (scope === 'team') {
+      const supId = role === 'supervisor' ? assignerId : supervisorId;
+      if (!supId) return res.status(400).json({ message: 'supervisorId required' });
+      const members = await User.findAll({ where: { supervisorId: supId }, attributes: ['id'] });
+      targetUserIds = members.map(m => m.id);
+    } else if (scope === 'department') {
+      if (role === 'supervisor') return res.status(403).json({ message: 'Supervisors cannot assign by department' });
+      const dept = role === 'manager' ? assignerDept : department;
+      if (!dept) return res.status(400).json({ message: 'department required' });
+      const members = await User.findAll({ where: { department: dept, role: 'employee' }, attributes: ['id'] });
+      targetUserIds = members.map(m => m.id);
+    } else {
+      return res.status(400).json({ message: 'scope must be employee, team, or department' });
+    }
+
+    if (!targetUserIds.length) return res.status(404).json({ message: 'No users found for this scope' });
+    const template = await Checklist.findByPk(checklistId);
+    if (!template) return res.status(404).json({ message: 'Checklist not found' });
+
+    let created = 0;
+    for (const uid of targetUserIds) {
+      const exists = await ChecklistCombined.findOne({ where: { checklistId, userId: uid } });
+      if (!exists) {
+        await ChecklistCombined.create({
+          id: uuidv4(), checklistId, userId: uid, assignedBy: assignerId,
+          dueDate: dueDate || null, status: 'assigned',
+          title: template.title, description: template.description,
+          frequency: template.frequency || 'none', programType: template.programType || 'all',
+          stage: template.stage || 'prepare',
+          assignmentCreatedAt: new Date(), assignmentUpdatedAt: new Date(),
+        });
+        created++;
+      }
+    }
+    res.json({ message: `Assigned to ${created} employee(s)`, total: targetUserIds.length, created });
+  } catch (error) {
+    console.error('Error in smartAssignChecklist:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 module.exports = {
   getAllChecklists,
   getChecklistById,
@@ -1618,4 +1885,12 @@ module.exports = {
   updateChecklistAssignment,
   updateChecklistTemplate,
   deleteChecklistByChecklistId,
+  getMyTasks,
+  toggleTaskItem,
+  getHRAnalytics,
+  createChecklistFull,
+  assignChecklistToTeam,
+  smartAssignChecklist,
+  getTasksForUser,
 };
+

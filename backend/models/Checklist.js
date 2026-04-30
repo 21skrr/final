@@ -57,6 +57,25 @@ const Checklist = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: true,
     },
+    frequency: {
+      type: DataTypes.ENUM('none', 'daily', 'weekly', 'monthly'),
+      allowNull: false,
+      defaultValue: 'none',
+    },
+    targetRole: {
+      type: DataTypes.ENUM('employee', 'team', 'department', 'all'),
+      allowNull: false,
+      defaultValue: 'all',
+    },
+    department: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    isActive: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+    },
   },
   {
     timestamps: true,

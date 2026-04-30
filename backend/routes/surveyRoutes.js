@@ -6,7 +6,7 @@ const { auth, checkRole } = require("../middleware/auth");
 const router = express.Router();
 
 // GET /api/surveys
-router.get("/", auth, checkRole("hr"), surveyController.getAllSurveys);
+router.get("/", auth, checkRole("hr", "manager"), surveyController.getAllSurveys);
 
 // GET /api/surveys/available
 router.get("/available", auth, surveyController.getAvailableSurveys);
@@ -310,7 +310,7 @@ router.post(
 router.get(
   "/:id/responses",
   auth,
-  checkRole("hr"),
+  checkRole("hr", "manager", "supervisor"),
   surveyController.getSurveyResponses
 );
 

@@ -1,264 +1,230 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Layout from '../components/layout/Layout';
-import checklistAssignmentService from '../services/checklistAssignmentService';
-import { ChecklistAssignmentDetail } from '../types/checklist';
+import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Link } from 'react-router-dom';
-import { BarChart2, Users, TrendingUp, AlertCircle, Eye } from 'lucide-react';
+import { Users, Plus, X, ChevronDown, ChevronUp, CheckCircle2, XCircle, Clock } from 'lucide-react';
+
+interface DeptMember {
+  id: string;
+  name: string;
+  role: string;
+  department?: string;
+}
+
+interface MemberChecklist {
+  id: string;
+  title?: string;
+  frequency?: string;
+  completionPercentage: number;
+  status: string;
+}
+
+const FREQ_LABEL: Record<string, string> = { none: 'Permanent', daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' };
 
 const ManagerChecklistDashboard: React.FC = () => {
   const { user } = useAuth();
-  const [assignments, setAssignments] = useState<ChecklistAssignmentDetail[]>([]);
+  const [members, setMembers] = useState<DeptMember[]>([]);
+  const [memberChecklists, setMemberChecklists] = useState<Record<string, MemberChecklist[]>>({});
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [filterStage, setFilterStage] = useState('all');
-  const [filterDepartment, setFilterDepartment] = useState('all');
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({ title: '', description: '', frequency: 'daily', items: [{ title: '' }] });
 
-  useEffect(() => {
-    const fetchAssignments = async () => {
-      try {
-        setLoading(true);
-        // Fetch department assignments for manager
-        const data = await checklistAssignmentService.getDepartmentAssignments(user?.department || '');
-        setAssignments(data || []);
-        setError(null);
-      } catch (err) {
-        setError('Failed to load department assignments.');
-      } finally {
-        setLoading(false);
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      // Fetch all users in the manager's department
+      const { data: usersData } = await api.get(`/users?department=${encodeURIComponent(user.department || '')}`).catch(() => ({ data: [] }));
+      const dept: DeptMember[] = Array.isArray(usersData) ? usersData.filter((u: any) => u.id !== user.id) : [];
+      setMembers(dept);
+
+      // Fetch checklist progress for each member using the new user-tasks endpoint
+      const clMap: Record<string, MemberChecklist[]> = {};
+      for (const m of dept) {
+        try {
+          const { data } = await api.get(`/checklists/user-tasks?userId=${m.id}`);
+          clMap[m.id] = Array.isArray(data) ? data.map((cl: any) => ({
+            id: cl.id,
+            title: cl.title,
+            frequency: cl.frequency,
+            completionPercentage: cl.completionPercentage,
+            status: cl.status,
+          })) : [];
+        } catch { clMap[m.id] = []; }
       }
-    };
-    if (user?.role === 'manager' && user?.department) fetchAssignments();
+      setMemberChecklists(clMap);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
-  // Filter assignments
-  const filteredAssignments = assignments.filter(a => {
-    const employeeName = a.userId || '';
-    const checklistTitle = a.checklist?.title || '';
-    const matchesSearch = (
-      employeeName.toLowerCase().includes(search.toLowerCase()) ||
-      checklistTitle.toLowerCase().includes(search.toLowerCase())
-    );
-    const matchesStage = filterStage === 'all' || a.stage === filterStage;
-    const matchesDepartment = filterDepartment === 'all' || a.department === filterDepartment;
-    
-    return matchesSearch && matchesStage && matchesDepartment;
-  });
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Calculate analytics
-  const totalAssignments = assignments.length;
-  const completedAssignments = assignments.filter(a => a.status === 'completed').length;
-  const inProgressAssignments = assignments.filter(a => a.status === 'in_progress').length;
-  const overdueAssignments = assignments.filter(a => a.status === 'overdue').length;
-  const completionRate = totalAssignments > 0 ? Math.round((completedAssignments / totalAssignments) * 100) : 0;
+  const handleCreate = async () => {
+    const validItems = form.items.filter(i => i.title.trim());
+    if (!form.title.trim() || validItems.length === 0) return;
+    setCreating(true);
+    try {
+      const { data } = await api.post('/checklists/full', {
+        title: form.title, description: form.description, frequency: form.frequency, items: validItems,
+      });
+      if (data.checklistId) {
+        await api.post(`/checklists/${data.checklistId}/assign-team`, {
+          userIds: members.filter(m => m.role === 'employee').map(m => m.id),
+        });
+      }
+      setShowCreate(false);
+      setForm({ title: '', description: '', frequency: 'daily', items: [{ title: '' }] });
+      fetchData();
+    } finally {
+      setCreating(false);
+    }
+  };
 
-  // Group by stage
-  const assignmentsByStage = assignments.reduce((acc, assignment) => {
-    const stage = assignment.stage || 'unknown';
-    if (!acc[stage]) acc[stage] = [];
-    acc[stage].push(assignment);
-    return acc;
-  }, {} as Record<string, ChecklistAssignmentDetail[]>);
-
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (error) {
-    return (
-      <Layout>
-        <div className="bg-red-50 border-l-4 border-red-400 p-4 text-red-700">
-          {error}
-        </div>
-      </Layout>
-    );
-  }
+  // Totals
+  const totalAssignments = Object.values(memberChecklists).reduce((s, cls) => s + cls.length, 0);
+  const totalCompleted = Object.values(memberChecklists).reduce((s, cls) => s + cls.filter(c => c.status === 'completed').length, 0);
+  const deptRate = totalAssignments > 0 ? Math.round((totalCompleted / totalAssignments) * 100) : 0;
 
   return (
     <Layout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
+      <div className="p-6 max-w-5xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Department Checklists</h1>
-            <p className="text-gray-600">Track department-wide progress and identify trends</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Department Checklists</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{user?.department} — manage your department's task lists</p>
+          </div>
+          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+            <Plus size={16} /> New Checklist
+          </button>
+        </div>
+
+        {/* Dept summary bar */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-5 mb-6 flex items-center gap-6">
+          <div>
+            <p className="text-3xl font-bold text-gray-900 dark:text-white">{deptRate}%</p>
+            <p className="text-sm text-gray-500">Dept. completion rate</p>
+          </div>
+          <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-3">
+            <div className={`h-3 rounded-full transition-all ${deptRate === 100 ? 'bg-emerald-500' : 'bg-blue-500'}`} style={{ width: `${deptRate}%` }} />
           </div>
           <div className="text-right">
-            <p className="text-sm text-gray-600">Department</p>
-            <p className="text-lg font-semibold capitalize">{user?.department}</p>
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{members.length} Members</p>
+            <p className="text-xs text-gray-400">{totalCompleted} / {totalAssignments} completed</p>
           </div>
         </div>
 
-        {/* Analytics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white shadow rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Users className="h-6 w-6 text-blue-600" />
+        {/* Create modal */}
+        {showCreate && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Create Department Checklist</h2>
+                <button onClick={() => setShowCreate(false)}><X size={20} className="text-gray-400" /></button>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Assignments</p>
-                <p className="text-2xl font-bold text-gray-900">{totalAssignments}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white shadow rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <BarChart2 className="h-6 w-6 text-green-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Completion Rate</p>
-                <p className="text-2xl font-bold text-gray-900">{completionRate}%</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white shadow rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <TrendingUp className="h-6 w-6 text-yellow-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">In Progress</p>
-                <p className="text-2xl font-bold text-gray-900">{inProgressAssignments}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white shadow rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <AlertCircle className="h-6 w-6 text-red-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Overdue</p>
-                <p className="text-2xl font-bold text-gray-900">{overdueAssignments}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white shadow rounded-lg p-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by employee or checklist..."
-                className="w-full border border-gray-300 rounded-md px-3 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Stage</label>
-              <select
-                value={filterStage}
-                onChange={(e) => setFilterStage(e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2"
-              >
-                <option value="all">All Stages</option>
-                <option value="prepare">Prepare</option>
-                <option value="orient">Orient</option>
-                <option value="land">Land</option>
-                <option value="integrate">Integrate</option>
-                <option value="excel">Excel</option>
-              </select>
-            </div>
-            <div className="flex items-end">
-              <button
-                onClick={() => {
-                  setSearch('');
-                  setFilterStage('all');
-                  setFilterDepartment('all');
-                }}
-                className="w-full bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200"
-              >
-                Clear Filters
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Stage-wise Breakdown */}
-        <div className="space-y-6">
-          {Object.entries(assignmentsByStage).map(([stage, stageAssignments]) => (
-            <div key={stage} className="bg-white shadow rounded-lg">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900 capitalize">
-                  {stage === 'unknown' ? 'Unassigned Stage' : stage} Stage
-                </h3>
-                <p className="text-sm text-gray-600">
-                  {stageAssignments.length} assignment{stageAssignments.length !== 1 ? 's' : ''}
-                </p>
-              </div>
-              
-              <div className="p-6">
-                {stageAssignments.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No assignments in this stage</p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {stageAssignments.map(a => (
-                      <div key={a.id} className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-medium text-gray-900 text-sm">
-                            {a.checklist?.title || 'Untitled Checklist'}
-                          </h4>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            a.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            a.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                            a.status === 'overdue' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {a.status}
-                          </span>
-                        </div>
-                        
-                        <div className="text-xs text-gray-600 space-y-1">
-                          <div>Employee: {a.employeeName}</div>
-                          <div>Due: {a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'No due date'}</div>
-                        </div>
-
-                        <div className="mt-3">
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-blue-600 h-2 rounded-full"
-                              style={{ width: `${a.completionPercentage || 0}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-xs text-gray-500">{a.completionPercentage || 0}% Complete</span>
-                        </div>
-
-                        <div className="mt-3">
-                          <Link
-                            to={`/manager/checklists/${a.id}`}
-                            className="text-xs font-medium text-blue-600 hover:text-blue-500 flex items-center"
-                          >
-                            <Eye size={12} className="mr-1" />
-                            View Details
-                          </Link>
-                        </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title *</label>
+                  <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white" placeholder="Checklist title" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Frequency</label>
+                  <select value={form.frequency} onChange={e => setForm(f => ({ ...f, frequency: e.target.value }))}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white">
+                    <option value="none">Permanent (no reset)</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tasks *</label>
+                  <div className="space-y-2">
+                    {form.items.map((item, idx) => (
+                      <div key={idx} className="flex gap-2">
+                        <input value={item.title} onChange={e => setForm(f => ({ ...f, items: f.items.map((it, i) => i === idx ? { title: e.target.value } : it) }))}
+                          className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white" placeholder={`Task ${idx + 1}`} />
+                        {form.items.length > 1 && <button onClick={() => setForm(f => ({ ...f, items: f.items.filter((_, i) => i !== idx) }))} className="text-red-400"><X size={16} /></button>}
                       </div>
                     ))}
+                    <button onClick={() => setForm(f => ({ ...f, items: [...f.items, { title: '' }] }))} className="text-sm text-blue-600 font-medium">+ Add task</button>
                   </div>
-                )}
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => setShowCreate(false)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700">Cancel</button>
+                  <button onClick={handleCreate} disabled={creating} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                    {creating ? 'Creating...' : 'Create & Assign to Dept'}
+                  </button>
+                </div>
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
 
-        {filteredAssignments.length === 0 && assignments.length > 0 && (
-          <div className="bg-white shadow rounded-lg p-8 text-center">
-            <p className="text-gray-500">No assignments match your current filters.</p>
+        {/* Member list */}
+        {loading ? (
+          <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-10 w-10 border-t-2 border-blue-500" /></div>
+        ) : members.length === 0 ? (
+          <div className="text-center py-16 text-gray-400"><Users size={48} className="mx-auto mb-3 opacity-30" /><p>No department members found</p></div>
+        ) : (
+          <div className="space-y-3">
+            {members.map(member => {
+              const cls = memberChecklists[member.id] || [];
+              const avg = cls.length > 0 ? Math.round(cls.reduce((s, c) => s + (c.completionPercentage || 0), 0) / cls.length) : 0;
+              const isExp = expanded === member.id;
+              return (
+                <div key={member.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+                  <button className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+                    onClick={() => setExpanded(isExp ? null : member.id)}>
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm">{member.name.charAt(0)}</div>
+                      <div className="text-left">
+                        <p className="font-semibold text-gray-900 dark:text-white text-sm">{member.name}</p>
+                        <p className="text-xs text-gray-400 capitalize">{member.role} · {cls.length} checklist{cls.length !== 1 ? 's' : ''}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-gray-800 dark:text-white">{avg}%</p>
+                        <p className="text-xs text-gray-400">completion</p>
+                      </div>
+                      <div className="w-20 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
+                        <div className={`h-1.5 rounded-full ${avg === 100 ? 'bg-emerald-500' : 'bg-blue-500'}`} style={{ width: `${avg}%` }} />
+                      </div>
+                      {isExp ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                    </div>
+                  </button>
+                  {isExp && (
+                    <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-3">
+                      {cls.length === 0 ? <p className="text-sm text-gray-400 py-2">No checklists assigned</p> : (
+                        <div className="space-y-2">
+                          {cls.map(cl => (
+                            <div key={cl.id} className="flex items-center justify-between py-2 border-b border-gray-50 dark:border-gray-700 last:border-0">
+                              <div className="flex items-center gap-2">
+                                {cl.status === 'completed' ? <CheckCircle2 size={14} className="text-emerald-500" /> : cl.status === 'overdue' ? <XCircle size={14} className="text-red-500" /> : <Clock size={14} className="text-amber-500" />}
+                                <span className="text-sm text-gray-800 dark:text-gray-200">{cl.title || '(Untitled)'}</span>
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 capitalize">
+                                  {FREQ_LABEL[cl.frequency || 'none'] || 'Permanent'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">{cl.completionPercentage || 0}%</span>
+                                <div className="w-16 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
+                                  <div className={`h-1.5 rounded-full ${(cl.completionPercentage || 0) === 100 ? 'bg-emerald-500' : 'bg-blue-500'}`} style={{ width: `${cl.completionPercentage || 0}%` }} />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -266,4 +232,4 @@ const ManagerChecklistDashboard: React.FC = () => {
   );
 };
 
-export default ManagerChecklistDashboard; 
+export default ManagerChecklistDashboard;

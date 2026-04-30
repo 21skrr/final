@@ -206,7 +206,7 @@ const Router: React.FC = () => {
     {
       path: '/checklists',
       element: (
-        <ProtectedRoute requiredRoles={['employee', 'supervisor', 'hr']}>
+        <ProtectedRoute>
           <Checklists />
         </ProtectedRoute>
       ),

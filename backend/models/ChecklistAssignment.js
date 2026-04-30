@@ -62,8 +62,9 @@ const ChecklistCombined = sequelize.define(
       defaultValue: "all",
     },
     stage: {
-      type: DataTypes.ENUM("prepare", "orient", "land", "integrate", "excel", "all"),
-      defaultValue: "all",
+      type: DataTypes.ENUM("prepare", "orient", "land", "integrate", "excel"),
+      allowNull: true,
+      defaultValue: null,
     },
     checklistCreatedBy: {
       type: DataTypes.CHAR(36),
@@ -88,6 +89,11 @@ const ChecklistCombined = sequelize.define(
     dueInDays: {
       type: DataTypes.INTEGER,
       allowNull: true,
+    },
+    frequency: {
+      type: DataTypes.ENUM('none', 'daily', 'weekly', 'monthly'),
+      allowNull: false,
+      defaultValue: 'none',
     },
   },
   {

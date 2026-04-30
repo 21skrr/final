@@ -60,7 +60,12 @@ const ChecklistProgress = sequelize.define(
     dueDate: {
       type: DataTypes.DATE,
       allowNull: true,
-    }
+    },
+    periodKey: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      comment: 'e.g. 2026-04-29 (daily), 2026-W17 (weekly), 2026-04 (monthly), NULL for one-time',
+    },
   },
   {
     timestamps: true,

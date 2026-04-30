@@ -5,12 +5,20 @@ import { useAuth } from '../context/AuthContext';
 import checklistAssignmentService from '../services/checklistAssignmentService';
 import checklistService from '../services/checklistService';
 import { ChecklistAssignmentDetail, Checklist } from '../types/checklist';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, Navigate } from 'react-router-dom';
 import Select from 'react-select';
 import userService from '../services/userService';
 
 const Checklists: React.FC = () => {
   const { user } = useAuth();
+
+  // Role-based redirect — send everyone to their dedicated page
+  if (user?.role === 'employee') return <Navigate to="/employee/checklists" replace />;
+  if (user?.role === 'supervisor') return <Navigate to="/supervisor/team-checklists" replace />;
+  if (user?.role === 'manager') return <Navigate to="/manager/checklist-dashboard" replace />;
+  if (user?.role === 'hr') return <Navigate to="/hr/checklist-dashboard" replace />;
+
+
   const [loading, setLoading] = useState(true);
   const [assignments, setAssignments] = useState<ChecklistAssignmentDetail[]>([]);
   const [checklists, setChecklists] = useState<Checklist[]>([]);

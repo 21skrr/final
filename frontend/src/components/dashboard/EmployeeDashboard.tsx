@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { User } from '../../types/user';
-import { Calendar, CheckSquare, FileText, Award, Clock } from 'lucide-react';
+import { Calendar, CheckSquare, FileText, Award, Clock, Circle, CheckCircle2, Zap, RotateCcw, Infinity } from 'lucide-react';
 import OnboardingProgress from './OnboardingProgress';
 import { Link } from 'react-router-dom';
 import { eventsService } from '../../services/events';
-import checklistAssignmentService from '../../services/checklistAssignmentService';
+import api from '../../services/api';
 import surveyService from '../../services/surveyService';
-import analyticsService from '../../services/analyticsService';
+
 
 interface EmployeeDashboardProps {
   user: User;
@@ -15,6 +15,7 @@ interface EmployeeDashboardProps {
 const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [taskStats, setTaskStats] = useState({ total: 0, done: 0, checklists: 0 });
   const [surveys, setSurveys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,39 +51,32 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
           setUpcomingEvents([]);
         }
 
-        // Fetch tasks (checklist assignments) with error handling
+        // Fetch tasks from my-tasks (recurring checklist system)
         try {
-          const assignments = await checklistAssignmentService.getMyAssignments();
-          // Flatten checklist items, but if no items, use the assignment itself as a task
-          let allTasks: any[] = [];
-          assignments.forEach((assignment: any) => {
-            if (assignment.items && assignment.items.length > 0) {
-              assignment.items.forEach((item: any) => {
-                allTasks.push({
+          const { data } = await api.get('/checklists/my-tasks');
+          const checklists = Array.isArray(data) ? data : [];
+          // Flatten to individual incomplete items, max 5 shown
+          const flat: any[] = [];
+          for (const cl of checklists) {
+            for (const item of (cl.items || [])) {
+              if (!item.isCompleted) {
+                flat.push({
                   id: item.id,
                   title: item.title,
-                  dueDate: item.dueDate || assignment.dueDate,
-                  isCompleted: item.isCompleted,
-                  priority: item.priority || 'medium',
+                  checklistTitle: cl.title,
+                  frequency: cl.frequency || 'none',
+                  isCompleted: false,
+                  checklistId: cl.checklistId,
+                  assignmentId: cl.id,
                 });
-              });
-            } else {
-              // If no items, treat the assignment as a single task
-              allTasks.push({
-                id: assignment.id,
-                title: assignment.title,
-                dueDate: assignment.dueDate,
-                isCompleted: assignment.isCompleted || false,
-                priority: assignment.priority || 'medium',
-              });
+              }
             }
-          });
-          // Prefer incomplete tasks, but if none, show completed ones
-          let incompleteTasks = allTasks.filter(t => !t.isCompleted);
-          let displayTasks = incompleteTasks.length > 0 ? incompleteTasks : allTasks;
-          displayTasks = displayTasks.sort((a, b) => new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime()).slice(0, 4);
-          console.log('Dashboard Tasks:', displayTasks);
-          setTasks(displayTasks);
+          }
+          // Also compute overall stats
+          const allItems = checklists.flatMap((c:any) => c.items || []);
+          const doneCount = allItems.filter((i:any) => i.isCompleted).length;
+          setTaskStats({ total: allItems.length, done: doneCount, checklists: checklists.length });
+          setTasks(flat.slice(0, 5));
         } catch (err) {
           console.warn('Failed to fetch tasks:', err);
           setTasks([]);
@@ -190,53 +184,65 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user }) => {
           </div>
           
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="p-4 bg-orange-500 text-white flex items-center">
-              <CheckSquare className="w-5 h-5 mr-2" />
-              <h2 className="text-lg font-medium !text-white">Tasks</h2>
+            <div className="p-4 bg-orange-500 text-white flex items-center justify-between">
+              <div className="flex items-center">
+                <CheckSquare className="w-5 h-5 mr-2" />
+                <h2 className="text-lg font-medium !text-white">My Tasks</h2>
+              </div>
+              {taskStats.total > 0 && (
+                <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full font-semibold">
+                  {taskStats.done}/{taskStats.total}
+                </span>
+              )}
             </div>
+            {taskStats.total > 0 && (
+              <div className="h-1.5 bg-orange-100">
+                <div className="h-1.5 bg-orange-400 transition-all" style={{width:`${Math.round((taskStats.done/taskStats.total)*100)}%`}}/>
+              </div>
+            )}
             <div className="p-4">
-              {tasks.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No tasks to display</p>
+              {tasks.length === 0 && taskStats.total === 0 ? (
+                <p className="text-gray-500 text-center py-4 text-sm">No checklists assigned yet</p>
+              ) : tasks.length === 0 ? (
+                <div className="text-center py-4">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-1"/>
+                  <p className="text-sm font-medium text-emerald-700">All tasks completed! 🎉</p>
+                </div>
               ) : (
-                <ul className="divide-y divide-gray-200">
-                  {tasks?.map((task) => (
-                    <li key={task.id} className="py-3 flex items-start">
-                      <div className="flex-shrink-0 mt-0.5">
-                        <input
-                          type="checkbox"
-                          defaultChecked={task.isCompleted}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                      </div>
-                      <div className="ml-3 flex-1">
-                        <div className="flex justify-between">
-                          <p className={`text-sm font-medium ${
-                            task.isCompleted ? 'text-gray-400 line-through' : 'text-gray-900'
-                          }`}>
-                            {task.title}
-                          </p>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${getPriorityClass(task.priority)}`}>
-                            {task.priority}
-                          </span>
+                <ul className="divide-y divide-gray-100">
+                  {tasks.map((task) => {
+                    const freqConfig: Record<string,{label:string; cls:string}> = {
+                      daily:   {label:'Daily',   cls:'bg-blue-100 text-blue-600'},
+                      weekly:  {label:'Weekly',  cls:'bg-violet-100 text-violet-600'},
+                      monthly: {label:'Monthly', cls:'bg-emerald-100 text-emerald-600'},
+                      none:    {label:'',        cls:''},
+                    };
+                    const fc = freqConfig[task.frequency] || freqConfig.none;
+                    return (
+                      <li key={task.id} className="py-2.5 flex items-start gap-2.5">
+                        <Circle className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5"/>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
+                          <p className="text-xs text-gray-400 truncate mt-0.5">{task.checklistTitle}</p>
                         </div>
-                        <p className="mt-1 text-xs text-gray-500">
-                          Due: {formatDate(task.dueDate)}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
+                        {fc.label && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${fc.cls}`}>
+                            {fc.label}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
-              <div className="mt-3">
-                <Link
-                  to="/checklists"
-                  className="text-sm font-medium text-blue-600 hover:text-blue-500"
-                >
-                  View all tasks →
+              <div className="mt-3 pt-2 border-t border-gray-100">
+                <Link to="/employee/checklists" className="text-sm font-medium text-orange-600 hover:text-orange-500">
+                  View my tasks →
                 </Link>
               </div>
             </div>
           </div>
+
         </div>
       </div>
       
