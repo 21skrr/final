@@ -8,9 +8,11 @@ import { ChecklistAssignmentDetail, Checklist } from '../types/checklist';
 import { Link, useLocation, Navigate } from 'react-router-dom';
 import Select from 'react-select';
 import userService from '../services/userService';
+import { useConfirm } from '../components/common/ConfirmDialog';
 
 const Checklists: React.FC = () => {
   const { user } = useAuth();
+  const { confirm, Dialog: ConfirmDialogEl } = useConfirm();
 
   // Role-based redirect — send everyone to their dedicated page
   if (user?.role === 'employee') return <Navigate to="/employee/checklists" replace />;
@@ -108,7 +110,9 @@ const Checklists: React.FC = () => {
   };
 
   const handleDeleteChecklist = async (id: string, checklistId?: string) => {
-    if (window.confirm('Are you sure you want to delete this checklist?')) {
+    const cl = checklists.find(c => c.id === id || c.checklistId === checklistId);
+    const ok = await confirm({ title: 'Delete Checklist', message: `Delete "${cl?.title || 'this checklist'}" and all its assignments? This cannot be undone.`, confirmLabel: 'Delete', variant: 'danger' });
+    if (ok) {
       try {
         if (checklistId) {
           await checklistService.deleteChecklistByChecklistId(checklistId);
@@ -263,9 +267,10 @@ const Checklists: React.FC = () => {
   };
 
   // Delete item (with confirmation)
-  const handleDeleteItem = (index: number) => {
+  const handleDeleteItem = async (index: number) => {
     const item = items[index];
-    if (window.confirm('Are you sure you want to delete this item?')) {
+    const ok = await confirm({ title: 'Delete Item', message: `Delete "${item?.title || 'this item'}"? This cannot be undone.`, confirmLabel: 'Delete', variant: 'danger' });
+    if (ok) {
       if (item.id) setDeletedItemIds(prev => [...prev, item.id]);
       setItems(items.filter((_, i) => i !== index));
     }
@@ -717,6 +722,7 @@ const Checklists: React.FC = () => {
           </div>
         )}
       </div>
+      {ConfirmDialogEl}
     </Layout>
   );
 };

@@ -1,7 +1,6 @@
 const {
   User,
   OnboardingProgress,
-  Task,
   UserTaskProgress,
   OnboardingTask,
 } = require("../models");
@@ -65,23 +64,12 @@ const getTeamOnboardingProgress = async (req, res) => {
           where: { UserId: member.id },
         });
 
-        // Get task completion rate
-        const tasks = await Task.findAll({
-          where: { userId: member.id },
-        });
-
-        const completedTasks = tasks.filter((task) => task.isCompleted).length;
-        const taskCompletionRate =
-          tasks.length > 0
-            ? Math.round((completedTasks / tasks.length) * 100)
-            : 0;
-
         return {
           employee: member,
           progress: progress || { stage: "not_started", progress: 0 },
-          taskCompletionRate,
-          totalTasks: tasks.length,
-          completedTasks,
+          taskCompletionRate: 0,
+          totalTasks: 0,
+          completedTasks: 0,
         };
       })
     );
@@ -139,20 +127,8 @@ const getOnboardingDashboard = async (req, res) => {
 
     const stageCounts = await Promise.all(stageCountsPromises);
 
-    // Get recent tasks
-    const recentTasks = await Task.findAll({
-      where: {
-        userId: { [Op.in]: employees.map((e) => e.id) },
-      },
-      order: [["updatedAt", "DESC"]],
-      limit: 10,
-      include: [
-        {
-          model: User,
-          attributes: ["id", "name", "email"],
-        },
-      ],
-    });
+    // Get recent tasks - tasks table removed, return empty
+    const recentTasks = [];
 
     // Create summary statistics
     const totalEmployees = employees.length;

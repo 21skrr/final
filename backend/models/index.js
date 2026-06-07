@@ -1,316 +1,188 @@
 const { Sequelize } = require('sequelize');
 const sequelize = require("../config/database");
+
+// ── Core models (tables that exist in DB and are used by frontend) ──────────
 const User = require("./User");
 const OnboardingProgress = require("./OnboardingProgress");
-const Task = require("./Task");
-const Event = require("./Event");
-const Course = require("./Course");
-const Survey = require("./Survey");
-const EventParticipant = require("./EventParticipant");
-const CoachingSession = require("./CoachingSession");
-const Evaluation = require("./Evaluation");
-const Feedback = require("./Feedback");
+const OnboardingTask = require("./OnboardingTask");
+const UserTaskProgress = require("./UserTaskProgress")(sequelize);
+const Department = require("./Department");
 const Team = require("./Team");
-const Program = require("./Program");
+const TeamSettings = require('./TeamSettings')(sequelize);
+
 const Checklist = require("./Checklist");
 const ChecklistItem = require("./ChecklistItem");
 const ChecklistProgress = require("./ChecklistProgress");
 const ChecklistCombined = require("./ChecklistAssignment");
-const NotificationSettings = require("./NotificationSettings");
-const OnboardingTask = require("./OnboardingTask");
-const UserTaskProgress = require("./UserTaskProgress")(sequelize);
-const Notification = require("./Notification");
-const FeedbackForm = require("./feedbackForm");
-const FeedbackSubmission = require("./feedbackSubmission");
+
+const Feedback = require("./Feedback");
 const FeedbackNote = require("./FeedbackNote");
 const FeedbackFollowup = require("./FeedbackFollowup");
 const FeedbackFollowupParticipant = require("./FeedbackFollowupParticipant");
+
+const Notification = require("./Notification");
+const NotificationTemplate = require('./notificationTemplate')(sequelize, Sequelize.DataTypes);
+const NotificationPreference = require('./notificationPreference')(sequelize, Sequelize.DataTypes);
+
+const Evaluation = require("./Evaluation");
+const EvaluationCriteria = require("./EvaluationCriteria");
+const SupervisorAssessment = require("./SupervisorAssessment");
+const HRAssessment = require("./HRAssessment");
+
+const CoachingSession = require("./CoachingSession");
+const Event = require("./Event");
+const EventParticipant = require("./EventParticipant");
+const ActivityLog = require("./ActivityLog");
+
+const Survey = require("./Survey");
 const SurveyQuestion = require("./SurveyQuestion");
 const SurveyResponse = require("./SurveyResponse");
 const SurveyQuestionResponse = require("./SurveyQuestionResponse");
 const SurveySchedule = require("./surveySchedule")(sequelize);
-const SurveySettings = require("./SurveySettings");
-const AnalyticsDashboard = require("./AnalyticsDashboard");
-const AnalyticsMetric = require("./AnalyticsMetric");
-const Department = require("./Department");
-const EvaluationCriteria = require("./EvaluationCriteria");
-const UserCourse = require("./UserCourse");
-const ReportSchedule = require("./ReportSchedule")(sequelize);
-const ReportTemplate = require("./ReportTemplate")(sequelize);
-const Report = require("./Report")(sequelize);
+
 const Resource = require("./Resource");
 const ResourceAssignment = require("./ResourceAssignment");
-const ActivityLog = require("./ActivityLog");
-const UserSetting = require("./UserSetting")(sequelize);
-const TeamSettings = require('./TeamSettings')(sequelize);
-const ManagerPreference = require('./ManagerPreference')(sequelize);
-const SystemSetting = require("./SystemSetting")(sequelize);
+
+const Program = require("./Program");
 const Role = require("./Role");
-const SupervisorAssessment = require("./SupervisorAssessment");
-const HRAssessment = require("./HRAssessment");
+const ReportTemplate = require("./ReportTemplate")(sequelize);
+const SystemSetting = require("./SystemSetting")(sequelize);
+const UserSetting = require("./UserSetting")(sequelize);
 
+// ── Associations ─────────────────────────────────────────────────────────────
 
-
-
+// ActivityLog
 if (ActivityLog.associate) {
   ActivityLog.associate({ User, Resource });
 }
+User.hasMany(ActivityLog, { foreignKey: 'userId' });
 
 // Resource associations
 Resource.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 User.hasMany(Resource, { foreignKey: 'createdBy', as: 'createdResources' });
 Resource.hasMany(ResourceAssignment, { foreignKey: 'resourceId', as: 'assignments' });
 
-
-// Initialize notification models
-const NotificationTemplate = require('./notificationTemplate')(sequelize, Sequelize.DataTypes);
-const NotificationPreference = require('./notificationPreference')(sequelize, Sequelize.DataTypes);
-
-// User associations
+// User / Onboarding
 User.hasOne(OnboardingProgress);
 OnboardingProgress.belongsTo(User);
 
-// Department associations
+// Department
 Department.hasMany(User, { foreignKey: 'departmentId', as: 'departmentUsers' });
 User.belongsTo(Department, { foreignKey: 'departmentId', as: 'departmentInfo' });
 
-User.hasMany(Task, { foreignKey: "userId" });
-Task.belongsTo(User, { foreignKey: "userId" });
+// Team
+User.belongsTo(Team, { foreignKey: "teamId" });
+Team.hasMany(User, { foreignKey: "teamId" });
 
-// Event associations
+// Events
 User.hasMany(Event, { as: "createdEvents", foreignKey: "createdBy" });
 Event.belongsTo(User, { as: "creator", foreignKey: "createdBy" });
-
-// Event Participant associations
 Event.hasMany(EventParticipant, { as: "participants", foreignKey: "eventId" });
 EventParticipant.belongsTo(Event, { as: "event", foreignKey: "eventId" });
-User.hasMany(EventParticipant, {
-  as: "eventParticipations",
-  foreignKey: "userId",
-});
+User.hasMany(EventParticipant, { as: "eventParticipations", foreignKey: "userId" });
 EventParticipant.belongsTo(User, { as: "participant", foreignKey: "userId" });
 
-User.hasMany(Course, { as: "createdCourses", foreignKey: "createdBy" });
-Course.belongsTo(User, { as: "creator", foreignKey: "createdBy" });
 
-User.hasMany(Survey, { as: "createdSurveys", foreignKey: "createdBy" });
-Survey.belongsTo(User, { as: "creator", foreignKey: "createdBy" });
+// Self-referential supervisor
+User.belongsTo(User, { as: "supervisor", foreignKey: "supervisorId" });
+User.hasMany(User, { as: "subordinates", foreignKey: "supervisorId" });
 
-// Survey and SurveyQuestion associations
-Survey.hasMany(SurveyQuestion, { foreignKey: "surveyId", as: "SurveyQuestions" });
-SurveyQuestion.belongsTo(Survey, { foreignKey: "surveyId" });
-
-// Survey and SurveyResponse associations
-Survey.hasMany(SurveyResponse, { foreignKey: "surveyId", as: "responses" });
-SurveyResponse.belongsTo(Survey, { foreignKey: "surveyId", as: "survey" });
-
-// User and SurveyResponse associations
-User.hasMany(SurveyResponse, { foreignKey: "userId", as: "surveyResponses" });
-SurveyResponse.belongsTo(User, { foreignKey: "userId", as: "user" });
-
-// SurveyResponse and SurveyQuestionResponse associations
-SurveyResponse.hasMany(SurveyQuestionResponse, { foreignKey: "surveyResponseId", as: "questionResponses" });
-SurveyQuestionResponse.belongsTo(SurveyResponse, { foreignKey: "surveyResponseId", as: "surveyResponse" });
-
-// SurveyQuestion and SurveyQuestionResponse associations
-SurveyQuestion.hasMany(SurveyQuestionResponse, { foreignKey: "questionId" });
-SurveyQuestionResponse.belongsTo(SurveyQuestion, { foreignKey: "questionId", as: "question" });
-
-// Checklist associations
+// Checklist
 User.hasMany(Checklist, { as: "createdChecklists", foreignKey: "createdBy" });
 Checklist.belongsTo(User, { as: "creator", foreignKey: "createdBy" });
 
-// Checklist Items associations
 Checklist.hasMany(ChecklistItem, { foreignKey: "checklistId" });
 ChecklistItem.belongsTo(Checklist, { foreignKey: "checklistId" });
 
-// Checklist Progress associations
-User.hasMany(ChecklistProgress, {
-  as: "checklistProgress",
-  foreignKey: "userId",
-});
+User.hasMany(ChecklistProgress, { as: "checklistProgress", foreignKey: "userId" });
 ChecklistProgress.belongsTo(User, { as: "user", foreignKey: "userId" });
 
 ChecklistItem.hasMany(ChecklistProgress, { foreignKey: "checklistItemId" });
 ChecklistProgress.belongsTo(ChecklistItem, { foreignKey: "checklistItemId" });
 
-User.hasMany(ChecklistProgress, {
-  as: "verifiedChecklistItems",
-  foreignKey: "verifiedBy",
-});
+User.hasMany(ChecklistProgress, { as: "verifiedChecklistItems", foreignKey: "verifiedBy" });
 ChecklistProgress.belongsTo(User, { as: "verifier", foreignKey: "verifiedBy" });
 
-// Checklist Assignment associations
+// ChecklistCombined (assignments)
 Checklist.hasMany(ChecklistCombined, { foreignKey: "checklistId" });
 ChecklistCombined.belongsTo(Checklist, { foreignKey: "checklistId" });
 
-User.hasMany(ChecklistCombined, {
-  as: "assignedChecklists",
-  foreignKey: "userId",
-});
+User.hasMany(ChecklistCombined, { as: "assignedChecklists", foreignKey: "userId" });
 ChecklistCombined.belongsTo(User, { as: "assignee", foreignKey: "userId" });
 
-User.hasMany(ChecklistCombined, {
-  as: "checklistAssignments",
-  foreignKey: "assignedBy",
-});
-ChecklistCombined.belongsTo(User, {
-  as: "assigner",
-  foreignKey: "assignedBy",
-});
+User.hasMany(ChecklistCombined, { as: "checklistAssignments", foreignKey: "assignedBy" });
+ChecklistCombined.belongsTo(User, { as: "assigner", foreignKey: "assignedBy" });
 
-// Self-referential association for supervisor
-User.belongsTo(User, { as: "supervisor", foreignKey: "supervisorId" });
-User.hasMany(User, { as: "subordinates", foreignKey: "supervisorId" });
-
-// Coaching Session associations
-User.hasMany(CoachingSession, {
-  as: "supervisorSessions",
-  foreignKey: "supervisorId",
-});
-User.hasMany(CoachingSession, {
-  as: "employeeSessions",
-  foreignKey: "employeeId",
-});
-CoachingSession.belongsTo(User, {
-  as: "supervisor",
-  foreignKey: "supervisorId",
-});
+// Coaching sessions
+User.hasMany(CoachingSession, { as: "supervisorSessions", foreignKey: "supervisorId" });
+User.hasMany(CoachingSession, { as: "employeeSessions", foreignKey: "employeeId" });
+CoachingSession.belongsTo(User, { as: "supervisor", foreignKey: "supervisorId" });
 CoachingSession.belongsTo(User, { as: "employee", foreignKey: "employeeId" });
 
-// Evaluation associations
-User.hasMany(Evaluation, {
-  as: "employeeEvaluations",
-  foreignKey: "employeeId",
-});
-User.hasMany(Evaluation, {
-  as: "supervisorEvaluations",
-  foreignKey: "evaluatorId",
-});
-User.hasMany(Evaluation, {
-  as: "reviewerEvaluations",
-  foreignKey: "reviewedBy",
-});
+// Evaluations
+User.hasMany(Evaluation, { as: "employeeEvaluations", foreignKey: "employeeId" });
+User.hasMany(Evaluation, { as: "supervisorEvaluations", foreignKey: "evaluatorId" });
+User.hasMany(Evaluation, { as: "reviewerEvaluations", foreignKey: "reviewedBy" });
 Evaluation.belongsTo(User, { as: "employee", foreignKey: "employeeId" });
-Evaluation.belongsTo(User, {
-  as: "supervisor",
-  foreignKey: "evaluatorId",
-});
+Evaluation.belongsTo(User, { as: "supervisor", foreignKey: "evaluatorId" });
 Evaluation.belongsTo(User, { as: "reviewer", foreignKey: "reviewedBy" });
 
-// Evaluation and EvaluationCriteria associations
 Evaluation.hasMany(EvaluationCriteria, { foreignKey: 'evaluationId', as: 'criteria' });
 EvaluationCriteria.belongsTo(Evaluation, { foreignKey: 'evaluationId', as: 'evaluation' });
 
-// Feedback associations
+// Feedback
 User.hasMany(Feedback, { as: "sentFeedback", foreignKey: "fromUserId" });
 User.hasMany(Feedback, { as: "receivedFeedback", foreignKey: "toUserId" });
 Feedback.belongsTo(User, { as: "sender", foreignKey: "fromUserId" });
 Feedback.belongsTo(User, { as: "receiver", foreignKey: "toUserId" });
 
-// Team associations
-User.belongsTo(Team, { foreignKey: "teamId" });
-Team.hasMany(User, { foreignKey: "teamId" });
+FeedbackNote.belongsTo(Feedback, { foreignKey: "feedbackId", as: "feedback", onDelete: "CASCADE" });
+FeedbackNote.belongsTo(User, { foreignKey: "supervisorId", as: "supervisor", onDelete: "CASCADE" });
+Feedback.hasMany(FeedbackNote, { foreignKey: "feedbackId", as: "notes" });
 
-// Notification settings association
-User.hasMany(NotificationSettings);
-NotificationSettings.belongsTo(User);
+FeedbackFollowup.belongsTo(Feedback, { foreignKey: "feedbackId", as: "feedback" });
+FeedbackFollowup.belongsTo(User, { foreignKey: "createdBy", as: "creator" });
+FeedbackFollowup.belongsToMany(User, { through: FeedbackFollowupParticipant, foreignKey: "followupId", otherKey: "userId", as: "participants" });
+User.belongsToMany(FeedbackFollowup, { through: FeedbackFollowupParticipant, foreignKey: "userId", otherKey: "followupId", as: "followups" });
+Feedback.hasMany(FeedbackFollowup, { foreignKey: "feedbackId", as: "followups" });
 
-// OnboardingTask associations
-OnboardingTask.hasMany(UserTaskProgress, { foreignKey: "OnboardingTaskId" });
-
-// UserTaskProgress associations
-UserTaskProgress.belongsTo(OnboardingTask, { foreignKey: 'OnboardingTaskId', as: 'onboardingTask' });
-
-// UserCourse associations
-UserCourse.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
-Course.hasMany(UserCourse, { foreignKey: 'courseId', as: 'userCourses' });
-User.hasMany(UserCourse, { foreignKey: 'userId', as: 'userCourses' });
-UserCourse.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-
-// Feedback Form and Submission associations
-FeedbackForm.hasMany(FeedbackSubmission, {
-  foreignKey: 'formId',
-  as: 'submissions'
-});
-
-FeedbackSubmission.belongsTo(FeedbackForm, {
-  foreignKey: 'formId',
-  as: 'form'
-});
-
-FeedbackSubmission.belongsTo(User, {
-  foreignKey: 'submitterId',
-  as: 'submitter'
-});
-
-FeedbackSubmission.belongsTo(User, {
-  foreignKey: 'reviewerId',
-  as: 'reviewer'
-});
-
-// Notification associations
+// Notifications
 User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
 Notification.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
-// Notification Preference associations
 User.hasOne(NotificationPreference, { foreignKey: 'userId' });
 NotificationPreference.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
-// Notification Template associations
 User.hasMany(NotificationTemplate, { foreignKey: 'createdBy', as: 'createdTemplates' });
 NotificationTemplate.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 
-// Feedback Note associations
-FeedbackNote.belongsTo(Feedback, { 
-  foreignKey: "feedbackId",
-  as: "feedback",
-  onDelete: "CASCADE"
-});
-FeedbackNote.belongsTo(User, { 
-  foreignKey: "supervisorId",
-  as: "supervisor",
-  onDelete: "CASCADE"
-});
-Feedback.hasMany(FeedbackNote, { 
-  foreignKey: "feedbackId",
-  as: "notes"
-});
+// OnboardingTask / UserTaskProgress
+OnboardingTask.hasMany(UserTaskProgress, { foreignKey: "OnboardingTaskId" });
+UserTaskProgress.belongsTo(OnboardingTask, { foreignKey: 'OnboardingTaskId', as: 'onboardingTask' });
 
-// Feedback Followup associations
-FeedbackFollowup.belongsTo(Feedback, {
-  foreignKey: "feedbackId",
-  as: "feedback"
-});
-FeedbackFollowup.belongsTo(User, {
-  foreignKey: "createdBy",
-  as: "creator"
-});
-FeedbackFollowup.belongsToMany(User, {
-  through: FeedbackFollowupParticipant,
-  foreignKey: "followupId",
-  otherKey: "userId",
-  as: "participants"
-});
-User.belongsToMany(FeedbackFollowup, {
-  through: FeedbackFollowupParticipant,
-  foreignKey: "userId",
-  otherKey: "followupId",
-  as: "followups"
-});
-Feedback.hasMany(FeedbackFollowup, {
-  foreignKey: "feedbackId",
-  as: "followups"
-});
+// Surveys
+User.hasMany(Survey, { as: "createdSurveys", foreignKey: "createdBy" });
+Survey.belongsTo(User, { as: "creator", foreignKey: "createdBy" });
 
-// Add Survey Schedule associations
+Survey.hasMany(SurveyQuestion, { foreignKey: "surveyId", as: "SurveyQuestions" });
+SurveyQuestion.belongsTo(Survey, { foreignKey: "surveyId" });
+
+Survey.hasMany(SurveyResponse, { foreignKey: "surveyId", as: "responses" });
+SurveyResponse.belongsTo(Survey, { foreignKey: "surveyId", as: "survey" });
+
+User.hasMany(SurveyResponse, { foreignKey: "userId", as: "surveyResponses" });
+SurveyResponse.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+SurveyResponse.hasMany(SurveyQuestionResponse, { foreignKey: "surveyResponseId", as: "questionResponses" });
+SurveyQuestionResponse.belongsTo(SurveyResponse, { foreignKey: "surveyResponseId", as: "surveyResponse" });
+
+SurveyQuestion.hasMany(SurveyQuestionResponse, { foreignKey: "questionId" });
+SurveyQuestionResponse.belongsTo(SurveyQuestion, { foreignKey: "questionId", as: "question" });
+
 Survey.hasMany(SurveySchedule, { foreignKey: 'surveyId', as: 'schedules' });
 SurveySchedule.belongsTo(Survey, { foreignKey: 'surveyId', as: 'survey' });
 
-// Add association from User to ActivityLog
-User.hasMany(ActivityLog, { foreignKey: 'userId' });
-
-// SupervisorAssessment associations
+// SupervisorAssessment
 OnboardingProgress.hasOne(SupervisorAssessment, { foreignKey: 'OnboardingProgressId' });
 SupervisorAssessment.belongsTo(OnboardingProgress, { foreignKey: 'OnboardingProgressId' });
 
@@ -323,7 +195,7 @@ SupervisorAssessment.belongsTo(User, { foreignKey: 'SupervisorId', as: 'supervis
 User.hasMany(SupervisorAssessment, { foreignKey: 'hrValidatorId', as: 'hrValidations' });
 SupervisorAssessment.belongsTo(User, { foreignKey: 'hrValidatorId', as: 'hrValidator' });
 
-// HRAssessment associations
+// HRAssessment
 OnboardingProgress.hasOne(HRAssessment, { foreignKey: 'OnboardingProgressId' });
 HRAssessment.belongsTo(OnboardingProgress, { foreignKey: 'OnboardingProgressId' });
 
@@ -333,75 +205,55 @@ HRAssessment.belongsTo(User, { foreignKey: 'UserId', as: 'employee' });
 User.hasMany(HRAssessment, { foreignKey: 'HRId', as: 'hrAssessments' });
 HRAssessment.belongsTo(User, { foreignKey: 'HRId', as: 'hr' });
 
-// Initialize associations
-Object.keys(module.exports).forEach((modelName) => {
-  if (module.exports[modelName].associate) {
-    module.exports[modelName].associate(module.exports);
-  }
-});
-if (UserSetting.associate) {
-  UserSetting.associate({ User });
-}
+// TeamSettings
 if (TeamSettings.associate) {
   TeamSettings.associate({ Team });
 }
-if (ManagerPreference.associate) {
-  ManagerPreference.associate({ User });
+
+// UserSetting
+if (UserSetting.associate) {
+  UserSetting.associate({ User });
 }
 
-// Export models and connection
+// ── Exports ───────────────────────────────────────────────────────────────────
 module.exports = {
   sequelize,
   User,
   OnboardingProgress,
-  Task,
+  OnboardingTask,
+  UserTaskProgress,
+  Department,
+  Team,
+  TeamSettings,
+  Checklist,
+  ChecklistItem,
+  ChecklistProgress,
+  ChecklistCombined,
+  Feedback,
+  FeedbackNote,
+  FeedbackFollowup,
+  FeedbackFollowupParticipant,
+  Notification,
+  NotificationTemplate,
+  notification_preferences: NotificationPreference,
+  Evaluation,
+  EvaluationCriteria,
+  SupervisorAssessment,
+  HRAssessment,
+  CoachingSession,
   Event,
   EventParticipant,
-  Course,
+  ActivityLog,
   Survey,
   SurveyQuestion,
   SurveyResponse,
   SurveyQuestionResponse,
   SurveySchedule,
-  SurveySettings,
-  CoachingSession,
-  Evaluation,
-  Feedback,
-  Team,
-  Program,
-  Checklist,
-  ChecklistItem,
-  ChecklistProgress,
-  ChecklistCombined,
-  NotificationSettings,
-  OnboardingTask,
-  UserTaskProgress,
-  Notification,
-  FeedbackForm,
-  FeedbackSubmission,
-  FeedbackNote,
-  FeedbackFollowup,
-  FeedbackFollowupParticipant,
-  NotificationTemplate,
-  notification_preferences: NotificationPreference,
-  analytics_dashboards: AnalyticsDashboard,
-  analytics_metrics: AnalyticsMetric,
-  Department,
-  EvaluationCriteria,
-  UserCourse,
-  ReportSchedule,
-  ReportTemplate,
-  Report,
   Resource,
   ResourceAssignment,
-  ActivityLog,
-  UserSetting,
-  TeamSettings,
-  ManagerPreference,
-  SystemSetting,
+  Program,
   Role,
-  SupervisorAssessment,
-  HRAssessment,
+  ReportTemplate,
+  SystemSetting,
+  UserSetting,
 };
-
-

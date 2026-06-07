@@ -160,7 +160,7 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({ user }) => {
         <div className="relative flex items-start justify-between flex-wrap gap-4">
           <div>
             <p className="text-blue-200 text-sm font-medium">Supervisor Portal</p>
-            <h1 className="text-2xl font-bold text-white mt-0.5">Welcome back, {user.name} 👋</h1>
+            <h1 className="text-2xl font-bold text-white mt-0.5">Welcome back, {user.name} </h1>
             <p className="text-blue-200 text-sm mt-1">
               {new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}
             </p>

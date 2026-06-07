@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import Layout from '../../components/layout/Layout';
 import { Plus, Edit, Trash2, Save, X, Bell, FileText } from 'lucide-react';
 import notificationService, { NotificationTemplate } from '../../services/notificationService';
+import { useConfirm } from '../../components/common/ConfirmDialog';
 
 const NotificationTemplates: React.FC = () => {
+  const { confirm, Dialog: ConfirmDialogEl } = useConfirm();
   const [templates, setTemplates] = useState<NotificationTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -60,7 +62,9 @@ const NotificationTemplates: React.FC = () => {
   };
 
   const handleDelete = async (templateId: string) => {
-    if (window.confirm('Are you sure you want to delete this template?')) {
+    const t = templates.find(x => x.id === templateId);
+    const ok = await confirm({ title: 'Delete Template', message: `Delete "${t?.name || 'this template'}" permanently?`, confirmLabel: 'Delete', variant: 'danger' });
+    if (ok) {
       try {
         await notificationService.deleteTemplate(templateId);
         loadTemplates();
@@ -276,6 +280,7 @@ const NotificationTemplates: React.FC = () => {
           )}
         </div>
       </div>
+      {ConfirmDialogEl}
     </Layout>
   );
 };

@@ -5,6 +5,7 @@ import { BarChart2, CheckCircle2, XCircle, Users, ListChecks, Plus, X, Search, R
 import userService from '../services/userService';
 import Select from 'react-select';
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../components/common/ConfirmDialog';
 
 interface Analytics { totalChecklists:number; totalAssignments:number; completed:number; overdue:number; completionRate:number; byFrequency:any[]; byDepartment:any[]; }
 interface CL { id:string; checklistId:string; title:string; frequency?:string; status:string; completionPercentage:number; userId?:string|null; description?:string; programType?:string; stage?:string; }
@@ -15,6 +16,7 @@ const FREQ_COLOR:Record<string,string> = {none:'bg-slate-100 text-slate-600',dai
 
 const HRChecklistDashboard: React.FC = () => {
   const { user } = useAuth();
+  const { confirm, Dialog: ConfirmDialogEl } = useConfirm();
   const [analytics, setAnalytics] = useState<Analytics|null>(null);
   const [checklists, setChecklists] = useState<CL[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,7 +130,8 @@ const HRChecklistDashboard: React.FC = () => {
   };
 
   const handleDelete = async (cl:CL) => {
-    if (!window.confirm('Delete this checklist and all its assignments?')) return;
+    const ok = await confirm({ title: 'Delete Checklist', message: `Delete "${cl.title || 'this checklist'}" and all its assignments? This cannot be undone.`, confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     setDeleting(cl.id);
     try { await api.delete(`/checklist-assignments/template/${cl.checklistId}`); fetchData(); }
     catch (e:any) { alert(e?.response?.data?.message||'Delete failed'); }
@@ -426,6 +429,7 @@ const HRChecklistDashboard: React.FC = () => {
         )}
 
       </div>
+      {ConfirmDialogEl}
     </Layout>
   );
 };

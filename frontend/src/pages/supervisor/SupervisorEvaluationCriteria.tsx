@@ -17,9 +17,11 @@ import {
   AlertCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useConfirm } from '../../components/common/ConfirmDialog';
 
 const SupervisorEvaluationCriteria: React.FC = () => {
   const { evaluationId } = useParams();
+  const { confirm, Dialog: ConfirmDialogEl } = useConfirm();
   const [criteria, setCriteria] = useState<EvaluationCriteria[]>([]);
   const [evaluation, setEvaluation] = useState<any>(null);
   const [newCriterion, setNewCriterion] = useState({ 
@@ -117,7 +119,9 @@ const SupervisorEvaluationCriteria: React.FC = () => {
   };
 
   const handleDeleteCriterion = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this criterion?')) return;
+    const c = criteria.find(x => x.id === id);
+    const ok = await confirm({ title: 'Delete Criterion', message: `Delete "${c?.name || c?.criteria || 'this criterion'}"? This action cannot be undone.`, confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     
     setSaving(true);
     try {
@@ -431,6 +435,7 @@ const SupervisorEvaluationCriteria: React.FC = () => {
           </div>
         )}
       </div>
+      {ConfirmDialogEl}
     </Layout>
   );
 };

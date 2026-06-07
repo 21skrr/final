@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/layout/Layout';
 import checklistService from '../services/checklistService';
+import { useConfirm } from '../components/common/ConfirmDialog';
 
 const PHASES = ['prepare', 'orient', 'land', 'integrate', 'excel'];
 
 const HRChecklistPhaseManager: React.FC = () => {
+  const { confirm, Dialog: ConfirmDialogEl } = useConfirm();
   const [checklists, setChecklists] = useState<any[]>([]);
   const [selectedChecklist, setSelectedChecklist] = useState('');
   const [items, setItems] = useState<any[]>([]);
@@ -67,7 +69,9 @@ const HRChecklistPhaseManager: React.FC = () => {
   };
 
   const handleDelete = async (itemId: string) => {
-    if (!window.confirm('Delete this item?')) return;
+    const item = items.find(i => i.id === itemId);
+    const ok = await confirm({ title: 'Delete Item', message: `Delete "${item?.title || 'this item'}"? This cannot be undone.`, confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     setLoading(true);
     try {
       await checklistService.deleteChecklistItem(itemId);
@@ -137,6 +141,7 @@ const HRChecklistPhaseManager: React.FC = () => {
           </div>
         ) : null}
       </div>
+      {ConfirmDialogEl}
     </Layout>
   );
 };

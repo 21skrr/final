@@ -6,8 +6,10 @@ import { eventsService, Event } from '../services/events';
 import { toast } from 'react-hot-toast';
 import EventForm from '../components/events/EventForm';
 import EventSummary from '../components/events/EventSummary';
+import { useConfirm } from '../components/common/ConfirmDialog';
 
 const Calendar: React.FC = () => {
+  const { confirm, Dialog: ConfirmDialogEl } = useConfirm();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -42,7 +44,9 @@ const Calendar: React.FC = () => {
   };
 
   const handleDeleteEvent = async (eventId: string) => {
-    if (!window.confirm('Are you sure you want to delete this event?')) return;
+    const ev = events.find(e => e.id === eventId);
+    const ok = await confirm({ title: 'Delete Event', message: `Delete "${ev?.title || 'this event'}"? This cannot be undone.`, confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     
     try {
       await eventsService.deleteEvent(eventId);
@@ -300,6 +304,7 @@ const Calendar: React.FC = () => {
           )
         )}
       </div>
+      {ConfirmDialogEl}
     </Layout>
   );
 };

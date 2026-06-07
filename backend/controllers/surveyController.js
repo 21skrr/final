@@ -9,7 +9,6 @@ const {
   sequelize,
   Team,
   SurveySchedule,
-  SurveySettings,
 } = require("../models");
 const { getSystemSetting } = require("../utils/systemSettingsService");
 const { validationResult } = require("express-validator");
@@ -573,9 +572,11 @@ const getSurveyResponses = async (req, res) => {
         },
         {
           model: SurveyQuestionResponse,
+          as: "questionResponses",
           include: [
             {
               model: SurveyQuestion,
+              as: "question",
               attributes: ["question", "type"],
             },
           ],
@@ -589,6 +590,7 @@ const getSurveyResponses = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // Get survey history for the current user
 const getSurveyHistory = async (req, res) => {
@@ -1102,7 +1104,6 @@ const getSurveysWithResponses = async (
         as: "responses",
         where: {
           userId: { [Op.in]: userIds },
-          submittedAt: { [Op.between]: [startDate, endDate] },
         },
         required: false,
         include: [
@@ -1342,7 +1343,6 @@ const getDepartmentAnalytics = async (req, res) => {
       where: {
         userId: { [Op.in]: employeeIds },
         status: "completed",
-        submittedAt: { [Op.between]: [startDate, endDate] },
       },
     });
     // 6. Calculate analytics

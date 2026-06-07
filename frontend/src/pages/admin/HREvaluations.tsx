@@ -11,6 +11,7 @@ import { API_BASE_URL } from '../../config';
 import { Dialog } from '@mui/material';
 import userService from '../../services/userService';
 import { User } from '../../types/user';
+import { useConfirm } from '../../components/common/ConfirmDialog';
 
 const EVAL_TYPES = [
   { value: '3-month', label: '3-Month' },
@@ -20,6 +21,7 @@ const EVAL_TYPES = [
 ];
 
 const HREvaluations: React.FC = () => {
+  const { confirm, Dialog: ConfirmDialogEl } = useConfirm();
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -186,7 +188,9 @@ const HREvaluations: React.FC = () => {
   });
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this evaluation?')) return;
+    const ev = evaluations.find(e => e.id === id);
+    const ok = await confirm({ title: 'Delete Evaluation', message: `Delete the ${ev?.type || ''} evaluation for ${ev?.employee?.name || 'this employee'}? This cannot be undone.`, confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     setDeleting(id);
     try {
       await deleteEvaluation(id);
@@ -783,6 +787,7 @@ const HREvaluations: React.FC = () => {
           </div>
         </div>
       </Dialog>
+      {ConfirmDialogEl}
     </Layout>
   );
 };
